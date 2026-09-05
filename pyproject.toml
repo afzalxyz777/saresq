@@ -1,0 +1,36 @@
+[project]
+name = "saresq"
+version = "0.1.0"
+description = "SaResQ perception payload: contrast-relative thermal gating, cascaded detection, multi-pass confidence fusion"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "scipy",
+    "pyyaml",
+    "scikit-learn",
+    "joblib",
+    "flask",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "matplotlib",
+]
+training = [
+    "ultralytics",
+    "onnx",
+    "onnx2tf",
+    "tensorflow",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["saresq*"]

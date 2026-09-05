@@ -1,0 +1,78 @@
+# SaResQ pipeline configuration — initial values per Master Spec v3.0, Appendix A.
+# Every threshold/parameter used by saresq/ code must be read from this file, never
+# hard-coded. Results tables cite the git commit of this file.
+
+sensors:
+  thermal:
+    fov_deg: [55.0, 35.0]   # across-track, along-track
+    shape: [24, 32]
+    refresh_hz: 8           # programmed; full frames at 4 Hz
+    i2c_addr: 0x33
+  rgb:
+    fov_deg: [62.2, 48.8]
+    capture: [1640, 1232]
+    focal_px: 1359.3
+  imu: {i2c_addr: 0x68, rate_hz: 50, comp_alpha: 0.98}
+  gnss: {port: /dev/serial0, baud: 9600}
+
+gate:
+  sigma_min_k: 0.15
+  z_t: 2.5
+  dt_min_k: 0.5
+  two_sided: true
+  max_blob_px: 30
+  budget: {z_lo: 1.5, z_hi: 4.0, n_min: 2, n_max: 6}
+  fallback: {enable_after_frames: 3, size: [640, 480], rate_hz: 1.0}
+  persist_radius_thermal_px: 1.5
+
+registration:
+  file: saresq/calib/thermal_to_rgb.json
+  max_residual_thermal_px: 0.5
+
+detector:
+  crop_px: 160
+  crop_large_px: 224
+  large_blob_px: 9
+  conf: 0.15
+  nms_iou: 0.5
+  threads: 4
+  models:
+    crop160: models/yolov8n_p2_160_int8.tflite
+    crop224: models/yolov8n_p2_224_int8.tflite
+    full640: models/yolov8n_p2_640_int8.tflite
+
+hazard:
+  model: models/mobilenetv2_aider_224_int8.tflite
+  rate_hz: 1.0
+  classes: [collapsed_building, fire, flood, traffic_incident, normal]
+
+tracker:
+  iou_match: 0.3
+  confirm_hits: 2
+  confirm_window: 3
+  max_misses: 5
+  phase_corr_check: true
+  disagree_frac: 0.2
+
+fusion:
+  head: models/fusion_logreg.json
+  thresholds: {high: 0.80, medium: 0.35}
+  high_requires: {has_rgb: 1, iou_min: 0.10, hits_min: 2}
+
+ledger:
+  pi_0: 0.20              # overwritten by training/train_fusion.py
+  w_repeat: 0.7
+  confirm_p: 0.90
+  reject_p: 0.10
+  max_passes: 3
+  cluster_radius_m: 5.0
+  alt_bands_m: [25, 15]    # band 2: >25, band 1: 15-25, band 0: <15
+
+mission:
+  survey_alt_m: 20
+  survey_speed_mps: 5
+  reobserve_alts_m: [12, 8]
+  orbit_s: 8
+
+geo:
+  pos_err_m: 2.7
