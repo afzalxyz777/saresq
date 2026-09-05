@@ -1,0 +1,17 @@
+numpy
+opencv-python-headless
+scipy
+pyyaml
+scikit-learn
+joblib
+flask
+
+[dev]
+pytest
+matplotlib
+
+[training]
+ultralytics
+onnx
+onnx2tf
+tensorflow
