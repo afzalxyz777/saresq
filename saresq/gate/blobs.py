@@ -19,6 +19,7 @@ class Blob:
     area_t: int
     z_peak: float
     z_mean: float
+    dT_peak: float  # signed kelvin, at the pixel of peak |z| (Section 10.3 feature 5)
     sign: int  # +1 warmer, -1 cooler
     ecc: float
     bbox_t: tuple[int, int, int, int]  # (u_min, v_min, u_max, v_max), inclusive, expanded by 1px
@@ -46,13 +47,16 @@ def _eccentricity(rows: np.ndarray, cols: np.ndarray) -> float:
     return float(np.sqrt(max(0.0, 1.0 - lam2 / lam1)))
 
 
-def _blobs_from_mask(mask: np.ndarray, z: np.ndarray, sign: int, frame_shape: tuple[int, int]) -> list[Blob]:
+def _blobs_from_mask(
+    mask: np.ndarray, z: np.ndarray, dT: np.ndarray, sign: int, frame_shape: tuple[int, int]
+) -> list[Blob]:
     labels, n = ndimage.label(mask, structure=_STRUCT8)
     height, width = frame_shape
     out: list[Blob] = []
     for label_id in range(1, n + 1):
         rows, cols = np.nonzero(labels == label_id)
         abs_z = np.abs(z[rows, cols])
+        peak_idx = int(np.argmax(abs_z))
         u_min, u_max = int(cols.min()) - 1, int(cols.max()) + 1
         v_min, v_max = int(rows.min()) - 1, int(rows.max()) + 1
         bbox = (
@@ -63,6 +67,7 @@ def _blobs_from_mask(mask: np.ndarray, z: np.ndarray, sign: int, frame_shape: tu
             area_t=int(rows.size),
             z_peak=float(abs_z.max()),
             z_mean=float(abs_z.mean()),
+            dT_peak=float(dT[rows[peak_idx], cols[peak_idx]]),
             sign=sign,
             ecc=_eccentricity(rows, cols),
             bbox_t=bbox,
@@ -74,6 +79,6 @@ def extract_blobs(z: np.ndarray, dT: np.ndarray, mask: np.ndarray) -> list[Blob]
     """Connected components over the candidate mask, split by sign (Section 5.3)."""
     pos_mask = mask & (dT > 0)
     neg_mask = mask & (dT < 0)
-    blobs = _blobs_from_mask(pos_mask, z, +1, z.shape)
-    blobs += _blobs_from_mask(neg_mask, z, -1, z.shape)
+    blobs = _blobs_from_mask(pos_mask, z, dT, +1, z.shape)
+    blobs += _blobs_from_mask(neg_mask, z, dT, -1, z.shape)
     return blobs
