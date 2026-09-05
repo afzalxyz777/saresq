@@ -57,7 +57,7 @@ class Store:
         return self._insert("passes", **fields)
 
     def insert_hazard(self, **fields) -> int:
-        return self._insert("hazards", **fields)
+        return self._insert("hazards", **self._unreserve(fields))
 
     def insert_frame(self, **fields) -> int:
         return self._insert("frames", **fields)

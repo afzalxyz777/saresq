@@ -29,6 +29,14 @@ def test_update_target_and_insert_passes(tmp_path):
         assert passes[0]["p_pass"] == 0.45
 
 
+def test_insert_hazard_handles_the_class_keyword_collision(tmp_path):
+    with Store(str(tmp_path / "test.db")) as store:
+        store.insert_hazard(t_ns=0, lat=22.57, lon=88.36, class_="flood", p=0.8)
+        hazards = store.all_hazards()
+        assert len(hazards) == 1
+        assert hazards[0]["class"] == "flood"
+
+
 def test_wal_mode_is_enabled(tmp_path):
     db_path = tmp_path / "test.db"
     with Store(str(db_path)):
