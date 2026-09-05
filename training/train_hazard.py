@@ -5,12 +5,14 @@ last third of the backbone and fine-tune at 10x smaller LR. Class-balanced
 via class_weight, since AIDER is ~2/3 "normal" and an unweighted model just
 learns to always predict that.
 
-    python training/train_hazard.py --data-dir data/raw/AIDER
+    python training/train_hazard.py --data-dir data/raw/aider/AIDER
 
-Expects the AIDER layout: <data-dir>/<class_name>/*.jpg for each of
-collapsed_building, fire, flood, traffic_incident, normal (verify this
-against the actual download before trusting it -- see Section 19.1 task
-0.12's own caution about verifying conversions before training on them).
+Verified against the real download (data/raw/aider.zip): 6438 images,
+folders are collapsed_building (511), fire (521), flooded_areas (526),
+traffic_incident (485), normal (4390, 68% -- matches the spec's stated
+imbalance exactly). Note the real folder is "flooded_areas", not "flood"
+as Section 8.1's prose shorthand might suggest -- caught by checking the
+actual zip listing rather than assuming.
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ import tensorflow as tf
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
 
-CLASSES = ["collapsed_building", "fire", "flood", "traffic_incident", "normal"]
+CLASSES = ["collapsed_building", "fire", "flooded_areas", "traffic_incident", "normal"]
 IMG_SIZE = 224
 
 
