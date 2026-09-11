@@ -1,0 +1,413 @@
+<title>SaResQ — Judge Q&amp;A Prep</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#161c22;--ink2:#3c4650;--dim:#6d7883;--paper:#fff;--tint:#f5f3f0;--rule:#ded8d0;
+    --q:#1d5c7a;--a:#2f6b45;--warn:#a8321f;--acc:#c2410c;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  @page{size:A4;margin:14mm 14mm 13mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,serif;
+       font-size:9.7pt;line-height:1.47;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  h1,h2,h3,.lbl{font-family:var(--sans)}
+  .cover{border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:12px}
+  .cover h1{font-size:23pt;font-weight:700;margin:0;letter-spacing:-0.025em;line-height:1.08}
+  .cover .s{font-size:11pt;color:var(--acc);font-family:var(--sans);font-weight:500;margin-top:4px}
+  h2{font-size:13pt;font-family:var(--sans);font-weight:600;margin:19px 0 6px;
+     padding-bottom:4px;border-bottom:2px solid var(--ink);break-after:avoid}
+  h3{font-size:10pt;font-family:var(--sans);font-weight:600;margin:13px 0 3px;break-after:avoid}
+  p{margin:0 0 5px}
+  ul{margin:3px 0 6px;padding-left:16px} li{margin:1.5px 0}
+  .qa{margin:0 0 11px;break-inside:avoid}
+  .q{font-family:var(--sans);font-weight:600;font-size:10.2pt;color:var(--q);
+     margin:0 0 3px;text-wrap:balance}
+  .q::before{content:"Q  ";font-family:var(--mono);font-size:8.5pt;color:var(--dim)}
+  .a{border-left:2.5px solid var(--a);padding-left:9px;margin:0}
+  .say{font-weight:600}
+  .ev{font-family:var(--mono);font-size:8.4pt;color:var(--dim);display:block;margin-top:3px}
+  .an{background:var(--tint);border-radius:3px;padding:5px 9px;margin:5px 0 0;font-size:9.3pt}
+  .an b{font-family:var(--sans);font-size:8pt;text-transform:uppercase;letter-spacing:0.07em;color:var(--acc)}
+  table{border-collapse:collapse;width:100%;font-size:8.7pt;margin:6px 0 9px}
+  th{font-family:var(--sans);font-size:7.4pt;text-transform:uppercase;letter-spacing:0.05em;
+     color:var(--dim);text-align:left;padding:3px 8px 3px 0;border-bottom:1.5px solid var(--ink)}
+  td{padding:3px 8px 3px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;padding-right:11px}
+  .big{background:var(--tint);border-left:3px solid var(--acc);padding:8px 12px;margin:9px 0;break-inside:avoid}
+  .big b{font-family:var(--sans);display:block;font-size:9.5pt;margin-bottom:2px}
+  .danger{border-left-color:var(--warn)}
+  code{font-family:var(--mono);font-size:0.88em;background:var(--tint);padding:0.5px 3px;border-radius:2px}
+  .pb{break-before:page}
+  .foot{margin-top:18px;padding-top:10px;border-top:1px solid var(--rule);font-size:8.5pt;color:var(--dim)}
+</style>
+
+<div class="cover">
+  <h1>Judge Q&amp;A — Everything They Might Ask</h1>
+  <div class="s">SaResQ · answers, evidence and analogies · read this on the way in</div>
+</div>
+
+<h2>Where every file is</h2>
+
+<table>
+  <tr><th>What</th><th>Path</th></tr>
+  <tr><td><b>Deck script</b> — 12 slides + 3 reserve, with what to say</td><td><code>~/saresq/docs/SaResQ_Deck_Draft.pdf</code></td></tr>
+  <tr><td><b>This Q&amp;A sheet</b></td><td><code>~/saresq/docs/SaResQ_QA_Prep.pdf</code></td></tr>
+  <tr><td>Full technical report (19 pp, with glossary)</td><td><code>~/saresq/docs/SaResQ_Model_Architecture_Report.pdf</code></td></tr>
+  <tr><td>3D interactive model</td><td>claude.ai artifact &mdash; <code>docs/assembly_3d.html</code></td></tr>
+  <tr><td>Build guide</td><td>claude.ai artifact &mdash; <code>docs/assembly_guide.html</code></td></tr>
+  <tr><td>Printable parts + print settings</td><td><code>~/saresq/results/mount/</code></td></tr>
+  <tr><td>On-Pi benchmark data</td><td><code>~/saresq/results/pi_benchmark.json</code></td></tr>
+</table>
+
+<div class="big">
+<b>If you remember one paragraph, remember this</b>
+"Drone thermal search already works &mdash; what fails is the human watching the feed. We put the
+watching onboard: a 3.2 MB model on a ₹4,000 Raspberry Pi that finds 85% of people in aerial
+thermal imagery, in real time, using 29% of its frame budget. It bolts to any 450 mm quadcopter
+and never touches the flight controller."
+</div>
+
+<h2>A · The problem, and why it matters</h2>
+
+<div class="qa"><p class="q">Why does this need to exist? Drones with thermal cameras already do this.</p>
+<div class="a"><p><span class="say">They do &mdash; and every one of them streams video to a human who has to watch it.</span>
+That person gets tired. A survivor is a 2.6-pixel warm smudge on a 32&times;24 thermal image at
+4 frames a second. They can't rewind, can't combine three weak sightings from three passes, and
+can't put a GPS coordinate on something they half-saw. We automate the <i>looking</i>, not the flying.</p></div></div>
+
+<div class="qa"><p class="q">Who actually uses this? Who pays for it?</p>
+<div class="a"><p><span class="say">State disaster response forces and municipal fire services</span> &mdash;
+organisations that already own drones and already fly them at incidents. The pitch is not "buy a
+drone"; it's "make the drone you own able to search on its own for ₹14,000."
+<span class="ev">That is the point of the zero-electrical-integration design.</span></p></div></div>
+
+<div class="qa"><p class="q">What's the real-world impact?</p>
+<div class="a"><p>Coverage that is <span class="say">quantified rather than guessed</span>. Because the
+system models its own search coverage, it can report how thoroughly an area was actually searched
+&mdash; which is what lets a coordinator decide to move the team on instead of hoping.
+A human operator cannot give you that number.</p></div></div>
+
+<h2>B · "Isn't this just…?" &mdash; differentiation</h2>
+
+<div class="qa"><p class="q">Isn't this just YOLO running on thermal images?</p>
+<div class="a"><p><span class="say">If it were, it wouldn't run.</span> A whole-frame detector needs
+about 320 ms per frame on a Pi 4 &mdash; the frame budget is 250 ms, so it's over budget before it
+does anything else. The contribution is the <b>cascade</b>: a statistical gate looks at every frame
+for free and nominates 2&ndash;6 small patches; the network only ever sees those.
+<span class="ev">Measured: 177 ms worst case, 29% headroom. That's the whole system in one number.</span></p>
+<div class="an"><b>Analogy</b> Airport security. You don't pat down everybody &mdash; everyone walks
+through a cheap metal detector, and only the few who beep get the expensive search. Our thermal gate
+is the metal detector.</div></div></div>
+
+<div class="qa"><p class="q">Why not just buy a DJI thermal drone?</p>
+<div class="a"><p>A DJI M30T is roughly ₹10&ndash;15 lakh and still <span class="say">streams to an
+operator</span>. It's a better camera attached to the same bottleneck. We're a ₹14,000 module that
+adds autonomous perception to drones a department already owns. Different product, different price
+bracket, different problem.</p></div></div>
+
+<div class="qa"><p class="q">What is genuinely new here?</p>
+<div class="a"><p>Three things, and none of them is "we trained a model":</p>
+<ul>
+<li><b>The cascade makes it fit.</b> Thermal-first nomination, then confirmation &mdash; ~1/16th of a
+whole-frame detector's work.</li>
+<li><b>Evidence accumulates across passes.</b> Three weak sightings of the same ground coordinate
+compound into one confident detection via a log-odds ledger. A live video feed can't do that at all.</li>
+<li><b>The gate is two-sided.</b> Cold anomalies count &mdash; a body in water, a void under rubble.
+In afternoon sun, debris is <i>hotter</i> than a human, and every "find hot spots" system fails
+exactly then.</li>
+</ul></div></div>
+
+<h2>C · The AI and the tech stack</h2>
+
+<div class="qa"><p class="q">What's your tech stack?</p>
+<div class="a"><table>
+<tr><th>Layer</th><th>Choice</th><th>Why</th></tr>
+<tr><td>Detector</td><td>YOLOv8-nano, P3&ndash;P5 head</td><td>3.0 M params, 8.19 GFLOPs</td></tr>
+<tr><td>Scene classifier</td><td>MobileNetV2, transfer-learned</td><td>ImageNet backbone + new head</td></tr>
+<tr><td>Fusion</td><td>Logistic regression, 18 features</td><td>Readable weights, calibrated output</td></tr>
+<tr><td>Training</td><td>PyTorch / Ultralytics, Apple M1 GPU (MPS)</td><td>Local &mdash; no cloud dependency</td></tr>
+<tr><td>Deployment</td><td>LiteRT (TFLite) + NumPy</td><td>3 MB runtime vs 600 MB TensorFlow</td></tr>
+<tr><td>Compute</td><td>Raspberry Pi 4, 1 GB, Debian 13</td><td>₹4,000</td></tr>
+<tr><td>Sensors</td><td>MLX90640 · Pi Camera v2 · MPU-6050 · NEO-6M</td><td>all I²C/UART, no HAT</td></tr>
+</table>
+<p class="ev">No torch, no TensorFlow and no Ultralytics on the Pi &mdash; by design. That is why it fits in 1 GB.</p></div></div>
+
+<div class="qa"><p class="q">Why YOLOv8 and not YOLOv11, or a transformer like DETR?</p>
+<div class="a"><p><span class="say">Because it has to run on a Pi.</span> Transformer detectors are
+excellent and far too heavy &mdash; attention cost grows with the square of the number of patches,
+and we have a 1 GB budget. Newer YOLO versions are marginal gains at this scale; the ecosystem
+maturity of v8 (a stable, tested INT8 export path) mattered more than a point of mAP. That turned out
+to be the right instinct &mdash; see the quantisation question below.</p></div></div>
+
+<div class="qa"><p class="q">You used pretrained weights. Isn't that cheating?</p>
+<div class="a"><p><span class="say">It's standard, and with 2,000 training images it's the only
+sensible choice.</span> The detector starts from COCO, the classifier from ImageNet. We then trained
+the detector fully on thermal data &mdash; the whole network, not just a head.</p>
+<div class="an"><b>Analogy</b> Someone who can already read learns a new language far faster than
+someone learning to read from scratch. We didn't teach it what an edge is; we taught it what a human
+looks like in thermal, from above.</div></div></div>
+
+<div class="qa"><p class="q">How much data? Isn't that too little?</p>
+<div class="a"><p>Three datasets: <b>HIT-UAV</b> (2,029 thermal aerial), <b>RGBTDronePerson</b>
+(4,900 thermal, night urban) and <b>AIDER</b> (6,433 disaster scenes). The detector trains on
+<b>6,929 combined thermal images</b>. That's small for training from scratch and normal for
+fine-tuning a pretrained backbone.</p></div></div>
+
+<div class="qa"><p class="q">How do you know it hasn't just memorised the dataset?</p>
+<div class="a"><p><span class="say">Because we test on a second, independently collected one.</span>
+The model scores 0.850 on HIT-UAV and 0.544 on RGBTDronePerson &mdash; different sensor, different
+country, different time of day, different camera angle. A memoriser scores near zero on the second.
+<span class="ev">Before we added the second dataset, it scored 0.275 there. Training on both cost nothing on the first.</span></p></div></div>
+
+<div class="qa"><p class="q">What about false positives?</p>
+<div class="a"><p>Three defences. <b>(1)</b> The gate is deliberately permissive &mdash; in rescue a
+miss is far worse than a false alarm, so we push rejection downstream. <b>(2)</b> The detector
+confirms every nomination. <b>(3)</b> The fusion ledger requires <i>repeated</i> evidence at the same
+ground coordinate across passes, so a one-off hot roof tile never accumulates.</p></div></div>
+
+<h2 class="pb">D · Defending the numbers</h2>
+
+<div class="qa"><p class="q">85% &mdash; is that good?</p>
+<div class="a"><p><span class="say">For a 3.2 MB model on a Raspberry Pi, yes. It is not
+state-of-the-art, and we don't claim it is.</span> A model fifty times larger on a GPU would beat it.
+The constraint is the contribution: this has to run on hardware a relief agency can buy fifty of.</p>
+<div class="an"><b>Say it plainly</b> "Person AP50 of 0.850. That means it finds and correctly boxes
+about 85 of every 100 people in the imagery it was built for."</div></div></div>
+
+<div class="qa"><p class="q">What exactly does AP50 mean?</p>
+<div class="a"><p>A prediction counts as correct if its box overlaps the real person by at least
+50%. AP then summarises the whole precision-recall curve into one number.
+<b>AP50 is the standard detection metric</b> &mdash; it is not the same as "accuracy", which only
+makes sense for classification.</p></div></div>
+
+<div class="qa"><p class="q">What's your AP50-95? (the sharp question &mdash; expect it from a strong judge)</p>
+<div class="a"><p><span class="say">0.371, and here's the honest reading: it finds people reliably
+and boxes them loosely.</span> At IoU 0.75 it drops to 0.234.</p>
+<p>For this mission that's the right trade. We need <i>"is there a person, and at what ground
+coordinate"</i> &mdash; not a traced silhouette. At 14.7 mm per pixel, a box 5 px loose is
+<b>7 cm on the ground</b>. No rescue outcome depends on 7 cm. In a medical segmentation system I'd
+call 0.371 a defect; here it's capacity spent on size and speed instead.
+<span class="ev">Volunteering this before they find it is worth more than the number costs you.</span></p></div></div>
+
+<div class="qa"><p class="q">Is that measured on the model you actually deploy, or on your laptop?</p>
+<div class="a"><p><span class="say">Both &mdash; and they match.</span> The 3.2 MB file that runs on
+the Pi scores 0.860; the PyTorch reference scores 0.850. We built a test that compares them directly,
+because that comparison caught a serious bug.</p></div></div>
+
+<div class="qa"><p class="q">What was the bug?</p>
+<div class="a"><p><span class="say">Standard 8-bit quantisation was silently running our model at
+32% of its real accuracy.</span> 0.2315 instead of 0.8229. It loaded fine, ran fast, and drew
+sensible-looking boxes. Nothing threw an error.</p>
+<p>Cause: full INT8 quantises the <i>activations</i> too, including the box head's internal 1/640
+normalisation constant &mdash; which came out as an effective 1/636. On people 9&ndash;45 px tall a
+1&ndash;2 px shift destroys an IoU-0.5 match. We switched to <b>w8a32</b> &mdash; 8-bit weights,
+float activations. Same 3.3 MB file, <b>99.2%</b> of reference.</p>
+<div class="an"><b>Analogy</b> Like saving every photo as a heavily compressed JPEG. On screen it
+looks fine. Measure it and a third of the detail is gone. We only knew because we measured.</div></div></div>
+
+<div class="qa"><p class="q">Why should we believe your numbers at all?</p>
+<div class="a"><p>Every figure is measured on this hardware and reproducible from one command
+(<code>training/run_all.sh</code>). <b>167 automated tests pass.</b> And the numbers include the ones
+that told us we were wrong &mdash; we report the architecture we rejected and the bug we shipped
+against ourselves.</p></div></div>
+
+<h2>E · Architecture choices</h2>
+
+<div class="qa"><p class="q">Why P3&ndash;P5 and not P2? Small objects need high resolution.</p>
+<div class="a"><p><span class="say">We built both and measured. P2 lost every object-size bin at
+twice the compute.</span></p>
+<table><tr><th>Bin</th><th class="n">P3</th><th class="n">P2</th></tr>
+<tr><td>8&ndash;16 px</td><td class="n">0.657</td><td class="n">0.612</td></tr>
+<tr><td>16&ndash;32 px</td><td class="n">0.772</td><td class="n">0.753</td></tr>
+<tr><td>32+ px</td><td class="n">0.814</td><td class="n">0.791</td></tr>
+<tr><td>GFLOPs</td><td class="n">8.86</td><td class="n">17.43</td></tr></table>
+<p>Three reasons: resolution was never the bottleneck at 8&ndash;32 px; four times the anchor points
+makes optimisation harder for no extra signal; and the deployed path is a 160 px <i>crop</i>, where a
+prone adult is 115&times;31 px &mdash; not a small-object problem at all.</p>
+<div class="an"><b>Analogy</b> Reaching for a stronger magnifying glass when the problem was never
+magnification. It cost twice the effort and saw less.</div></div></div>
+
+<div class="qa"><p class="q">What do P2, P3, P4, P5 mean?</p>
+<div class="a"><p>Feature maps at different scales. <b>P<i>n</i> = the image shrunk by 2<sup>n</sup></b>.
+P3 is ⅛ size (80&times;80 from 640 px), P5 is 1/32. Fine levels catch small objects, coarse levels
+catch big ones. Adding P2 (¼ size) quadruples the area of that layer &mdash; which is where the
+compute went.</p></div></div>
+
+<div class="qa"><p class="q">Why a thermal camera with only 32&times;24 pixels? That's nothing.</p>
+<div class="a"><p><span class="say">Because it never has to identify anybody.</span> At 20 m a prone
+adult is 2.1 thermal pixels &mdash; there's no texture to learn, only <i>contrast</i>. So the thermal
+stage is a statistical anomaly test, not a classifier. Identification is the visual camera's job, on
+the crop the thermal nominated. A radiometric core would be 20&ndash;40&times; the cost and would not
+change the architecture.</p>
+<div class="an"><b>Analogy</b> A smoke detector doesn't identify what's burning. It just says
+"something here, go look." That's our thermal stage.</div></div></div>
+
+<div class="qa"><p class="q">Why logistic regression for fusion? Why not a neural network?</p>
+<div class="a"><p>Two reasons. <b>Calibration:</b> the ledger sums log-odds across passes, so the
+output must be an honest probability &mdash; a bias compounds instead of averaging out. Our expected
+calibration error is 0.0058. <b>Explainability:</b> a rescue coordinator can be told <i>why</i> a
+candidate was flagged, because the weights are readable numbers.</p></div></div>
+
+<h2 class="pb">F · Hardware, deployment, real time</h2>
+
+<div class="qa"><p class="q">Why a Raspberry Pi and not a Jetson Nano?</p>
+<div class="a"><p>Cost and power &mdash; and power is flight time. A Jetson is 5&ndash;10&times; the
+price and draws far more. <span class="say">Anyone can run a large model on a large computer; that
+isn't deployable at a disaster-response budget.</span> Our whole process uses 95 MB of RAM and 3.2 MB
+of model. A state agency can buy fifty.</p></div></div>
+
+<div class="qa"><p class="q">Prove it runs in real time.</p>
+<div class="a"><p>Measured on the board, not extrapolated:</p>
+<table><tr><th>Operation</th><th class="n">Median</th></tr>
+<tr><td>Detector, 160 px crop</td><td class="n">28.2 ms</td></tr>
+<tr><td>Detector, 224 px crop</td><td class="n">56.7 ms</td></tr>
+<tr><td>Hazard classifier, full frame</td><td class="n">33.0 ms</td></tr>
+<tr><td><b>Worst case, 6 crops + hazard</b></td><td class="n"><b>177 ms</b></td></tr>
+<tr><td>Budget at 4 Hz thermal</td><td class="n">250 ms</td></tr></table>
+<p class="ev">95.2 MB RAM of 905 available · 42.8 °C · no throttling · on the payload's own power bank.</p></div></div>
+
+<div class="qa"><p class="q">How does it mount to a drone?</p>
+<div class="a"><p>Four M3 bolts into a standard vibration-damping plate, or two straps through
+built-in slots. <b>340 g total</b>, suits a 450 mm-class quadcopter (F450/S500) or bigger.
+<span class="say">Critically, it has zero electrical connection to the flight controller</span> &mdash;
+own battery, own GPS, own IMU. It can't brown out the flight stack or cause a flyaway, so fitting it
+is a mechanical job, not an avionics integration.</p></div></div>
+
+<div class="qa"><p class="q">Why does the damping plate matter?</p>
+<div class="a"><p>It isn't comfort &mdash; it's detection accuracy. The IMU's attitude solution is
+what converts a detected pixel into a GPS coordinate. An undamped IMU on a quadcopter gives attitude
+noise, which becomes position error on every single detection.</p></div></div>
+
+<div class="qa"><p class="q">What altitude does it work at?</p>
+<div class="a"><p><span class="say">20&ndash;30 m, optimum about 25 m &mdash; and the limit is the
+sensor, not the AI.</span> Below ~30 m a person fills at least one whole thermal pixel, so you get
+full contrast. Above that they only partly fill a pixel and their heat averages with the cold ground
+&mdash; apparent contrast falls as 1/height². At 25 m you get a 26 m swath. The detector barely
+degrades across that range; the thermal sensor does.</p></div></div>
+
+<div class="qa"><p class="q">What about direct sunlight? Rain? Night?</p>
+<div class="a"><p><b>Night is our best case</b> &mdash; maximum thermal contrast, and the visual
+camera is useless anyway. <b>Direct afternoon sun is the worst case:</b> sun-baked concrete can be
+hotter than a human, which is exactly why the gate is two-sided rather than "find hot spots." We
+recommend dawn, dusk or night. <span class="say">That is a physics constraint, and no software
+fixes it.</span> Rain degrades any thermal system; we make no claim there.</p></div></div>
+
+<div class="qa"><p class="q">Battery life? What if it crashes mid-flight?</p>
+<div class="a"><p>The payload runs from its own 10,000 mAh bank, independent of the airframe's
+flight battery &mdash; so it outlasts the drone's endurance and <b>cannot drain it</b>. If the
+software crashes, the drone is unaffected, because the payload has no authority over it. That
+independence is deliberate.</p></div></div>
+
+<h2>G · Cost, scale, regulation</h2>
+
+<div class="qa"><p class="q">Break down the cost.</p>
+<div class="a"><p>Roughly ₹10,000&ndash;14,000: Raspberry Pi 4 ~₹4,000 · MLX90640 thermal ~₹4,000 ·
+Pi Camera ~₹1,200 · power bank ~₹1,000 · IMU + GPS ~₹800 · printed parts ~₹300 of filament ·
+cabling and fasteners. <b>No licence fees, no cloud costs, no subscription</b> &mdash; it runs
+entirely offline, which also means it works where the network is down, which after a disaster is
+everywhere.</p></div></div>
+
+<div class="qa"><p class="q">Can this scale to manufacturing?</p>
+<div class="a"><p>Every part is commodity and in stock. The only custom item is the printed tray,
+which is parametric CAD &mdash; a design change is a one-line edit and a 12-second rebuild, and at
+volume it would be injection-moulded. Nothing here is bespoke or single-sourced.</p></div></div>
+
+<div class="qa"><p class="q">DGCA regulations?</p>
+<div class="a"><p>It's a passive payload with no flight authority, so it doesn't change the
+aircraft's certification basis &mdash; the operator flies under whatever rules already apply to their
+drone. <span class="say">Be honest: we have not sought a formal opinion, and we'd do that before
+deployment.</span></p></div></div>
+
+<h2 class="pb">H · The hard questions &mdash; answer these honestly</h2>
+
+<div class="big danger">
+<b>Rule for this whole section</b>
+Say the weakness first, in plain words, then what you'd do about it. A judge who finds a flaw you
+hid stops trusting everything else you said. A judge you hand a flaw to starts trusting you more.
+</div>
+
+<div class="qa"><p class="q">Have you actually flown this?</p>
+<div class="a"><p><span class="say">No.</span> It's benchmarked on the target board, not in the air.
+Vibration, attitude dynamics and real thermal scenes over rubble are all unvalidated. That's the
+single biggest gap and we know it.</p></div></div>
+
+<div class="qa"><p class="q">What doesn't work yet?</p>
+<div class="a"><ul>
+<li><b>The fusion stage is weak</b> &mdash; ROC AUC 0.670. Five of its eighteen inputs need the
+sensors mounted and flying before they can be measured at all.</li>
+<li><b>No daytime visible detector.</b> The system is thermal-only today.</li>
+<li><b>Our search-coverage figure is withheld</b> &mdash; the only measurement available is
+out-of-domain, and publishing it would overstate coverage roughly 5&times;.</li>
+</ul></div></div>
+
+<div class="qa"><p class="q">Why no visible-light detector? You have a camera.</p>
+<div class="a"><p><span class="say">We tried, and the dataset defeated us &mdash; for an interesting
+reason.</span> Our RGB training set turned out to be <b>night-time imagery</b>: 32% of frames have a
+mean brightness under 40/255. The labelled people simply aren't visible in the visible channel.</p>
+<p>The proof: our thermal model, untrained on that data, recalls <b>49.9%</b> of those labels on the
+thermal frames and <b>0.0%</b> on the visible ones. Zero matches from 692 detections isn't
+"difficult", it's "not there." No training configuration could have worked. It needs a daytime aerial
+dataset, which is scoped future work.</p>
+<div class="an"><b>Worth saying</b> "We spent three training runs treating it as a model problem
+before we checked the data. The lesson &mdash; verify the signal exists before you touch
+hyperparameters &mdash; is the most useful thing we learned."</div></div></div>
+
+<div class="qa"><p class="q">Can it see someone buried under rubble?</p>
+<div class="a"><p><span class="say">No &mdash; and no thermal camera can.</span> Thermal is
+line-of-sight; it sees surface temperature. We detect people who are <i>exposed or partly exposed</i>:
+on the surface, in a void opening, at the edge of debris. Anyone claiming a thermal drone sees
+through concrete is wrong. For buried victims you need acoustic or radar sensing, which is a
+different instrument.</p></div></div>
+
+<div class="qa"><p class="q">What's your biggest risk?</p>
+<div class="a"><p>That gate recall in the real domain is worse than we hope. Our only measurement of
+it is on urban night scenes, which is out-of-domain for a contrast gate tuned for rubble. The fix is
+a measurement, not a redesign: point the sensor at a real debris field and count.</p></div></div>
+
+<div class="qa"><p class="q">How much of this did you actually build?</p>
+<div class="a"><p>Be specific and honest. Datasets and pretrained backbones are public. What's ours:
+the cascade architecture, the thermal gate, the fusion ledger, the deployment runtime, the
+quantisation study, the parametric CAD, and the validation harness &mdash; 167 tests. Say what was
+AI-assisted if it was; judges respect that more than a vague claim.</p></div></div>
+
+<h2>I · Numbers to have on the tip of your tongue</h2>
+
+<table>
+<tr><th>Thing</th><th class="n">Number</th><th>Context</th></tr>
+<tr><td>Person AP50, HIT-UAV</td><td class="n">0.850</td><td>the headline</td></tr>
+<tr><td>Person AP50, second dataset</td><td class="n">0.544</td><td>proves generalisation</td></tr>
+<tr><td>AP50-95</td><td class="n">0.371</td><td>loose boxes, fine for rescue</td></tr>
+<tr><td>Hazard classifier</td><td class="n">95.2%</td><td>5 classes</td></tr>
+<tr><td>Model size</td><td class="n">3.2 MB</td><td>w8a32</td></tr>
+<tr><td>Inference, 160 px crop</td><td class="n">28.2 ms</td><td>on the Pi</td></tr>
+<tr><td>Worst-case frame</td><td class="n">177 ms</td><td>of a 250 ms budget</td></tr>
+<tr><td>RAM used</td><td class="n">95 MB</td><td>of 905 available</td></tr>
+<tr><td>Payload mass</td><td class="n">340 g</td><td>450 mm-class quad</td></tr>
+<tr><td>Cost</td><td class="n">₹14,000</td><td>bill of materials</td></tr>
+<tr><td>Best altitude</td><td class="n">25 m</td><td>26 m swath</td></tr>
+<tr><td>Tests passing</td><td class="n">167</td><td></td></tr>
+</table>
+
+<h2>J · Four analogies that do a lot of work</h2>
+
+<table>
+<tr><th style="width:24%">For</th><th>Say</th></tr>
+<tr><td><b>The cascade</b></td><td>Airport security &mdash; everyone through the cheap metal detector,
+only the few who beep get searched.</td></tr>
+<tr><td><b>The thermal gate</b></td><td>A smoke detector. It doesn't identify what's burning; it says
+"something here, go look."</td></tr>
+<tr><td><b>The quantisation bug</b></td><td>Saving every photo as a heavy JPEG. Looks fine on screen;
+measure it and a third of the detail is gone.</td></tr>
+<tr><td><b>Transfer learning</b></td><td>Someone who can already read learning a new language, versus
+learning to read from scratch.</td></tr>
+</table>
+
+<div class="big">
+<b>The close, if you get one line</b>
+"Every number we showed you was measured on this hardware &mdash; including the ones that told us we
+were wrong."
+</div>
+
+<p class="foot">All figures traceable to <code>docs/SaResQ_Model_Architecture_Report.pdf</code> ·
+repository commit 9dc0569 · 167 tests passing.</p>
