@@ -1,0 +1,31 @@
+{
+  "measured_on": "Raspberry Pi 4 Model B rev a03115, 1 GB, Debian 13 trixie, aarch64",
+  "date": "2026-09-11",
+  "runtime": "ai-edge-litert 2.2.0, numpy 2.5.3, opencv-python-headless 5.0.0.93 (no TensorFlow, no torch)",
+  "latency_ms_median": {
+    "detector_160_crop": 28.2,
+    "detector_224_crop": 56.7,
+    "hazard_640x480": 33.0
+  },
+  "latency_ms_p90": {
+    "detector_160_crop": 28.3,
+    "detector_224_crop": 56.9,
+    "hazard_640x480": 33.1
+  },
+  "process_peak_rss_mb": 95.2,
+  "ram_total_mb": 905,
+  "ram_available_after_load_mb": 730,
+  "soc_temp_c": 42.8,
+  "throttled": "0x0",
+  "frame_budget": {
+    "thermal_rate_hz": 4,
+    "budget_ms": 250,
+    "gate_ms": "~0 (numpy on 32x24)",
+    "detector_2_crops_ms": 56.4,
+    "detector_6_crops_ms": 169.2,
+    "hazard_amortised_at_1hz_ms": 8.25,
+    "worst_case_total_ms": 177.5,
+    "headroom_ms": 72.5,
+    "verdict": "closes with 29% headroom at the 6-crop worst case"
+  }
+}
