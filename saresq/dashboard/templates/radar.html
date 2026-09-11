@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Radar{% endblock %}
+{% block head %}
+<style>
+  .rad { display:grid; grid-template-columns:minmax(0,1fr) 330px; height:calc(100vh - 58px); }
+  .scope { position:relative; overflow:hidden; background:#04080B; }
+  #cv, #ov { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #cv { cursor:grab; touch-action:none; }
+  #ov { pointer-events:none; }
+  #ov .hit { pointer-events:auto; }
+  .side { border-left:1px solid var(--rule); background:var(--panel);
+          overflow-y:auto; display:flex; flex-direction:column; }
+  .sec-h { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+           padding:8px 12px; background:var(--panel-2); border-bottom:1px solid var(--rule);
+           border-top:1px solid var(--rule); position:sticky; top:0; z-index:2; }
+  .sec-h:first-child { border-top:none; }
+  .sec-h b { font-size:10.5px; font-weight:700; letter-spacing:.14em;
+             text-transform:uppercase; color:var(--ink-2); }
+
+  /* --- floating scope controls --- */
+  .fc { position:absolute; z-index:6; }
+  .fc-tl { top:10px; left:10px; max-width:70%; }
+  .lyr { display:flex; flex-wrap:wrap; gap:4px; }
+  .lyrbtn { display:none; }
+
+  /* --- fault injection: operator actions, not map layers --- */
+  .faults { display:flex; gap:8px; padding:0 12px 12px; }
+  .fbtn { flex:1; font:600 11px/1 system-ui,sans-serif; letter-spacing:.07em;
+          text-transform:uppercase; padding:10px 8px; border-radius:3px; cursor:pointer;
+          background:transparent; border:1px solid var(--rule); color:var(--muted); }
+  .fbtn:hover { border-color:var(--ink-2); color:var(--ink); }
+  .fbtn[aria-pressed="true"] { border-color:var(--hostile); color:var(--hostile);
+                               background:rgba(244,100,84,.14); }
+  .fc-tr { top:10px; right:10px; display:flex; flex-direction:column; gap:6px; }
+  .fc-bl { bottom:10px; left:10px; }
+  .fc-br { bottom:10px; right:10px; width:min(330px,72vw); }
+  .tg { font:600 10px/1 system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase;
+        padding:5px 8px; border-radius:2px; cursor:pointer; border:1px solid var(--rule);
+        background:rgba(9,16,21,.85); color:var(--muted);
+        -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+  .tg[aria-pressed="true"] { background:var(--panel-3); color:var(--ink); border-color:var(--ink-2); }
+  .tg.warn[aria-pressed="true"] { border-color:var(--hostile); color:var(--hostile);
+                                  background:rgba(244,100,84,.14); }
+  .zb { width:32px; height:32px; padding:0; font:400 15px/1 var(--mono);
+        background:rgba(9,16,21,.85); border:1px solid var(--rule); border-radius:3px;
+        color:var(--ink); cursor:pointer;
+        -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+  .scalebar { display:flex; flex-direction:column; gap:3px; }
+  .scalebar .bar { height:6px; border:1px solid var(--ink-2); border-top:none; width:80px; }
+  .scalebar .lab { font-family:var(--mono); font-size:9.5px; color:var(--ink-2); text-align:center; }
+  #cursor { font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:5px; }
+
+  /* --- detail card over the scope --- */
+  #detail { background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+            box-shadow:var(--lift); max-height:60vh; overflow-y:auto; }
+  #detail .x { background:none; border:none; color:var(--muted); font-size:17px;
+               cursor:pointer; line-height:1; padding:0 2px; }
+  #detail td.k { color:var(--muted); white-space:nowrap; width:42%; }
+  #detail .go { display:block; margin-top:10px; font-size:12px; }
+
+  /* --- link panel --- */
+  .lk-row { display:flex; align-items:baseline; gap:8px; padding:10px 12px 6px; }
+  .lk-row b { font-family:var(--mono); font-size:14px; letter-spacing:.06em; }
+  .lk-row .ps { margin-left:auto; }
+  .lk-dot { width:9px; height:9px; border-radius:50%; flex:none; align-self:center; }
+  .lk-bar { position:relative; height:6px; margin:0 12px; border-radius:3px;
+            background:var(--sunken); border:1px solid var(--rule); overflow:hidden; }
+  .lk-bar i { display:block; height:100%; }
+  .lk-bar u { position:absolute; top:-2px; width:1px; height:10px; background:var(--muted); }
+  .lk-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; padding:10px 12px 4px; }
+  .kv { display:flex; flex-direction:column; gap:1px; padding:3px 0; }
+  .kv span:last-child { font-family:var(--mono); font-size:11.5px; color:var(--ink-2);
+                        font-variant-numeric:tabular-nums; }
+  .lk-q { margin:6px 12px 12px; padding:7px 9px; border-radius:3px; background:var(--panel-2);
+          border:1px solid var(--rule); font-size:12px; display:flex; flex-wrap:wrap;
+          align-items:baseline; gap:6px; }
+  .lk-q b { font-family:var(--mono); font-size:15px; }
+  .lk-q .ps { margin-left:auto; }
+  .lk-q.hot { border-color:var(--unknown); background:rgba(243,168,60,.10); }
+
+  /* --- track table --- */
+  .trk { display:grid; grid-template-columns:1fr auto 42px 60px; gap:8px; align-items:baseline;
+         padding:8px 12px; border-bottom:1px solid var(--rule-soft); cursor:pointer;
+         border-left:3px solid transparent; }
+  .trk:hover { background:var(--panel-2); }
+  .trk.on { background:var(--panel-2); border-left-color:var(--friend); }
+  .trk-n { font-family:var(--mono); font-weight:700; font-size:12.5px; }
+  .trk-s { font-size:8.5px; font-weight:700; letter-spacing:.09em; padding:2px 5px;
+           border-radius:2px; border:1px solid currentColor; }
+  .st-FIRM { color:var(--neutral); } .st-COAST { color:var(--unknown); }
+  .st-HELD { color:var(--muted); } .st-TENTATIVE { color:var(--own); }
+  .trk-a, .trk-v { font-family:var(--mono); font-size:11px; color:var(--muted);
+                   text-align:right; font-variant-numeric:tabular-nums; }
+  .trk-v { color:var(--ink-2); }
+
+  /* --- search + events --- */
+  .pod { height:6px; margin:8px 12px 0; border-radius:3px; background:var(--sunken);
+         border:1px solid var(--rule); overflow:hidden; }
+  .pod i { display:block; height:100%; background:var(--neutral); }
+  #searchbox .ps { padding:0 12px 12px; }
+  #events { flex:1; min-height:150px; overflow-y:auto; }
+  .ev { display:grid; grid-template-columns:44px 40px 1fr; gap:7px; padding:5px 12px;
+        border-bottom:1px solid var(--rule-soft); font-size:11px; line-height:1.5; }
+  .ev-t { font-family:var(--mono); font-size:9.5px; color:var(--muted); }
+  .ev-k { font-size:8.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          color:var(--muted); }
+  .ev-x { color:var(--ink-2); }
+  .ev-good .ev-x { color:var(--neutral); }
+  .ev-warn .ev-x { color:var(--unknown); }
+  .ev-bad  .ev-x { color:var(--hostile); font-weight:600; }
+
+  .simchip { border-color:var(--own); color:var(--own); }
+
+  @media (max-width:900px) {
+    .rad { grid-template-columns:1fr; height:auto; }
+    .scope { height:min(72vh,560px); }
+    .side { border-left:none; border-top:1px solid var(--rule); max-height:none; }
+    .fc-br { width:calc(100% - 20px); }
+    #events { max-height:300px; }
+    #cursor { display:none; }
+    .fc-bl { bottom:8px; }
+
+    /* The layer chips used to live in a horizontally-scrolling strip across
+       the top of the scope. Two problems: each chip was 22 px tall, and the
+       scroll container swallowed any tap that moved a few pixels -- so on a
+       real thumb they mostly did nothing. Now one honest button opens a panel
+       with full-width 44 px rows. */
+    .fc-tl { max-width:none; }
+    .lyrbtn { display:inline-flex; align-items:center; gap:6px; }
+    .lyr { position:absolute; top:52px; left:0; width:min(230px,64vw);
+           flex-direction:column; gap:0; padding:4px;
+           background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+           box-shadow:var(--lift); }
+    .lyr[hidden] { display:none; }
+    /* This page's own .zb rule sits after console.css in the cascade at equal
+       specificity, so the global coarse-pointer sizing lost to it and the zoom
+       buttons stayed 32 px wide. Restate it here. */
+    .zb { width:44px; height:44px; font-size:19px; }
+    .lyr .tg { width:100%; justify-content:flex-start; border:none;
+               background:transparent; border-radius:3px; min-height:44px;
+               font-size:12.5px; letter-spacing:.06em; }
+    .lyr .tg[aria-pressed="true"]::before { content:"\2713\00a0\00a0"; color:var(--friend); }
+    .lyr .tg[aria-pressed="false"]::before { content:"\00a0\00a0\00a0\00a0"; }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="rad">
+  <div class="scope" id="scope">
+    <canvas id="cv"></canvas>
+    <svg id="ov" xmlns="http://www.w3.org/2000/svg"
+         aria-label="Radar scope: live aircraft track and survivor contacts"></svg>
+
+    <div class="fc fc-tl">
+      <button class="tg lyrbtn" id="lyrBtn" aria-expanded="false" aria-controls="lyrPanel">
+        Layers <span id="lyrCount"></span>
+      </button>
+      <div class="lyr" id="lyrPanel">
+        <button class="tg" data-show="rings"    aria-pressed="true">Rings</button>
+        <button class="tg" data-show="plan"     aria-pressed="true">Plan</button>
+        <button class="tg" data-show="coverage" aria-pressed="true">Coverage</button>
+        <button class="tg" data-show="swath"    aria-pressed="true">Swath</button>
+        <button class="tg" data-show="trail"    aria-pressed="true">Trail</button>
+        <button class="tg" data-show="rf"       aria-pressed="true">RF shadow</button>
+      </div>
+    </div>
+
+    <div class="fc fc-tr">
+      <button class="zb" id="zin" aria-label="Zoom in">+</button>
+      <button class="zb" id="zout" aria-label="Zoom out">&minus;</button>
+      <button class="zb" id="centre" aria-label="Centre on aircraft" title="Centre on aircraft">&#9678;</button>
+    </div>
+
+    <div class="fc fc-bl">
+      <div class="scalebar"><div class="lab" id="scaleLab">—</div><div class="bar" id="scaleBar"></div></div>
+      <div id="cursor">move the cursor over the scope</div>
+    </div>
+
+    <div class="fc fc-br"><div id="detail" hidden></div></div>
+  </div>
+
+  <aside class="side">
+    <div class="sec-h"><b>Downlink</b><span class="ps" id="scanstat">—</span></div>
+    <div id="linkbox"><div class="ps" style="padding:12px">connecting…</div></div>
+    <!-- Outside #linkbox on purpose: renderPanels() replaces that element's
+         innerHTML every poll, which would destroy these buttons twice a second. -->
+    <div class="faults">
+      <button class="fbtn" data-fault="link" data-on="Restore link" data-off="Cut link"
+              aria-pressed="false">Cut link</button>
+      <button class="fbtn" data-fault="gps" data-on="Restore GPS" data-off="Deny GPS"
+              aria-pressed="false">Deny GPS</button>
+    </div>
+
+    <div class="sec-h"><b>Tracks</b><span class="ps">state · age · value</span></div>
+    <div id="tracks"></div>
+
+    <div class="sec-h"><b>Search effort</b><span class="ps">Koopman</span></div>
+    <div id="searchbox"></div>
+
+    <div class="sec-h"><b>Surveillance log</b><span class="ps">newest first</span></div>
+    <div id="events"></div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/basemap.js"></script>
+<script src="/static/mapcore.js"></script>
+<script src="/static/radar.js"></script>
+{% endblock %}

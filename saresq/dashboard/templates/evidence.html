@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Evidence{% endblock %}
+{% block body %}
+<div class="wrap">
+  <section class="panel">
+    <div class="ph">
+      <span class="pt">Evidence browser</span>
+      <div class="filters" id="filters"></div>
+      <span class="ps" id="evSub">—</span>
+    </div>
+    <div id="evBody"><div class="empty"><span class="ps">loading…</span></div></div>
+  </section>
+  <div class="note">
+    Thermal patches are stored as raw uint16 centi-kelvin — 1,536 bytes for a 32×24 MLX90640 frame,
+    lossless to 0.01 K. The colour-mapped image you see is rendered on request from that raw array, so
+    the record stays the measurement and the palette stays a display choice.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var KINDS = [["", "All"], ["thumb", "Thumbnails"], ["rgb_crop", "RGB crops"],
+             ["thermal_patch", "Thermal"], ["clip", "Clips"]];
+var kind = "";
+
+function esc(s) { return String(s == null ? "" : s).replace(/[<>&"]/g, function (c) {
+  return { "<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;" }[c]; }); }
+function bytes(n) { return n >= 1048576 ? (n/1048576).toFixed(1)+" MB" : n >= 1024 ? (n/1024).toFixed(1)+" KB" : n+" B"; }
+
+(function buildFilters() {
+  var box = document.getElementById("filters");
+  KINDS.forEach(function (k) {
+    var b = document.createElement("button");
+    b.textContent = k[1];
+    b.setAttribute("aria-pressed", String(k[0] === kind));
+    b.addEventListener("click", function () {
+      kind = k[0];
+      Array.prototype.forEach.call(box.children, function (c, i) {
+        c.setAttribute("aria-pressed", String(KINDS[i][0] === kind));
+      });
+      load();
+    });
+    box.appendChild(b);
+  });
+})();
+
+function load() {
+  fetch("/api/media" + (kind ? "?kind=" + kind : ""))
+    .then(function (r) { return r.json(); })
+    .then(render)
+    .catch(function () {
+      document.getElementById("evBody").innerHTML =
+        '<div class="empty"><div class="big">Could not read the evidence store.</div></div>';
+    });
+}
+
+function render(rows) {
+  var body = document.getElementById("evBody");
+  document.getElementById("evSub").textContent = rows.length + " artefact(s)";
+  if (!rows.length) {
+    // No footage exists yet. Say exactly what would create it rather than
+    // rendering a plausible-looking placeholder.
+    body.innerHTML =
+      '<div class="empty">'
+      + '<div class="big">No ' + (kind ? esc(kind).replace("_", " ") : "evidence") + ' captured yet.</div>'
+      + '<div class="why">'
+      + 'Evidence is written by the perception pipeline as it flies. To fill this page:<br>'
+      + '1 &nbsp;bring up the payload — MLX90640 + Pi Camera v2 on the Pi 4<br>'
+      + '2 &nbsp;record a person at 8 / 12 / 20 m AGL<br>'
+      + '3 &nbsp;run <code>python -m saresq.replay --log &lt;recording&gt; --db saresq.db</code><br><br>'
+      + 'Until then the store is empty by design — a demo that fakes its own inputs is how a team ends up '
+      + 'believing a capability it does not have.'
+      + '</div></div>';
+    return;
+  }
+  var grid = document.createElement("div");
+  grid.className = "tiles";
+  rows.forEach(function (m) {
+    var src = m.kind === "thermal_patch" ? "/media/" + m.media_id + "/render" : "/media/" + m.media_id;
+    var fig = document.createElement("figure");
+    var media = m.kind === "clip"
+      ? '<video src="' + src + '" controls muted loop preload="metadata"></video>'
+      : '<img src="' + src + '" alt="' + esc(m.kind) + '" loading="lazy">';
+    fig.innerHTML = media
+      + "<figcaption><b>" + esc(m.kind) + "</b>"
+      + (m.target_id ? " · T-" + String(m.target_id).padStart(3, "0") : "")
+      + (m.width ? "<br>" + m.width + "×" + m.height : "")
+      + " · " + bytes(m.bytes)
+      + (m.synced_ns ? "" : '<br><span style="color:var(--unknown)">queued on aircraft</span>')
+      + "</figcaption>";
+    var el = fig.querySelector("img, video");
+    if (el && m.kind !== "clip") el.addEventListener("click", function () { window.open(src, "_blank"); });
+    grid.appendChild(fig);
+  });
+  body.innerHTML = "";
+  body.appendChild(grid);
+}
+load();
+</script>
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Review{% endblock %}
+{% block head %}
+<style>
+  .rv { display:grid; grid-template-columns:280px minmax(0,1fr); height:calc(100vh - 58px); }
+  @media (max-width:860px) { .rv { grid-template-columns:1fr; height:auto; } }
+  .queue { border-right:1px solid var(--rule); overflow-y:auto; background:var(--panel); }
+  .q { padding:10px 14px; border-bottom:1px solid var(--rule-soft); cursor:pointer;
+       border-left:3px solid transparent; display:flex; gap:10px; align-items:baseline; }
+  .q:hover { background:var(--panel-2); }
+  .q[aria-current="true"] { background:var(--panel-2); border-left-color:var(--friend); }
+  .q-id { font-family:var(--mono); font-weight:600; font-size:13px; }
+  .q-p { font-family:var(--mono); font-size:13px; margin-left:auto; font-variant-numeric:tabular-nums; }
+  .q-cls { font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; }
+  .cls-HIGH { color:var(--hostile); } .cls-MEDIUM { color:var(--unknown); } .cls-LOW { color:var(--muted); }
+  .work { overflow-y:auto; padding:18px; }
+  .banner { display:flex; gap:20px; flex-wrap:wrap; align-items:baseline;
+            background:var(--panel); border:1px solid var(--rule); border-radius:4px; padding:12px 16px; }
+  .banner .big { font-family:var(--mono); font-size:25px; font-weight:600; }
+  .machine { font-size:13px; color:var(--ink-2); }
+  .machine b { color:var(--ink); font-family:var(--mono); }
+  .evidence { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; margin-top:16px; }
+  .evidence figure img, .evidence figure video { height:190px; }
+  .gate { position:sticky; bottom:0; margin-top:18px; padding:14px 0 4px;
+          background:linear-gradient(to top, var(--ground) 72%, transparent); }
+  .btns { display:flex; gap:9px; flex-wrap:wrap; }
+  .btns button { font:600 13px/1 system-ui,sans-serif; letter-spacing:.06em; text-transform:uppercase;
+                 padding:13px 17px; border-radius:3px; cursor:pointer; color:#04161C; border:none; }
+  .b-yes { background:var(--friend); } .b-no { background:var(--neutral); }
+  .b-unsure { background:var(--unknown); } .b-dispatch { background:var(--own); }
+  .btns kbd { font-family:var(--mono); opacity:.65; margin-right:6px; }
+  .noteinput { margin-top:9px; width:100%; max-width:560px; font-family:var(--mono); font-size:12px;
+               background:var(--panel-2); color:var(--ink); border:1px solid var(--rule);
+               border-radius:3px; padding:8px 10px; }
+  .op { font-family:var(--mono); font-size:12px; background:var(--panel-2); color:var(--ink);
+        border:1px solid var(--rule); border-radius:3px; padding:6px 9px; width:140px; }
+  .hint { font-size:11.5px; color:var(--muted); margin-top:8px; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="rv">
+  <nav class="queue" id="queue" aria-label="Review queue"></nav>
+  <section class="work" id="work"></section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+  var queue = [], idx = 0, operator = "";
+  try { operator = localStorage.getItem("saresq.operator") || ""; } catch (e) {}
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[<>&"]/g, function (c) {
+    return { "<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;" }[c]; }); }
+  function n(v, d) { return v == null ? "—" : Number(v).toFixed(d == null ? 2 : d); }
+
+  function load() {
+    Promise.all([
+      fetch("/api/review/queue").then(function (r) { return r.json(); }),
+      fetch("/api/review/stats").then(function (r) { return r.json(); })
+    ]).then(function (res) {
+      queue = res[0]; idx = Math.min(idx, Math.max(0, queue.length - 1));
+      renderQueue(); renderWork(res[1]);
+    });
+  }
+
+  function renderQueue() {
+    var box = document.getElementById("queue");
+    box.innerHTML = "";
+    queue.forEach(function (t, i) {
+      var d = document.createElement("div");
+      d.className = "q";
+      d.setAttribute("aria-current", i === idx ? "true" : "false");
+      d.innerHTML = '<span class="q-id">T-' + String(t.target_id).padStart(3, "0") + '</span>'
+        + '<span class="q-cls cls-' + esc(t.class) + '">' + esc(t.class || "—") + '</span>'
+        + '<span class="q-p">' + n(t.p_final) + '</span>';
+      d.addEventListener("click", function () { idx = i; renderQueue(); renderWork(); });
+      box.appendChild(d);
+    });
+    if (!queue.length) box.innerHTML = '<div class="empty"><div class="why">queue clear</div></div>';
+  }
+
+  function renderWork(stats) {
+    var w = document.getElementById("work");
+    if (!queue.length) {
+      w.innerHTML = '<div class="empty"><div class="big">Nothing to review.</div><div class="why">'
+        + (stats && stats.judged
+            ? 'Every track has a verdict. Each one is now a labelled fusion-training example —<br>'
+              + 'export with <code>python training/export_verdicts.py</code>.'
+            : 'The store has no targets yet. Run the pipeline or replay a recording first.')
+        + '</div></div>';
+      return;
+    }
+    var t = queue[idx], media = t.media || [], passes = t.passes || [];
+
+    var figs = media.map(function (m) {
+      var src = m.kind === "thermal_patch" ? "/media/" + m.media_id + "/render" : "/media/" + m.media_id;
+      var body = m.kind === "clip"
+        ? '<video src="' + src + '" controls muted loop></video>'
+        : '<img src="' + src + '" alt="' + esc(m.kind) + '">';
+      return "<figure>" + body + "<figcaption><b>" + esc(m.kind) + "</b>"
+        + (m.width ? " · " + m.width + "×" + m.height : "")
+        + " · " + (m.bytes >= 1024 ? (m.bytes/1024).toFixed(1)+" KB" : m.bytes+" B")
+        + (m.synced_ns ? "" : " · on aircraft") + "</figcaption></figure>";
+    }).join("");
+
+    var rows = passes.map(function (p) {
+      return "<tr><td>" + p.pass_id + "</td><td>" + n(p.alt_m,1) + " m</td><td>" + n(p.p_pass)
+        + "</td><td>" + n(p.z_peak_max,1) + "</td><td>" + n(p.p_rgb_max) + "</td><td>"
+        + n(p.iou_max) + "</td><td>" + (p.hits == null ? "—" : p.hits) + "</td></tr>";
+    }).join("");
+
+    w.innerHTML =
+      '<div class="banner"><span class="big">T-' + String(t.target_id).padStart(3, "0") + "</span>"
+      + '<span class="machine">machine says <b>' + esc(t.decision || "—") + "</b> · class <b>"
+      + esc(t.class || "—") + "</b> · P <b>" + n(t.p_final) + "</b> · " + (t.n_passes || 0) + " pass(es)</span>"
+      + '<span class="machine">' + n(t.lat,5) + "°N " + n(t.lon,5) + "°E · CEP <b>" + n(t.pos_err_m,1) + " m</b></span>"
+      + '<span class="machine" style="margin-left:auto">operator <input class="op" id="op" value="'
+      + esc(operator) + '" placeholder="callsign"></span></div>'
+      + (figs ? '<div class="evidence">' + figs + "</div>"
+              : '<p class="hint">No imagery has reached the ground station for this track yet — it is still '
+                + 'queued on the aircraft. Judge from the telemetry below, or wait for sync.</p>')
+      + (rows ? '<table class="dt" style="margin-top:16px"><thead><tr><th>Pass</th><th>AGL</th><th>p</th>'
+              + "<th>z peak</th><th>RGB p</th><th>IoU</th><th>Hits</th></tr></thead><tbody>" + rows + "</tbody></table>" : "")
+      + '<div class="gate"><div class="btns">'
+      + '<button class="b-yes" data-v="SURVIVOR"><kbd>1</kbd>Survivor</button>'
+      + '<button class="b-no" data-v="NOT_SURVIVOR"><kbd>2</kbd>Not a survivor</button>'
+      + '<button class="b-unsure" data-v="UNSURE"><kbd>3</kbd>Unsure</button>'
+      + '<button class="b-dispatch" data-v="DISPATCHED"><kbd>4</kbd>Dispatch team</button></div>'
+      + '<input class="noteinput" id="note" placeholder="Optional note — why you judged it this way">'
+      + '<div class="hint">1–4 to judge · J/K or ←/→ to move. Your verdict is recorded alongside the '
+      + "machine's, never over it.</div></div>";
+
+    var opEl = document.getElementById("op");
+    opEl.addEventListener("change", function () {
+      operator = opEl.value;
+      try { localStorage.setItem("saresq.operator", operator); } catch (e) {}
+    });
+    Array.prototype.forEach.call(w.querySelectorAll("[data-v]"), function (b) {
+      b.addEventListener("click", function () { submit(b.getAttribute("data-v")); });
+    });
+  }
+
+  function submit(verdict) {
+    if (!queue.length) return;
+    var t = queue[idx], noteEl = document.getElementById("note"), opEl = document.getElementById("op");
+    fetch("/api/verdict", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target_id: t.target_id, verdict: verdict,
+        operator: (opEl && opEl.value) || operator || "unknown",
+        note: noteEl && noteEl.value ? noteEl.value : null })
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (m) { throw new Error(m); });
+      return r.json();
+    }).then(load).catch(function (e) { alert("Verdict not recorded: " + e.message); });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    var map = { "1":"SURVIVOR", "2":"NOT_SURVIVOR", "3":"UNSURE", "4":"DISPATCHED" };
+    if (map[e.key]) { e.preventDefault(); submit(map[e.key]); return; }
+    if (e.key === "j" || e.key === "ArrowRight") { idx = Math.min(queue.length-1, idx+1); renderQueue(); renderWork(); }
+    if (e.key === "k" || e.key === "ArrowLeft") { idx = Math.max(0, idx-1); renderQueue(); renderWork(); }
+  });
+
+  load();
+})();
+</script>
+{% endblock %}

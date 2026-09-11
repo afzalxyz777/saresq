@@ -1,0 +1,174 @@
+/* SaResQ ground-station console.
+   Palette matches the published Recovery Console artifact so a pitch video can
+   cut between the two without a visual seam. No webfonts, no CDN: this has to
+   render in a field tent with no internet (Section 13.3). */
+:root {
+  --ground:#04080B; --panel:#091015; --panel-2:#0D161D; --panel-3:#111D25; --sunken:#060C10;
+  --rule:#1A2A34; --rule-soft:#132029; --ink:#DCE7EC; --ink-2:#A6B9C2; --muted:#6D838D;
+  --friend:#3FCDEC; --unknown:#F3A83C; --neutral:#4FC489; --hostile:#F46454; --own:#A98BFF;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --lift:0 1px 1px rgba(0,0,0,.5), 0 14px 34px -22px rgba(0,0,0,.9);
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--ground); color:var(--ink);
+       font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+a { color:var(--friend); }
+.m { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+.lbl { font-size:9.5px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); }
+
+/* ---------- top bar + nav ---------- */
+/* Sticky because on a phone the pages scroll: without this, reading the panels
+   below the scope scrolls the navigation off the top of the screen and there
+   is no way to change section without scrolling all the way back up. That
+   reads as "the buttons don't work". */
+.topbar { display:flex; align-items:center; gap:18px; flex-wrap:wrap; padding:11px 18px;
+          background:var(--panel); border-bottom:1px solid var(--rule);
+          position:sticky; top:0; z-index:700; }
+.brand { font-size:15px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; margin:0; }
+.brand b { color:var(--friend); }
+.brand span { color:var(--muted); font-weight:500; letter-spacing:.11em; }
+nav.main { display:flex; gap:2px; margin-left:14px; }
+nav.main a { padding:7px 13px; border-radius:3px; text-decoration:none; color:var(--muted);
+             font-size:12.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; }
+nav.main a:hover { background:var(--panel-2); color:var(--ink); }
+nav.main a[aria-current="page"] { background:var(--panel-3); color:var(--friend); }
+.spacer { margin-left:auto; }
+.stat { display:flex; flex-direction:column; }
+.stat .v { font-family:var(--mono); font-size:17px; font-variant-numeric:tabular-nums; }
+.chip { font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase;
+        border:1px solid var(--unknown); color:var(--unknown); padding:1px 6px; border-radius:2px; }
+
+/* ---------- layout ---------- */
+.wrap { max-width:1440px; margin:0 auto; padding:16px 16px 32px; }
+.panel { background:var(--panel); border:1px solid var(--rule); border-radius:4px; box-shadow:var(--lift); }
+.ph { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;
+      padding:9px 14px; border-bottom:1px solid var(--rule); background:var(--panel-2); }
+.pt { font-size:11.5px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:var(--ink-2); }
+.ps { font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+.pb { padding:14px; }
+.grid { display:grid; gap:14px; }
+.g2 { grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); }
+.g3 { grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+h2.sec { font-size:11.5px; font-weight:700; letter-spacing:.15em; text-transform:uppercase;
+         color:var(--muted); margin:22px 0 10px; }
+
+/* ---------- readiness ---------- */
+.rd { display:grid; grid-template-columns:11px 1fr auto; gap:10px; align-items:start;
+      padding:11px 14px; border-bottom:1px solid var(--rule-soft); }
+.rd:last-child { border-bottom:none; }
+.rd i { width:9px; height:9px; border-radius:50%; margin-top:6px; }
+.rd .n { font-weight:600; font-size:14px; }
+.rd .d { font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.6; }
+.rd .s { font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; white-space:nowrap; }
+.ok    i { background:var(--neutral); } .ok    .s { color:var(--neutral); }
+.part  i { background:var(--unknown); } .part  .s { color:var(--unknown); }
+.block i { background:var(--hostile); } .block .s { color:var(--hostile); }
+
+/* ---------- empty states: say what is missing, never fake it ---------- */
+.empty { padding:34px 22px; text-align:center; }
+.empty .big { font-size:15px; font-weight:600; color:var(--ink-2); }
+.empty .why { font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:8px; line-height:1.9; }
+.empty code { background:var(--panel-2); border:1px solid var(--rule); border-radius:2px;
+              padding:1px 5px; color:var(--friend); }
+
+/* ---------- evidence grid ---------- */
+.filters { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.filters button { font:600 11px/1 system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase;
+                  padding:6px 10px; border-radius:2px; cursor:pointer; border:1px solid var(--rule);
+                  background:transparent; color:var(--muted); }
+.filters button[aria-pressed="true"] { background:var(--panel-3); color:var(--ink); border-color:var(--ink-2); }
+.tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:12px; padding:14px; }
+figure { margin:0; background:var(--panel-2); border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
+figure img, figure video { display:block; width:100%; height:150px; object-fit:contain;
+                           background:#000; image-rendering:pixelated; cursor:pointer; }
+figcaption { font-family:var(--mono); font-size:10px; color:var(--muted); padding:6px 8px;
+             border-top:1px solid var(--rule-soft); line-height:1.5; }
+figcaption b { color:var(--ink-2); }
+
+/* ---------- tables ---------- */
+table.dt { width:100%; border-collapse:collapse; }
+table.dt th { text-align:left; padding:7px 10px; border-bottom:1px solid var(--rule); background:var(--panel-2);
+              font-size:9.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+table.dt td { padding:7px 10px; border-bottom:1px solid var(--rule-soft);
+              font-family:var(--mono); font-size:12px; font-variant-numeric:tabular-nums; }
+table.dt tr:last-child td { border-bottom:none; }
+
+.kpi { padding:13px 15px; }
+.kpi .v { font-family:var(--mono); font-size:27px; font-variant-numeric:tabular-nums; line-height:1.15; }
+.kpi .v small { font-size:13px; color:var(--muted); }
+.kpi .d { font-size:11.5px; color:var(--muted); margin-top:3px; line-height:1.5; }
+.note { font-family:var(--mono); font-size:10.5px; color:var(--muted); line-height:1.8;
+        border-top:1px dotted var(--rule-soft); padding-top:10px; margin-top:14px; }
+
+/* ---------- installable app ---------- */
+.install { font:600 11px/1 system-ui,sans-serif; letter-spacing:.09em; text-transform:uppercase;
+           padding:7px 11px; border-radius:3px; cursor:pointer; color:var(--friend);
+           background:transparent; border:1px solid var(--friend); }
+.install:hover { background:rgba(63,205,236,.12); }
+.ios-sheet { position:fixed; inset:0; z-index:900; display:grid; place-items:center;
+             padding:20px; background:rgba(4,8,11,.78); backdrop-filter:blur(3px); }
+/* A class that sets `display` beats the [hidden] attribute's UA rule, so the
+   sheet would show on every page load. Restate it, here and everywhere else a
+   hidden element is given a display. */
+[hidden] { display:none !important; }
+.ios-card { background:var(--panel); border:1px solid var(--rule); border-radius:6px;
+            box-shadow:var(--lift); padding:20px 22px; max-width:390px; line-height:1.65; }
+.ios-card b { display:block; font-size:15px; margin-bottom:8px; }
+.ios-card p { margin:0 0 10px; font-size:13px; color:var(--ink-2); }
+.ios-card ol { margin:0 0 14px; padding-left:20px; font-size:13px; color:var(--ink-2); }
+.ios-card li { margin-bottom:6px; }
+.ios-card li b { display:inline; color:var(--ink); }
+.ios-card button { font:600 12px/1 system-ui,sans-serif; letter-spacing:.09em;
+                   text-transform:uppercase; padding:10px 15px; border-radius:3px;
+                   border:none; cursor:pointer; background:var(--friend); color:#04161C; }
+
+/* ---------- touch ----------
+   Every interactive thing was 22-32 px tall, which is fine for a mouse and
+   useless for a thumb: Apple's minimum is 44x44 pt and Material's is 48. A
+   synthetic tap at the exact centre worked, which is why this survived desktop
+   testing -- a real finger simply missed. */
+@media (pointer:coarse) {
+  button, nav.main a, .filters button, .tg, .zb, .install, .btns button {
+    min-height:44px;
+    /* Kills the 300 ms click delay and stops a stray double-tap zooming. */
+    touch-action:manipulation;
+  }
+  nav.main a { display:flex; align-items:center; padding:0 14px; font-size:13px; }
+  .zb { width:44px; height:44px; font-size:19px; }
+  .tg { padding:0 13px; min-width:44px; display:inline-flex; align-items:center;
+        justify-content:center; font-size:11.5px; }
+  .install { padding:0 15px; display:inline-flex; align-items:center; }
+  .filters button { padding:0 14px; display:inline-flex; align-items:center; }
+}
+/* Feedback. Without this a tap that DID work still feels broken, which is
+   most of what "the buttons don't work" actually means. */
+button, nav.main a, a { -webkit-tap-highlight-color:rgba(63,205,236,.18); }
+button:active, .tg:active, .zb:active { filter:brightness(1.45); }
+nav.main a:active { background:var(--panel-3); }
+
+/* ---------- mobile ---------- */
+@media (max-width:720px) {
+  .topbar { gap:10px; padding:9px 12px; }
+  .brand span { display:none; }
+  nav.main { margin-left:0; overflow-x:auto; -webkit-overflow-scrolling:touch;
+             order:3; width:100%; padding-bottom:2px; gap:4px;
+             /* Pan horizontally only: a mostly-vertical drag stays a tap
+                instead of being stolen by the scroller. */
+             touch-action:pan-x; scrollbar-width:none; }
+  nav.main::-webkit-scrollbar { display:none; }
+  nav.main a { white-space:nowrap; }
+  /* Six sections do not fit on a phone, and a hard cut at the edge reads as
+     "there are only four pages". Fading the last few pixels is the standard
+     signal that the strip scrolls. */
+  nav.main { -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);
+             mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent); }
+  .spacer { margin-left:auto; }
+  .stat { display:none; }
+  .wrap { padding:12px 12px 26px; }
+}
+
+::-webkit-scrollbar { width:9px; height:9px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--rule); border-radius:9px; }
+:focus-visible { outline:2px solid var(--friend); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) { * { animation-duration:.01ms !important; } }

@@ -1,0 +1,18 @@
+{
+  "images": 1225,
+  "gt_boxes": 12456,
+  "candidates": 11144,
+  "positives": 349,
+  "base_rate": 0.0313173007896626,
+  "gate_recall": 0.028901734104046242,
+  "gt_found": 360,
+  "split": "val",
+  "weights": "results/detector/v8n_p3_rgbt_640/weights/best.pt",
+  "hazard": "models/mobilenetv2_aider_224_int8.tflite",
+  "grey_per_kelvin": 12.75,
+  "unavailable_features": [
+    "hits",
+    "hit_ratio",
+    "alt_band"
+  ]
+}

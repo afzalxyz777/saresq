@@ -1,0 +1,86 @@
+{
+  "exports": [
+    {
+      "path": "/Users/afzalamanullah/saresq/models/yolov8n_p3_160_w8a32.tflite",
+      "size_mb": 3.226,
+      "imgsz": 160,
+      "layout": "NCHW",
+      "input_shape": [
+        1,
+        3,
+        160,
+        160
+      ],
+      "input_dtype": "float32",
+      "input_quant": [
+        0.0,
+        0
+      ],
+      "output_shape": [
+        1,
+        8,
+        525
+      ],
+      "box_units": "normalized",
+      "box_peak_on_grey": 1.148,
+      "host_latency_ms_median": 3.49,
+      "variant": "p3",
+      "source_weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt"
+    },
+    {
+      "path": "/Users/afzalamanullah/saresq/models/yolov8n_p3_224_w8a32.tflite",
+      "size_mb": 3.232,
+      "imgsz": 224,
+      "layout": "NCHW",
+      "input_shape": [
+        1,
+        3,
+        224,
+        224
+      ],
+      "input_dtype": "float32",
+      "input_quant": [
+        0.0,
+        0
+      ],
+      "output_shape": [
+        1,
+        8,
+        1029
+      ],
+      "box_units": "normalized",
+      "box_peak_on_grey": 0.989,
+      "host_latency_ms_median": 5.93,
+      "variant": "p3",
+      "source_weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt"
+    },
+    {
+      "path": "/Users/afzalamanullah/saresq/models/yolov8n_p3_640_w8a32.tflite",
+      "size_mb": 3.321,
+      "imgsz": 640,
+      "layout": "NCHW",
+      "input_shape": [
+        1,
+        3,
+        640,
+        640
+      ],
+      "input_dtype": "float32",
+      "input_quant": [
+        0.0,
+        0
+      ],
+      "output_shape": [
+        1,
+        8,
+        8400
+      ],
+      "box_units": "normalized",
+      "box_peak_on_grey": 0.996,
+      "host_latency_ms_median": 44.1,
+      "variant": "p3",
+      "source_weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt"
+    }
+  ],
+  "box_units": "normalized"
+}

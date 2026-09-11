@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block body %}
+<div class="wrap">
+  <div class="grid g3">
+    <div class="panel kpi"><span class="lbl">Subsystems ready</span>
+      <div class="v" id="kOk">—<small> / 9</small></div>
+      <div class="d">Filesystem and database facts, not flags.</div></div>
+    <div class="panel kpi"><span class="lbl">Targets on file</span>
+      <div class="v" id="kTargets">—</div><div class="d" id="kTargetsD">—</div></div>
+    <div class="panel kpi"><span class="lbl">Evidence artefacts</span>
+      <div class="v" id="kMedia">—</div><div class="d" id="kMediaD">—</div></div>
+    <div class="panel kpi"><span class="lbl">Fusion labels</span>
+      <div class="v" id="kLabels">—</div>
+      <div class="d">Operator verdicts usable as training pairs.</div></div>
+  </div>
+
+  <h2 class="sec">Build readiness</h2>
+  <section class="panel">
+    <div class="ph"><span class="pt">Subsystem status</span>
+      <span class="ps" id="rdSub">—</span></div>
+    <div id="rdList"></div>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <div class="ph"><span class="pt">Next action</span><span class="ps">the critical path</span></div>
+    <div class="pb" id="nextBox"><span class="ps">loading…</span></div>
+  </section>
+
+  <div class="note">
+    Nothing on this page is hard-coded. Each row is resolved at request time by globbing
+    <code>results/</code> and counting rows in the SQLite store, so a section can never claim a
+    capability the build does not have. See <code>saresq/dashboard/readiness.py</code>.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+fetch("/api/readiness").then(function (r) { return r.json(); }).then(function (d) {
+  document.getElementById("kOk").innerHTML = d.n_ok + "<small> / " + d.items.length + "</small>";
+  document.getElementById("kTargets").textContent = d.counts.targets;
+  document.getElementById("kTargetsD").textContent = d.counts.passes + " passes · " + d.counts.hazards + " hazards";
+  document.getElementById("kMedia").textContent = d.counts.media;
+  document.getElementById("kMediaD").textContent = d.counts.pending_sync + " still queued on the aircraft";
+  document.getElementById("kLabels").textContent = d.counts.labelled;
+  document.getElementById("rdSub").textContent = d.n_blocked + " blocked · " + d.n_ok + " ready";
+
+  var box = document.getElementById("rdList");
+  box.innerHTML = "";
+  var LABEL = { ok:"Ready", part:"Partial", block:"Blocked" };
+  d.items.forEach(function (it) {
+    var row = document.createElement("div");
+    row.className = "rd " + it.status;
+    var w = it.waiting ? '<div class="d" style="color:var(--unknown)">→ ' + esc(it.waiting) + "</div>" : "";
+    row.innerHTML = '<i></i><div><div class="n">' + esc(it.name) + '</div>'
+      + '<div class="d">' + esc(it.detail) + "</div>" + w + "</div>"
+      + '<div class="s">' + LABEL[it.status] + "</div>";
+    box.appendChild(row);
+  });
+
+  var nb = document.getElementById("nextBox");
+  nb.innerHTML = d.next
+    ? '<div style="font-size:15px">' + esc(d.next) + "</div>"
+    : '<div style="font-size:15px;color:var(--neutral)">Nothing blocked — every subsystem has its inputs.</div>';
+}).catch(function (e) {
+  document.getElementById("rdList").innerHTML =
+    '<div class="empty"><div class="big">Could not read the store.</div>'
+    + '<div class="why">Start with <code>python -m saresq.dashboard.app --db saresq.db</code>.</div></div>';
+});
+function esc(s) { return String(s == null ? "" : s).replace(/[<>&"]/g, function (c) {
+  return { "<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;" }[c]; }); }
+</script>
+{% endblock %}

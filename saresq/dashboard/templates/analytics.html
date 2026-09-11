@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block body %}
+<div class="wrap">
+
+  <h2 class="sec">Sensor geometry and search effort</h2>
+  <div class="grid g2">
+    <section class="panel">
+      <div class="ph"><span class="pt">Pixels on target</span><span class="ps">MLX90640 · 32×24 · 55°×35°</span></div>
+      <table class="dt" id="pxTable"></table>
+      <div class="pb ps" style="border-top:1px solid var(--rule-soft)">
+        A prone adult is taken as 1.7 × 0.5 m — the hard case. This is why the policy descends to confirm
+        rather than deciding from survey altitude.
+      </div>
+    </section>
+    <section class="panel">
+      <div class="ph"><span class="pt">Why one pass is not enough</span><span class="ps">Koopman · POD = 1 − e<sup>−C</sup></span></div>
+      <div class="pb"><svg id="podChart" viewBox="0 0 520 210" width="100%" role="img"
+        aria-label="Cumulative probability of detection against number of sweeps"></svg></div>
+      <div class="pb ps" style="border-top:1px solid var(--rule-soft)" id="podNote"></div>
+    </section>
+  </div>
+
+  <h2 class="sec">Detector</h2>
+  <section class="panel" id="detBox"><div class="empty"><span class="ps">loading…</span></div></section>
+
+  <h2 class="sec">Human gate</h2>
+  <div class="grid g3" id="gateBox"></div>
+
+  <h2 class="sec">Evidence and sync</h2>
+  <div class="grid g3" id="syncBox"></div>
+
+  <div class="note">
+    Geometry and search-effort figures are computed live from the payload constants in the spec, so they are
+    always available. Detector figures appear only when a real training run has written into
+    <code>results/</code> — there is no placeholder mAP on this page.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var FOV_ACROSS = 55, FOV_ALONG = 35, NX = 32, NY = 24, PRONE_L = 1.7, PRONE_W = 0.5;
+var SEG_W = 220, SEG_H = 140, ALT = 20, W_EFF = 14.0;
+var D2R = Math.PI / 180;
+function esc(s) { return String(s == null ? "" : s).replace(/[<>&"]/g, function (c) {
+  return { "<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;" }[c]; }); }
+
+// ---- pixels on target ----
+(function () {
+  var rows = [20, 15, 12, 10, 8].map(function (a) {
+    var gx = 2*a*Math.tan(FOV_ACROSS/2*D2R)/NX, gy = 2*a*Math.tan(FOV_ALONG/2*D2R)/NY;
+    return { a:a, gx:gx, gy:gy, px:(PRONE_L/gx)*(PRONE_W/gy) };
+  });
+  var t = document.getElementById("pxTable");
+  t.innerHTML = "<thead><tr><th>AGL</th><th>Ground sample</th><th>Prone adult</th><th>Source grade</th></tr></thead>";
+  var tb = document.createElement("tbody");
+  rows.forEach(function (r) {
+    var grade = r.px >= 8 ? "B — usually reliable" : r.px >= 5 ? "C — fairly reliable" : "D — not usually reliable";
+    var col = r.px >= 8 ? "var(--neutral)" : r.px >= 5 ? "var(--unknown)" : "var(--muted)";
+    tb.innerHTML += "<tr><td>" + r.a + " m</td><td>" + r.gx.toFixed(3) + " × " + r.gy.toFixed(3) + " m</td>"
+      + "<td>" + r.px.toFixed(1) + " px</td><td style='color:" + col + "'>" + grade + "</td></tr>";
+  });
+  t.appendChild(tb);
+})();
+
+// ---- cumulative POD ----
+(function () {
+  var swath = 2*ALT*Math.tan(FOV_ACROSS/2*D2R);
+  var legs = Math.max(2, Math.ceil(SEG_H/(swath*0.8))), spacing = SEG_H/legs;
+  var L = legs*SEG_W + (legs-1)*spacing, A = SEG_W*SEG_H, C = W_EFF*L/A;
+  var svg = document.getElementById("podChart"), NS = "http://www.w3.org/2000/svg";
+  var W = 520, H = 210, PL = 46, PR = 16, PT = 14, PB = 34, N = 5;
+  function X(i) { return PL + i/N*(W-PL-PR); }
+  function Y(p) { return PT + (1-p)*(H-PT-PB); }
+  function add(tag, at, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in at) e.setAttribute(k, at[k]);
+    if (text != null) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  [0, .25, .5, .75, 1].forEach(function (p) {
+    add("line", { x1:PL, y1:Y(p), x2:W-PR, y2:Y(p), stroke:"var(--rule-soft)", "stroke-width":1 });
+    add("text", { x:PL-7, y:Y(p)+4, "text-anchor":"end", "font-size":10, fill:"var(--muted)",
+                  "font-family":"var(--mono)" }, (p*100).toFixed(0)+"%");
+  });
+  var d = "";
+  for (var i = 0; i <= N; i++) { var p = 1-Math.exp(-C*i); d += (i?"L":"M")+X(i)+","+Y(p); }
+  add("path", { d:d, fill:"none", stroke:"var(--friend)", "stroke-width":2.4 });
+  for (var j = 0; j <= N; j++) {
+    var pp = 1-Math.exp(-C*j);
+    add("circle", { cx:X(j), cy:Y(pp), r:3.6, fill:"var(--panel)", stroke:"var(--friend)", "stroke-width":2 });
+    if (j) add("text", { x:X(j), y:Y(pp)-10, "text-anchor":"middle", "font-size":11, fill:"var(--ink)",
+                         "font-family":"var(--mono)" }, (pp*100).toFixed(0)+"%");
+    add("text", { x:X(j), y:H-14, "text-anchor":"middle", "font-size":10, fill:"var(--muted)",
+                  "font-family":"var(--mono)" }, String(j));
+  }
+  add("text", { x:(PL+W-PR)/2, y:H-2, "text-anchor":"middle", "font-size":9, fill:"var(--muted)",
+                "letter-spacing":".14em", "font-family":"var(--mono)" }, "SWEEPS OF SEGMENT A");
+  document.getElementById("podNote").innerHTML =
+    "C = W·L/A = " + W_EFF.toFixed(1) + "·" + L.toFixed(0) + "/" + A + " = <b>" + C.toFixed(3)
+    + "</b> → one sweep detects <b>" + ((1-Math.exp(-C))*100).toFixed(1) + "%</b>. "
+    + "W is assumed at " + W_EFF.toFixed(1) + " m until eval_pixels_on_target.py calibrates it.";
+})();
+
+// ---- detector, human gate, sync ----
+Promise.all([
+  fetch("/api/analytics").then(function (r) { return r.json(); }),
+  fetch("/api/review/stats").then(function (r) { return r.json(); }),
+  fetch("/api/readiness").then(function (r) { return r.json(); })
+]).then(function (res) {
+  var an = res[0], gate = res[1], rd = res[2];
+
+  var db = document.getElementById("detBox");
+  if (an.detector) {
+    var f = an.detector.final, keys = Object.keys(f).filter(function (k) { return /mAP|precision|recall/i.test(k); });
+    db.innerHTML = '<div class="ph"><span class="pt">' + esc(an.detector.file) + '</span><span class="ps">'
+      + an.detector.epochs + ' epochs</span></div><table class="dt"><tbody>'
+      + keys.map(function (k) { return "<tr><td>" + esc(k) + "</td><td>" + esc(f[k]) + "</td></tr>"; }).join("")
+      + "</tbody></table>";
+  } else {
+    db.innerHTML = '<div class="empty"><div class="big">The detector has never been trained.</div>'
+      + '<div class="why">Every latency and accuracy claim in the deck depends on this run.<br><br>'
+      + '1 &nbsp;push the repo to GitHub<br>'
+      + '2 &nbsp;run the cells in <code>docs/colab_training.md</code><br>'
+      + '3 &nbsp;drop <code>results.csv</code> and the <code>.tflite</code> files into <code>results/detector/</code><br><br>'
+      + 'This panel fills itself from that file — no transcription.</div></div>';
+  }
+
+  card("gateBox", "Judged", gate.judged, (gate.pending || 0) + " still queued");
+  card("gateBox", "Machine agreement",
+       gate.agreement == null ? "—" : Math.round(gate.agreement*100) + "%",
+       gate.agree + " agree · " + gate.disagree + " disagree");
+  card("gateBox", "Usable labels", rd.counts.labelled, "verdicts with a frozen feature vector");
+
+  card("syncBox", "Artefacts", rd.counts.media,
+       Object.keys(rd.by_kind).map(function (k) { return rd.by_kind[k] + " " + k; }).join(" · ") || "none yet");
+  card("syncBox", "Queued on aircraft", rd.counts.pending_sync, "not yet acked by the ground station");
+  card("syncBox", "Clips", rd.counts.clips, "short recordings for operator review");
+}).catch(function () {});
+
+function card(host, label, value, detail) {
+  var d = document.createElement("div");
+  d.className = "panel kpi";
+  d.innerHTML = '<span class="lbl">' + esc(label) + '</span><div class="v">' + esc(value)
+    + '</div><div class="d">' + esc(detail) + "</div>";
+  document.getElementById(host).appendChild(d);
+}
+</script>
+{% endblock %}

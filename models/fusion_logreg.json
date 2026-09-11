@@ -1,0 +1,63 @@
+{
+  "format": "saresq.fusion.logreg/1",
+  "feature_names": [
+    "p_rgb",
+    "has_rgb",
+    "a_rgb",
+    "z_peak",
+    "dT",
+    "sign",
+    "area_t",
+    "ecc",
+    "iou",
+    "d_c",
+    "hits",
+    "hit_ratio",
+    "T_bg",
+    "lum",
+    "p_flood",
+    "p_fire",
+    "p_collapse",
+    "alt_band"
+  ],
+  "weights": [
+    0.0,
+    0.0,
+    0.0,
+    -0.3509086029388979,
+    0.0002903167609557952,
+    0.08305382518539962,
+    -0.00012556121596749988,
+    -1.2576866603845878,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.01130211057765071,
+    -0.8131780406406982,
+    -1.9010489285929015,
+    0.6330515966545873,
+    -2.124112505401721,
+    0.0
+  ],
+  "bias": -0.9179208672617492,
+  "pi_0": 0.033373349339735896,
+  "zeroed_features": [
+    "alt_band",
+    "hit_ratio",
+    "hits"
+  ],
+  "zeroed_reason": "Not measurable from a still-image dataset; calibrate from operator verdicts (training/export_verdicts.py) once flight data exists.",
+  "metrics": {
+    "n_train": 8330,
+    "n_test": 2814,
+    "base_rate_train": 0.033373349339735896,
+    "base_rate_test": 0.02523098791755508,
+    "roc_auc": 0.6697663193891751,
+    "average_precision": 0.11152581920694257,
+    "brier": 0.0243187950961226,
+    "brier_baseline": 0.024660683215788688,
+    "ece": 0.005813910330870169
+  },
+  "source_dataset": "fusion_dataset.npz"
+}

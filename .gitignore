@@ -4,10 +4,36 @@ __pycache__/
 .pytest_cache/
 data/raw/
 data/converted/
-models/*.pt
-models/*.tflite
-models/*.onnx
+models/**/*.pt
+models/**/*.tflite
+models/**/*.onnx
 *.db
 *.db-wal
 *.db-shm
 .DS_Store
+
+# TLS material for the --https dev server. saresq.key is a PRIVATE KEY and
+# must never be committed; the cert is regenerated automatically per machine
+# and per LAN address, so there is nothing here worth tracking.
+.certs/
+
+# Bench-test captures and seeded demo data -- reproducible, not source.
+results/camtest/
+results/demo/
+
+# --- ML pipeline (added 2026-09-11) ---
+# The second venv. 3.4 GB of TensorFlow + torch wheels, pinned in
+# docs/deep_learning.md and reinstallable from there. Never commit it.
+.venv-tf/
+
+# Downloaded upstream weights and every trained checkpoint. Regenerable from
+# training/run_all.sh; the SUMMARIES next to them are what carry the results.
+*.pt
+results/detector/*/weights/
+results/**/*.tflite
+results/**/*.keras
+
+# Training logs. run_all2.log alone is 5.7 MB of progress-bar carriage returns.
+results/*.log
+results/detector/*.log
+models/**/*.keras

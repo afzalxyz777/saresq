@@ -1,0 +1,18 @@
+{
+  "variant": "p2",
+  "data": "data/converted/rgbt/rgbt.yaml",
+  "imgsz": 640,
+  "epochs": 8,
+  "device": "mps",
+  "layers": 161,
+  "parameters": 2927088,
+  "gflops": 12.3590144,
+  "mAP50": 0.005420736899241245,
+  "mAP50_95": 0.0011571408555374383,
+  "per_class": {
+    "person": {
+      "AP50": 0.005420736899241245,
+      "AP50_95": 0.0011571408555374383
+    }
+  }
+}

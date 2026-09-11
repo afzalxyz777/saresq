@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Map{% endblock %}
+{% block head %}
+<style>
+  .maparea { position:relative; height:calc(100vh - 58px); overflow:hidden; background:#0B141A; }
+  #cv, #ov { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #cv { cursor:grab; touch-action:none; }
+  #ov { pointer-events:none; }
+  #ov .hit { pointer-events:auto; }
+  .mc { position:absolute; z-index:600; background:var(--panel); border:1px solid var(--rule);
+        border-radius:3px; box-shadow:var(--lift); }
+  .mc-tl { top:12px; left:12px; width:246px; }
+  .mc-tr { top:12px; right:12px; display:flex; flex-direction:column; gap:6px; background:none; border:none; box-shadow:none; }
+  .mc-bl { bottom:12px; left:12px; padding:7px 11px; }
+  .mc-br { bottom:12px; right:12px; padding:7px 11px; max-width:330px; }
+  .mc-hd { padding:8px 11px; border-bottom:1px solid var(--rule-soft); display:flex;
+           justify-content:space-between; align-items:center; gap:8px; }
+  .mc-bd { padding:9px 11px 11px; }
+  .lvl { display:flex; align-items:baseline; justify-content:space-between; }
+  .lvl b { font-family:var(--mono); font-size:18px; font-weight:500; }
+  input[type=range] { width:100%; accent-color:var(--hostile); margin:3px 0 0; }
+  .tgs { display:flex; flex-wrap:wrap; gap:4px; margin-top:9px; padding-top:8px; border-top:1px dotted var(--rule-soft); }
+  .tg { font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:3px 7px;
+        border-radius:2px; cursor:pointer; border:1px solid var(--rule); background:transparent; color:var(--muted); }
+  .tg[aria-pressed="true"] { background:var(--panel-3); color:var(--ink); border-color:var(--ink-2); }
+  .zb { width:32px; height:32px; padding:0; font-size:16px; font-family:var(--mono);
+        background:var(--panel); border:1px solid var(--rule); border-radius:3px; color:var(--ink); cursor:pointer; }
+  .key { display:flex; flex-wrap:wrap; gap:9px 14px; margin-top:9px; padding-top:8px;
+         border-top:1px dotted var(--rule-soft); }
+  .key span { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-2); }
+  .key i { width:14px; height:3px; border-radius:2px; }
+  .scalebar { display:flex; flex-direction:column; gap:3px; align-items:flex-start; }
+  .scalebar .bar { height:6px; border:1px solid var(--ink-2); border-top:none; }
+  .scalebar .lab { font-family:var(--mono); font-size:9.5px; color:var(--ink-2); text-align:center; }
+
+  /* Touch sizing. These have to be restated on the page rather than left to
+     console.css: this style block comes after it in the cascade at equal
+     specificity, so the global rules lose to .zb/.tg above. */
+  @media (pointer:coarse) {
+    .zb { width:44px; height:44px; font-size:19px; }
+    /* min-width too: a two-character label like "3D" is 44 tall but only 43.98
+       wide, which still misses the target size. */
+    .tg { min-height:44px; min-width:44px; padding:0 13px;
+          display:inline-flex; align-items:center; justify-content:center; }
+    /* A 16 px-tall slider is unusable with a thumb; give it a real track and
+       a thumb big enough to grab. */
+    input[type=range] { height:44px; }
+    input[type=range]::-webkit-slider-thumb { width:26px; height:26px; }
+    .mc-tl { width:min(268px,78vw); }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="maparea" id="maparea">
+  <canvas id="cv"></canvas>
+  <svg id="ov" xmlns="http://www.w3.org/2000/svg" aria-label="Live targets and hazards over the survey area"></svg>
+
+  <div class="mc mc-tl">
+    <div class="mc-hd"><span class="lbl">Flood hazard layer</span><span class="ps" id="cutStat">—</span></div>
+    <div class="mc-bd">
+      <div class="lvl"><b><span id="lvlVal">12.0</span> m</b><span class="ps">SRTM datum</span></div>
+      <input type="range" id="lvl" min="4" max="16" step="0.25" value="12"
+             aria-label="Modelled flood water surface level in metres">
+      <div class="tgs">
+        <button class="tg" data-layer="flood" aria-pressed="true">Flood</button>
+        <button class="tg" data-layer="roads" aria-pressed="true">Roads</button>
+        <button class="tg" data-layer="bldg" aria-pressed="true">Buildings</button>
+        <button class="tg" data-layer="d3" aria-pressed="false">3D</button>
+      </div>
+      <div class="tgs">
+        <button class="tg" data-prof="car" aria-pressed="false">Car 0.30 m</button>
+        <button class="tg" data-prof="emrg" aria-pressed="true">Emergency 0.60 m</button>
+      </div>
+      <div class="key">
+        <span><i style="background:#4FC489"></i>Passable</span>
+        <span><i style="background:#F3A83C"></i>Caution</span>
+        <span><i style="background:#E8792B"></i>Emrg only</span>
+        <span><i style="background:#F46454"></i>Impassable</span>
+        <span><i style="background:var(--muted);height:0;border-top:2px dashed var(--muted)"></i>Cut off</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mc-tr">
+    <button class="zb" id="zin" aria-label="Zoom in">+</button>
+    <button class="zb" id="zout" aria-label="Zoom out">&minus;</button>
+  </div>
+
+  <div class="mc mc-bl">
+    <div class="scalebar"><div class="lab" id="scaleLab">—</div><div class="bar" id="scaleBar" style="width:80px"></div></div>
+    <div class="ps" style="margin-top:4px" id="status">connecting…</div>
+    <div class="ps" style="margin-top:3px;font-size:8.5px">
+      Basemap © OpenStreetMap contributors (ODbL) · Terrain NASA SRTM 30 m
+    </div>
+  </div>
+
+  <div class="mc mc-br">
+    <div class="ps" id="readout">Move the cursor over the map</div>
+    <div id="info" style="margin-top:7px"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/basemap.js"></script>
+<script src="/static/mapcore.js"></script>
+<script src="/static/mapview.js"></script>
+{% endblock %}

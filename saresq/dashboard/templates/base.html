@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}SaResQ{% endblock %} — SaResQ Ground Station</title>
+<link rel="stylesheet" href="/static/console.css">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#04080B">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/static/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SaResQ">
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <h1 class="brand"><b>&#9670;</b> SaResQ <span>Ground Station</span></h1>
+  <nav class="main">
+    {% for href, label in [('/', 'Overview'), ('/radar', 'Radar'), ('/map', 'Map'),
+                           ('/evidence', 'Evidence'), ('/review', 'Review'),
+                           ('/analytics', 'Analytics')] %}
+      <a href="{{ href }}"{% if page == href %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <div class="spacer"></div>
+  <button class="install" id="installBtn" hidden>Install app</button>
+  <div class="stat"><span class="lbl">Targets</span><span class="v" id="navTargets">—</span></div>
+  <div class="stat"><span class="lbl">Reviewed</span><span class="v" id="navReviewed">—</span></div>
+  <span class="chip" id="navMode">offline</span>
+</header>
+
+{% block body %}{% endblock %}
+
+<div class="ios-sheet" id="iosSheet" hidden role="dialog" aria-modal="true"
+     aria-label="Install on iPhone or iPad">
+  <div class="ios-card">
+    <b>Install on iPhone or iPad</b>
+    <p>Safari has no install button — Apple requires you to add it by hand.</p>
+    <ol>
+      <li>Tap <b>Share</b> (the square with an arrow) in the Safari toolbar.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. SaResQ opens full-screen, without browser chrome.</li>
+    </ol>
+    <p class="ps" id="iosWarn"></p>
+    <button id="iosClose">Got it</button>
+  </div>
+</div>
+
+<script>
+// Every page shows the same two counters, so the operator always knows the
+// size of the queue without navigating away from what they are doing.
+fetch("/api/readiness").then(function (r) { return r.json(); }).then(function (d) {
+  document.getElementById("navTargets").textContent = d.counts.targets;
+  document.getElementById("navReviewed").textContent = d.counts.verdicts + " / " + d.counts.targets;
+}).catch(function () {});
+
+// ---- installable app ----
+// A service worker needs a secure context. localhost counts; a bare LAN
+// address does not, which is exactly how you reach this from a phone. So the
+// registration is allowed to fail quietly and the console says why.
+(function () {
+  "use strict";
+  var secure = window.isSecureContext;
+  if ("serviceWorker" in navigator && secure) {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(function (e) {
+      console.warn("SaResQ: service worker not registered —", e.message);
+    });
+  } else if (!secure) {
+    console.warn("SaResQ: not a secure context (" + location.protocol + "), so no offline "
+      + "cache and no Android install prompt. Start the server with --https, or reach it "
+      + "over localhost.");
+  }
+
+  var btn = document.getElementById("installBtn"), deferred = null;
+  var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+         || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var standalone = window.matchMedia("(display-mode: standalone)").matches
+                || navigator.standalone === true;
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault(); deferred = e; btn.hidden = false;
+  });
+  if (iOS && !standalone) btn.hidden = false;
+
+  btn.addEventListener("click", function () {
+    if (deferred) {
+      deferred.prompt();
+      deferred.userChoice.then(function () { deferred = null; btn.hidden = true; });
+      return;
+    }
+    document.getElementById("iosWarn").textContent = secure ? ""
+      : "This page is on " + location.protocol + " — iOS will install it, but it cannot "
+        + "cache anything for offline use until the server is served over HTTPS.";
+    document.getElementById("iosSheet").hidden = false;
+  });
+  document.getElementById("iosClose").addEventListener("click", function () {
+    document.getElementById("iosSheet").hidden = true;
+  });
+  window.addEventListener("appinstalled", function () { btn.hidden = true; });
+
+  var mode = document.getElementById("navMode");
+  function online() {
+    mode.textContent = standalone ? "app" : (navigator.onLine ? "browser" : "offline");
+    mode.style.borderColor = mode.style.color =
+      navigator.onLine ? "var(--neutral)" : "var(--hostile)";
+  }
+  window.addEventListener("online", online);
+  window.addEventListener("offline", online);
+  online();
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

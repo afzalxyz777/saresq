@@ -1,0 +1,16 @@
+{
+  "tflite": "models/yolov8n_p3_640_w8a32.tflite",
+  "weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt",
+  "imgsz": 640,
+  "images": 150,
+  "gt_person": 521,
+  "person_AP50_float32": 0.72445,
+  "person_AP50_int8": 0.73081,
+  "absolute_gap": 0.00635,
+  "relative_gap_pct": 0.88,
+  "box_rows_correlation": 0.99933,
+  "cls_rows_correlation": 0.99304,
+  "box_rows_mae_px": 3.3051,
+  "cls_rows_mae": 8e-05,
+  "verdict": "INT8 export is faithful (+0.9% AP, cls corr 0.99304)"
+}

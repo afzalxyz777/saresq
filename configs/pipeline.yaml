@@ -36,15 +36,30 @@ detector:
   conf: 0.15
   nms_iou: 0.5
   threads: 4
+  # P3, and w8a32 (int8 weights, float32 activations) -- both settled by
+  # measurement, not preference:
+  #   P3 vs P2: P3 won every object-size bin at HALF the compute (8.9 vs 17.4
+  #     GFLOPs). These paths pointed at p2 files that no longer existed.
+  #   w8a32 vs full int8: 99.2% of the PyTorch model's Person AP50 versus
+  #     31.9%, at the same 3.3 MB. Full int8 quantises activations, which
+  #     wrecks box regression on 9-45 px people. See training/export_tflite.py.
   models:
-    crop160: models/yolov8n_p2_160_int8.tflite
-    crop224: models/yolov8n_p2_224_int8.tflite
-    full640: models/yolov8n_p2_640_int8.tflite
+    crop160: models/yolov8n_p3_160_w8a32.tflite
+    crop224: models/yolov8n_p3_224_w8a32.tflite
+    full640: models/yolov8n_p3_640_w8a32.tflite
 
 hazard:
   model: models/mobilenetv2_aider_224_int8.tflite
   rate_hz: 1.0
-  classes: [collapsed_building, fire, flood, traffic_incident, normal]
+  # MUST match saresq.detect.hazard.CLASSES exactly, which in turn matches the
+  # class_names= passed to image_dataset_from_directory in train_hazard.py --
+  # that ordering IS the model's output order. This list said "flood" where the
+  # folder, the training order and the code all say "flooded_areas". Nothing
+  # reads this list today, so nothing broke; the moment anything passes it to
+  # HazardClassifier(classes=...) the arity check passes (still 5 names) and
+  # hazard_features() then dies on KeyError["flooded_areas"] -- a rename that
+  # looks harmless and fails somewhere else entirely.
+  classes: [collapsed_building, fire, flooded_areas, traffic_incident, normal]
 
 tracker:
   iou_match: 0.3

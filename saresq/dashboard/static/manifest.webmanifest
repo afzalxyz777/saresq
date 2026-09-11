@@ -1,0 +1,27 @@
+{
+  "name": "SaResQ Ground Station",
+  "short_name": "SaResQ",
+  "description": "Live drone tracking, flood trafficability and survivor triage for flood search and rescue.",
+  "id": "/",
+  "start_url": "/radar",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
+  "orientation": "any",
+  "background_color": "#04080B",
+  "theme_color": "#04080B",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Radar", "short_name": "Radar", "url": "/radar",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Review queue", "short_name": "Review", "url": "/review",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Flood map", "short_name": "Map", "url": "/map",
+      "icons": [{ "src": "/static/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

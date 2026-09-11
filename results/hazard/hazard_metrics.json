@@ -1,0 +1,49 @@
+{
+  "val_images": 1286,
+  "accuracy": 0.9517884914463453,
+  "classes": [
+    "collapsed_building",
+    "fire",
+    "flooded_areas",
+    "traffic_incident",
+    "normal"
+  ],
+  "confusion_matrix": [
+    [
+      94,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      105,
+      0,
+      0,
+      2
+    ],
+    [
+      0,
+      0,
+      91,
+      1,
+      3
+    ],
+    [
+      3,
+      0,
+      1,
+      86,
+      4
+    ],
+    [
+      21,
+      6,
+      10,
+      9,
+      848
+    ]
+  ],
+  "tflite_mb": 2.737744
+}
