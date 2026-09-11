@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SaResQ — Deck Draft</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#151b22; --ink-2:#39424d; --dim:#68737e; --paper:#fff; --tint:#f5f3f0;
+    --rule:#dcd7d0; --thermal:#c2410c; --cool:#1d5c7a; --ok:#2f6b45;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  @page{size:A4; margin:15mm 15mm 14mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,serif;
+       font-size:10pt;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  h1,h2,h3,h4,.slideno,.label{font-family:var(--sans)}
+  .cover{border-bottom:3px solid var(--ink);padding-bottom:13px;margin-bottom:14px}
+  .cover h1{font-size:24pt;font-weight:700;letter-spacing:-0.025em;margin:0;line-height:1.1}
+  .cover .sub{font-size:11.5pt;color:var(--thermal);font-weight:500;margin-top:5px;font-family:var(--sans)}
+  .meta{display:flex;gap:24px;flex-wrap:wrap;font-family:var(--mono);font-size:7.8pt;color:var(--dim);margin-top:10px}
+  .meta b{display:block;color:var(--ink);font-size:7.2pt;font-family:var(--sans);
+          text-transform:uppercase;letter-spacing:0.06em}
+  .slide{border:1px solid var(--rule);border-radius:4px;margin:0 0 13px;break-inside:avoid;overflow:hidden}
+  .slide > .hd{display:flex;align-items:baseline;gap:10px;background:var(--tint);
+               padding:6px 11px;border-bottom:1px solid var(--rule)}
+  .slideno{font-family:var(--mono);font-size:8pt;font-weight:600;color:var(--thermal)}
+  .slide h3{font-size:11.6pt;font-weight:600;margin:0;flex:1}
+  .purpose{font-family:var(--sans);font-size:7.6pt;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em}
+  .bd{padding:9px 12px 10px}
+  .label{font-size:7.2pt;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;
+         color:var(--dim);margin:9px 0 2px}
+  .label:first-child{margin-top:0}
+  .headline{font-size:13pt;font-weight:600;font-family:var(--sans);line-height:1.24;
+            color:var(--ink);margin:0 0 3px;text-wrap:balance}
+  .say{border-left:3px solid var(--cool);padding:5px 0 5px 10px;margin:4px 0;color:var(--ink-2);font-size:9.5pt}
+  ul{margin:3px 0 5px;padding-left:16px}
+  li{margin:1.5px 0}
+  .big{display:flex;gap:16px;flex-wrap:wrap;margin:7px 0}
+  .stat{flex:1;min-width:88px;background:var(--tint);border-radius:3px;padding:7px 9px}
+  .stat .v{font-family:var(--mono);font-size:15pt;font-weight:600;color:var(--thermal);line-height:1}
+  .stat .k{font-family:var(--sans);font-size:7.3pt;color:var(--dim);margin-top:3px;line-height:1.3}
+  .stat.cool .v{color:var(--cool)}
+  .stat.ok .v{color:var(--ok)}
+  table{border-collapse:collapse;width:100%;font-size:8.6pt;margin:5px 0}
+  th{font-family:var(--sans);font-size:7.2pt;text-transform:uppercase;letter-spacing:0.05em;
+     color:var(--dim);text-align:left;padding:3px 7px 3px 0;border-bottom:1.5px solid var(--ink)}
+  td{padding:3px 7px 3px 0;border-bottom:1px solid var(--rule)}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;padding-right:11px}
+  tr.win td{background:#eef5f0}
+  .visual{background:#fbf9f6;border:1px dashed var(--rule);border-radius:3px;padding:6px 9px;
+          font-size:8.6pt;color:var(--ink-2);margin:5px 0}
+  .visual b{font-family:var(--sans);font-size:7.3pt;text-transform:uppercase;letter-spacing:0.07em;color:var(--dim)}
+  .note{font-size:8.7pt;color:var(--dim);font-style:italic}
+  h2{font-size:13pt;font-family:var(--sans);font-weight:600;margin:20px 0 7px;
+     padding-bottom:4px;border-bottom:2px solid var(--ink)}
+  .pagebreak{break-before:page}
+  code{font-family:var(--mono);font-size:0.87em;background:var(--tint);padding:0.5px 3px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>SaResQ — Presentation Draft</h1>
+  <div class="sub">Slide-by-slide script: what to put on each slide, and what to say</div>
+  <div class="meta">
+    <div><b>For</b>Smart India Hackathon</div>
+    <div><b>Date</b>11 September 2026</div>
+    <div><b>Slides</b>12 core + 3 reserve</div>
+    <div><b>Runtime</b>~8 minutes</div>
+  </div>
+</div>
+
+<p><b>How to use this.</b> Each block below is one slide. <span class="label" style="display:inline">On slide</span>
+is the text that goes on screen — keep it short, it is not a document.
+<span class="label" style="display:inline">Say</span> is your spoken line. <span class="label" style="display:inline">Visual</span>
+is what to build. Every number here is measured and traceable to the technical report.</p>
+
+<p class="note">The narrative arc: drone search is already possible — but a human has to watch the
+video. That human is the bottleneck. We put the watching onboard. Doing that on a ₹4,000 computer
+is the hard engineering, and we have the measurements to prove we did it.</p>
+
+<h2>Act I — The problem</h2>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">01</span><h3>Title</h3><span class="purpose">10 seconds</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">SaResQ — onboard AI that finds survivors, so nobody has to watch the screen</p>
+    <p>Thermal + visual search payload for disaster response · Team name · SIH 2026</p>
+    <div class="visual"><b>Visual</b><br>One photograph of the actual printed payload with the Pi
+    fitted. A real object beats a render — it proves the thing exists.</div>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">02</span><h3>The window</h3><span class="purpose">Stakes</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">After a building collapse, survival falls sharply with every hour trapped.</p>
+    <p>Search teams are slow, scarce, and at risk. Drones can cover ground fast.</p>
+    <div class="say"><b>Say:</b> "Everyone in this room already knows drones can search a collapse
+    site. That problem is solved. The problem nobody has solved is what happens to the video."</div>
+    <div class="visual"><b>Visual</b><br>One image of a collapse site. No bullet points. Let the
+    photograph carry it.</div>
+    <p class="note">Insert a sourced survival-rate statistic here — use one you can cite, since a
+    judge may ask. Don't invent a number.</p>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">03</span><h3>The real bottleneck</h3><span class="purpose">The insight — most important slide</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">The drone isn't the bottleneck. The person watching the feed is.</p>
+    <ul>
+      <li>Waypoint flight has been solved for a decade</li>
+      <li>A survivor is a <b>2.6-pixel</b> warm smudge on a low-resolution thermal feed at 4 frames a second</li>
+      <li>Human visual search degrades sharply with time on task</li>
+      <li>An operator cannot rewind, cannot combine three weak sightings, cannot attach a GPS fix to a hunch</li>
+    </ul>
+    <div class="say"><b>Say:</b> "We are not automating the flying. We are automating the
+    <i>looking</i> — because that is the part that fails."</div>
+    <div class="visual"><b>Visual</b><br>An actual 32×24 thermal frame with a person in it, blown
+    up. Let the audience try to spot them. Then reveal the box. This lands hard — it makes the
+    difficulty physical rather than asserted.</div>
+  </div>
+</div>
+
+<h2>Act II — The solution</h2>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">04</span><h3>What we built</h3><span class="purpose">The reveal</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">A 340-gram payload that watches for you — onboard, in real time.</p>
+    <div class="big">
+      <div class="stat"><div class="v">₹14k</div><div class="k">total bill of materials</div></div>
+      <div class="stat cool"><div class="v">340 g</div><div class="k">fits a 450 mm quadcopter</div></div>
+      <div class="stat ok"><div class="v">0 wires</div><div class="k">to the flight controller</div></div>
+    </div>
+    <p>Thermal camera · Pi Camera · Raspberry Pi 4 · IMU · GPS · own battery. Bolts or straps to
+    a drone you already own.</p>
+    <div class="say"><b>Say:</b> "It carries its own power, its own GPS, its own everything. It
+    never touches the flight stack — so it cannot crash your drone, and fitting it is a mechanical
+    job, not an avionics project."</div>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">05</span><h3>How it works</h3><span class="purpose">Architecture — keep it to 40 seconds</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">Look cheaply everywhere. Look expensively almost nowhere.</p>
+    <table>
+      <tr><th>Stage</th><th>Does</th><th class="n">Cost</th></tr>
+      <tr><td><b>1. Thermal gate</b></td><td>Flags warm <i>or cold</i> anomalies in a 32×24 frame. Pure statistics, no AI.</td><td class="n">~0 ms</td></tr>
+      <tr class="win"><td><b>2. Detector</b></td><td>AI looks <i>only</i> at the 2–6 flagged patches</td><td class="n">28 ms each</td></tr>
+      <tr><td><b>3. Scene classifier</b></td><td>Fire? Flood? Collapse? — context, once a second</td><td class="n">33 ms</td></tr>
+      <tr><td><b>4. Fusion</b></td><td>Combines evidence across repeated passes into one probability + GPS fix</td><td class="n">&lt;0.1 ms</td></tr>
+    </table>
+    <div class="say"><b>Say:</b> "A full frame is 409,600 pixels. A patch is 25,600. We do about a
+    sixteenth of the work a normal detector would — that is the entire reason this runs on a
+    ₹4,000 computer instead of a laptop."</div>
+    <div class="visual"><b>Visual</b><br>A horizontal 4-box pipeline, each box labelled with its
+    cost. Animate left to right if the format allows.</div>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">06</span><h3>Cold matters too</h3><span class="purpose">Depth — shows you thought past the obvious</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">We look for cold anomalies as well as warm ones.</p>
+    <ul>
+      <li>A body in water reads <b>colder</b> than its surroundings</li>
+      <li>A void beneath rubble reads colder than sun-baked concrete</li>
+      <li>In direct afternoon sun, debris can be <b>hotter than a human being</b> — a "find hot things" system fails exactly then</li>
+    </ul>
+    <div class="say"><b>Say:</b> "A naive thermal detector looks for hot spots. In Kolkata sun, the
+    rubble <i>is</i> the hot spot. So our gate is two-sided — and we recommend flying at dawn, dusk
+    or night. That's a physics constraint, not a software one."</div>
+    <p class="note">This slide is optional if time is tight — but it is the kind of detail that
+    separates a project that was thought about from one that was assembled.</p>
+  </div>
+</div>
+
+<h2 class="pagebreak">Act III — Proof</h2>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">07</span><h3>Does it find people?</h3><span class="purpose">Headline result</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">85% on the dataset it was built for. 54% on a completely different one.</p>
+    <table>
+      <tr><th>Dataset</th><th>What it is</th><th class="n">Person AP50</th></tr>
+      <tr class="win"><td>HIT-UAV</td><td>Aerial thermal, overhead</td><td class="n"><b>0.850</b></td></tr>
+      <tr class="win"><td>RGBTDronePerson</td><td>Night, urban, dense, oblique</td><td class="n"><b>0.544</b></td></tr>
+      <tr><td>Scene classifier</td><td>AIDER — fire / flood / collapse</td><td class="n"><b>95.2%</b></td></tr>
+    </table>
+    <div class="say"><b>Say:</b> "We quote two datasets on purpose. A single number always invites
+    the question 'did it just memorise that dataset?' Two independently collected datasets answer
+    it before you ask."</div>
+    <p class="note"><b>If asked "is 85% good?"</b> — "For a 3-megabyte model on a Raspberry Pi,
+    yes. It isn't state of the art; a model fifty times bigger would beat it. The constraint is the
+    point."</p>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">08</span><h3>Does it actually run?</h3><span class="purpose">The credibility slide</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">Measured on the Raspberry Pi. Not estimated.</p>
+    <div class="big">
+      <div class="stat"><div class="v">28 ms</div><div class="k">per patch, on the Pi</div></div>
+      <div class="stat cool"><div class="v">177 ms</div><div class="k">worst case, of a 250 ms budget</div></div>
+      <div class="stat ok"><div class="v">95 MB</div><div class="k">RAM used, of 905 available</div></div>
+    </div>
+    <p><b>29% headroom at the worst case.</b> 43 °C, no thermal throttling, running off the payload's own power bank.</p>
+    <div class="say"><b>Say:</b> "Here is the number that matters. A conventional whole-frame
+    detector would need about 320 milliseconds on this hardware — that's over the entire frame
+    budget before it does anything else. Ours needs 177. The architecture isn't a preference, it's
+    the only thing that fits."</div>
+    <div class="visual"><b>Visual</b><br>A screenshot of the actual terminal output from the Pi
+    benchmark. Raw evidence is more persuasive than a styled chart.</div>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">09</span><h3>How we know it's right</h3><span class="purpose">Your differentiator — do not cut this</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">We measured the obvious choices — and two of them were wrong.</p>
+    <table>
+      <tr><th>Decision</th><th>The obvious choice</th><th>What measurement showed</th></tr>
+      <tr><td>Detector head</td><td>Add a high-resolution layer for small objects</td><td><b>Lost</b> in every size bin at <b>2× the compute</b></td></tr>
+      <tr><td>Compression</td><td>Standard 8-bit quantisation</td><td>Silently ran at <b>32% accuracy</b> — no error, plausible output</td></tr>
+    </table>
+    <div class="say"><b>Say:</b> "The second one is the one I'd want you to remember. Our deployed
+    model was scoring a third of what we thought. It loaded fine, it ran fast, it drew
+    sensible-looking boxes. Nothing failed. We only found it because we built a test that compares
+    the model we ship against the model we quote — and we'd have found out on stage instead."</div>
+    <p class="note">This is the strongest slide in the deck. It demonstrates engineering judgement,
+    not just a working demo — and every judge has seen projects that would have shipped that bug.</p>
+  </div>
+</div>
+
+<h2>Act IV — Fit and future</h2>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">10</span><h3>It fits your drone</h3><span class="purpose">Feasibility</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">Bolts to any 450 mm-class quadcopter. No firmware change. No re-certification.</p>
+    <ul>
+      <li>4 × M3 into a standard vibration-damping plate, or 2 straps through the built-in slots</li>
+      <li>Own battery, own GPS, own IMU — <b>zero electrical connection to the flight controller</b></li>
+      <li>Flat layout keeps the centre of gravity low; prints with no supports</li>
+      <li>GPS antenna on a separate mast — a Pi radiates across the GPS band at 1575 MHz</li>
+    </ul>
+    <div class="say"><b>Say:</b> "Because it never touches the flight stack, it cannot brown it out
+    and cannot cause a flyaway. Fitting it to a new airframe is a bolt-on, not an integration
+    project."</div>
+    <div class="visual"><b>Visual</b><br>The CAD render or a photo of the printed tray with the
+    mounting holes called out.</div>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">11</span><h3>What autonomy this adds</h3><span class="purpose">The ask behind the ask</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">Today: the drone sees for itself. Next: it decides where to look.</p>
+    <table>
+      <tr><th>Level</th><th>Meaning</th><th>Status</th></tr>
+      <tr><td>L0</td><td>Pilot flies, human watches the feed</td><td>Today's practice</td></tr>
+      <tr class="win"><td><b>L1</b></td><td>Payload detects, fuses across passes, geo-tags — unsupervised</td><td><b>Built &amp; running</b></td></tr>
+      <tr><td>L2</td><td>Payload re-tasks the aircraft: orbit a hit, densify the search</td><td>One cable away</td></tr>
+    </table>
+    <p>The Pi's serial port is already free for MAVLink. We have <b>deliberately</b> not connected it.</p>
+    <div class="say"><b>Say:</b> "The moment the payload can command the aircraft, every false
+    alarm becomes an unplanned manoeuvre. That step comes after field validation, not before. Right
+    now the electrical independence is exactly what lets this fly today with no safety case."</div>
+    <p class="note">Restraint reads as maturity. Judges probe for people who overclaim autonomy —
+    this pre-empts it.</p>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">12</span><h3>Close</h3><span class="purpose">Land it</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">₹14,000 of parts. 340 grams. Finds 85% of people, onboard, in real time.</p>
+    <p>Works on a drone you already own.</p>
+    <div class="say"><b>Say:</b> "Every number we have shown you was measured on this hardware —
+    including the ones that told us we were wrong. That's the project."</div>
+  </div>
+</div>
+
+<h2 class="pagebreak">Reserve slides — for Q&amp;A</h2>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">R1</span><h3>What we know doesn't work yet</h3><span class="purpose">Answer this before they ask</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">Honest limits</p>
+    <ul>
+      <li><b>Never flown.</b> Benchmarked on the board, not in the air.</li>
+      <li><b>The evidence-fusion stage is weak</b> (0.67 AUC) — 5 of its 18 inputs need sensors mounted and flying.</li>
+      <li><b>No daytime visible detector.</b> Thermal-only today; the dataset we had for visible turned out to be night-time imagery with no usable signal.</li>
+      <li><b>Search-coverage figure withheld</b> — the only measurement available is out-of-domain, and publishing it would overstate coverage roughly 5×.</li>
+    </ul>
+    <div class="say"><b>Say:</b> "We'd rather tell you the weak parts than have you find them."</div>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">R2</span><h3>Best operating altitude</h3><span class="purpose">Likely question</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">20–30 m. The limit is the thermal sensor, not the AI.</p>
+    <table>
+      <tr><th class="n">Altitude</th><th class="n">Thermal pixels on a prone adult</th><th class="n">Swath</th></tr>
+      <tr class="win"><td class="n">20 m</td><td class="n">2.1</td><td class="n">21 m</td></tr>
+      <tr class="win"><td class="n">25 m</td><td class="n">1.4</td><td class="n">26 m</td></tr>
+      <tr><td class="n">40 m</td><td class="n">0.5 — contrast halves</td><td class="n">42 m</td></tr>
+    </table>
+    <p>Below one thermal pixel the person's heat averages with the cold ground around them, and
+    apparent contrast falls as <b>1/height²</b>. The detector barely degrades over this range — the
+    sensor does.</p>
+  </div>
+</div>
+
+<div class="slide">
+  <div class="hd"><span class="slideno">R3</span><h3>Why not just use a bigger model / a Jetson?</h3><span class="purpose">Likely challenge</span></div>
+  <div class="bd">
+    <div class="label">On slide</div>
+    <p class="headline">Because the constraint <i>is</i> the contribution.</p>
+    <ul>
+      <li>A Jetson is 5–10× the cost and draws far more power — which is flight time</li>
+      <li>Anyone can run a large model on a large computer; that isn't deployable at scale in a disaster response budget</li>
+      <li>Our model is <b>3.2 MB</b> and uses <b>95 MB</b> of RAM — a state relief agency can buy fifty of these</li>
+    </ul>
+    <div class="say"><b>Say:</b> "The engineering question isn't 'can AI find people in thermal
+    images' — it's 'can it do that on hardware a state disaster response force can actually afford
+    to buy in quantity'."</div>
+  </div>
+</div>
+
+<h2>Build notes</h2>
+<ul>
+  <li><b>Slides 3, 8 and 9 are the ones that win it.</b> If you have to cut, cut 6 and 12 first.</li>
+  <li><b>Put a real artefact on screen early</b> — the printed payload on slide 1, a real thermal
+  frame on slide 3, the raw Pi terminal output on slide 8.</li>
+  <li><b>Don't animate numbers.</b> Let them sit still long enough to be read.</li>
+  <li><b>The video</b> should show, in order: the payload being fitted to a drone; the thermal feed
+  with the gate firing; the detector confirming; the map pin appearing. Even a bench demo with
+  someone walking past the sensor carries this.</li>
+  <li>Every figure traces to <code>docs/SaResQ_Model_Architecture_Report.pdf</code>. If a judge
+  pushes on any number, it is defensible.</li>
+</ul>
+
+</body>
+</html>

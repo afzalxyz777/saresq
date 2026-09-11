@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SaResQ Perception Model — Technical Report</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#1a2028; --ink-2:#3d4752; --dim:#6b7681; --faint:#96a0aa;
+    --paper:#ffffff; --tint:#f6f4f1; --rule:#d9d4cd;
+    --thermal:#c2410c; --optical:#1d5c7a; --ok:#2f6b45; --bad:#a8321f;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @page { size:A4; margin:17mm 16mm 16mm 16mm; }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:Georgia,"Source Serif 4",serif; font-size:10.1pt; line-height:1.52;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  h1,h2,h3,h4{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; text-wrap:balance; margin:0}
+  h2{
+    font-size:15pt; font-weight:600; letter-spacing:-0.01em; margin:26px 0 3px;
+    padding-bottom:5px; border-bottom:2px solid var(--ink); break-after:avoid;
+  }
+  h3{font-size:11.4pt; font-weight:600; margin:17px 0 4px; color:var(--ink); break-after:avoid}
+  h4{font-size:9.8pt; font-weight:600; margin:12px 0 2px; color:var(--ink-2); break-after:avoid}
+  p{margin:0 0 7px}
+  ul,ol{margin:4px 0 8px; padding-left:17px}
+  li{margin:2px 0}
+  code,.m{font-family:var(--mono); font-size:0.87em; background:var(--tint); padding:0.5px 3px; border-radius:2px}
+  .part{
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.6pt; font-weight:600;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--thermal); margin:28px 0 0;
+  }
+  table{border-collapse:collapse; width:100%; margin:9px 0 11px; font-size:8.9pt; break-inside:avoid}
+  th{
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7.7pt; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.05em; color:var(--dim);
+    text-align:left; padding:4px 7px 4px 0; border-bottom:1.5px solid var(--ink);
+  }
+  td{padding:4px 7px 4px 0; border-bottom:1px solid var(--rule); vertical-align:top}
+  td.n,th.n{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; padding-right:12px}
+  th.n{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+  tr.win td{background:#eef5f0}
+  tr.lose td{color:var(--dim)}
+  .good{color:var(--ok); font-weight:600}
+  .bad{color:var(--bad); font-weight:600}
+  .box{
+    background:var(--tint); border-left:3px solid var(--thermal);
+    padding:9px 12px; margin:11px 0; font-size:9.3pt; break-inside:avoid;
+  }
+  .box.cool{border-left-color:var(--optical)}
+  .box.warn{border-left-color:var(--bad)}
+  .box h4{margin-top:0}
+  pre{
+    font-family:var(--mono); font-size:8.1pt; line-height:1.45; background:var(--tint);
+    border:1px solid var(--rule); border-radius:3px; padding:8px 10px; margin:8px 0;
+    overflow-x:auto; white-space:pre-wrap; break-inside:avoid;
+  }
+  .lede{font-size:10.8pt; color:var(--ink-2)}
+  .cover{border-bottom:3px solid var(--ink); padding-bottom:14px; margin-bottom:4px}
+  .cover h1{font-size:25pt; font-weight:700; letter-spacing:-0.025em; line-height:1.08}
+  .cover .sub{font-size:12pt; color:var(--thermal); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-weight:500; margin-top:5px}
+  .meta{
+    display:flex; gap:26px; flex-wrap:wrap; font-family:var(--mono); font-size:8pt;
+    color:var(--dim); margin-top:11px;
+  }
+  .meta b{color:var(--ink); font-weight:600; display:block; font-size:7.4pt;
+          font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; text-transform:uppercase; letter-spacing:0.06em}
+  .pipe{display:flex; gap:0; margin:12px 0 14px; break-inside:avoid}
+  .stage{
+    flex:1; border:1px solid var(--rule); border-right:none; padding:8px 9px; background:var(--tint);
+  }
+  .stage:last-child{border-right:1px solid var(--rule)}
+  .stage .no{font-family:var(--mono); font-size:7.3pt; color:var(--thermal); font-weight:600}
+  .stage .nm{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-weight:600; font-size:9.2pt; margin:1px 0 3px}
+  .stage .dt{font-size:8.1pt; color:var(--ink-2); line-height:1.38}
+  .stage .cost{font-family:var(--mono); font-size:7.6pt; color:var(--dim); margin-top:4px}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:0 20px}
+  .fig{font-size:8pt; color:var(--dim); font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; margin:-5px 0 12px}
+  .pagebreak{break-before:page}
+  .avoid{break-inside:avoid}
+  hr.thin{border:none; border-top:1px solid var(--rule); margin:16px 0}
+  .kv{font-family:var(--mono); font-size:8.4pt}
+  .tag{
+    display:inline-block; font-family:"Helvetica Neue",Helvetica,Arial,sans-serif; font-size:7pt; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.05em; padding:1.5px 5px; border-radius:2px; vertical-align:1.5px;
+  }
+  .tag.adopted{background:#e3f0e8; color:var(--ok)}
+  .tag.rejected{background:#f7e6e2; color:var(--bad)}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>The SaResQ Perception Model</h1>
+  <div class="sub">Architecture, training methodology, and deployment validation</div>
+  <div class="meta">
+    <div><b>Document</b>Technical report v1.1</div>
+    <div><b>Date</b>11 September 2026</div>
+    <div><b>Model</b>v8n_p3_thermalmix2_640</div>
+    <div><b>Commit</b>4fe9173</div>
+    <div><b>Target</b>Raspberry Pi 4, 1 GB</div>
+  </div>
+</div>
+
+<p class="lede">This report documents the perception stack that SaResQ flies: what it is, why this
+architecture was chosen over the alternative that was built and measured alongside it, how it was
+trained and on what, and what validation was performed before deployment. Every number here was
+measured on this hardware; none are quoted from literature. Where a result is weak or unproven,
+it is labelled as such.</p>
+
+<h2>Executive summary</h2>
+
+<p>SaResQ detects human beings from a small drone using a <b>thermal-first cascade</b>. A cheap
+statistical test on a 32&times;24 thermal frame nominates a handful of candidate regions; a
+convolutional detector then examines only those regions; a scene classifier supplies disaster
+context; and a calibrated log-odds ledger fuses the evidence into a single probability per
+candidate. The architectural bet is that <b>the expensive model should never see the whole
+frame</b> — which is what allows a 3.2&nbsp;MB network to run usefully on a 1&nbsp;GB
+single-board computer.</p>
+
+<table>
+  <tr><th>Component</th><th>Architecture</th><th class="n">Size</th><th>Measured result</th></tr>
+  <tr><td>Person detector</td><td>YOLOv8n, P3–P5 head</td><td class="n">3.23 MB</td>
+      <td><b>Person AP<sub>50</sub> 0.850</b> (HIT-UAV) / <b>0.544</b> (RGBT-thermal)</td></tr>
+  <tr><td>Scene hazard classifier</td><td>MobileNetV2, transfer</td><td class="n">2.74 MB</td>
+      <td><b>95.2%</b> accuracy, 5 classes</td></tr>
+  <tr><td>Evidence fusion</td><td>Logistic regression, 18 features</td><td class="n">1.3 KB</td>
+      <td>ROC AUC 0.670 <span class="bad">(weak)</span></td></tr>
+</table>
+
+<div class="box">
+<h4>The three findings that matter most</h4>
+<p><b>1. P2 lost to P3.</b> The stride-4 "small object" head — the intuitive choice for detecting
+tiny people — was built, trained identically, and <i>lost every object-size bin at twice the
+compute</i>. Evidence beat intuition.</p>
+<p><b>2. Full INT8 quantisation was destroying the model silently.</b> The file that would have
+flown scored <b>31.9% of the reference model's accuracy</b>. It loaded, ran fast, and returned
+plausible boxes. Switching to w8a32 recovered it to <b>99.2%</b> at the same file size.</p>
+<p style="margin-bottom:0"><b>3. One dataset's visible imagery was unusable</b> — RGBTDronePerson
+was captured at night. Three training runs failed against it before the data, rather than the
+training, was examined.</p>
+</div>
+
+
+<h2 class="pagebreak">Reading this report &middot; the terms used</h2>
+
+<p>This section defines every piece of jargon that follows. Nothing later in the document assumes
+you have read it elsewhere.</p>
+
+<h3>Measuring a detector</h3>
+
+<table>
+  <tr><th style="width:22%">Term</th><th>What it actually means</th></tr>
+  <tr><td><b>IoU</b><br><span style="color:var(--dim);font-size:8.2pt">Intersection over Union</span></td>
+      <td>How much a predicted box overlaps the true box. Divide the shared area by the combined
+      area. 1.0 is a perfect match, 0 is no overlap. It is the yardstick every other metric is
+      built on.</td></tr>
+  <tr><td><b>AP<sub>50</sub></b><br><span style="color:var(--dim);font-size:8.2pt">Average Precision at IoU 0.5</span></td>
+      <td>The standard detection score. A prediction counts as correct if it overlaps the true box
+      by at least 50%. AP then summarises the precision/recall curve across all confidence
+      thresholds into one number between 0 and 1. <b>"0.85" means the detector finds and correctly
+      boxes about 85% of the people</b>, allowing for the trade between missing some and raising
+      false alarms.</td></tr>
+  <tr><td><b>AP<sub>50-95</sub></b></td>
+      <td>The strict version: the same score averaged over ten overlap requirements from 50% up to
+      95%. It punishes loose boxes. A detector with high AP<sub>50</sub> but low AP<sub>50-95</sub>
+      <i>finds</i> objects well but <i>outlines</i> them imprecisely &mdash; which is exactly this
+      model's profile, and an acceptable one here.</td></tr>
+  <tr><td><b>mAP</b><br><span style="color:var(--dim);font-size:8.2pt">mean Average Precision</span></td>
+      <td>AP averaged across all classes. Misleading here, because one junk class
+      (<span class="m">OtherVehicle</span>) sits near 0.05 and drags the mean down. <b>This report
+      quotes Person AP<sub>50</sub>, never mAP.</b></td></tr>
+  <tr><td><b>Precision / Recall</b></td>
+      <td><i>Precision</i>: of everything flagged, how much was real. <i>Recall</i>: of everything
+      real, how much was flagged. Search-and-rescue weights recall far above precision &mdash; a
+      false alarm costs a few seconds of an operator's attention; a miss can cost a life.</td></tr>
+  <tr><td><b>ROC AUC</b></td>
+      <td>For a yes/no scorer: the probability it ranks a true positive above a random negative.
+      0.5 is a coin flip, 1.0 is perfect. Used here for the fusion head.</td></tr>
+  <tr><td><b>Calibration / ECE</b></td>
+      <td>Whether a claimed probability is honest &mdash; if the model says 30%, does it happen 30%
+      of the time? Expected Calibration Error measures the gap. It matters here because the fusion
+      ledger <i>adds up</i> probabilities across repeated sightings, so a systematic bias compounds
+      rather than averaging out.</td></tr>
+</table>
+
+<h3>Network anatomy &mdash; and what P2, P3, P4, P5 mean</h3>
+
+<p>A convolutional detector has three parts. The <b>backbone</b> repeatedly shrinks the image while
+extracting features. The <b>neck</b> recombines features from different depths. The <b>head</b>
+turns them into boxes and class scores.</p>
+
+<p>As the backbone shrinks the image, it produces feature maps at several scales. These are named
+<b>P2, P3, P4, P5</b> &mdash; where <b>P<i>n</i> means the map has been reduced by a factor of
+2<sup><i>n</i></sup></b>. That factor is called the <b>stride</b>.</p>
+
+<table>
+  <tr><th>Level</th><th class="n">Stride</th><th class="n">Map size from a 640 px input</th><th>Sees</th></tr>
+  <tr><td><b>P2</b></td><td class="n">4</td><td class="n">160 &times; 160</td><td>Very small objects &mdash; finest detail, most expensive</td></tr>
+  <tr class="win"><td><b>P3</b></td><td class="n">8</td><td class="n">80 &times; 80</td><td>Small objects</td></tr>
+  <tr class="win"><td><b>P4</b></td><td class="n">16</td><td class="n">40 &times; 40</td><td>Medium objects</td></tr>
+  <tr class="win"><td><b>P5</b></td><td class="n">32</td><td class="n">20 &times; 20</td><td>Large objects &mdash; coarsest, cheapest</td></tr>
+</table>
+
+<p>So <b>"P3&ndash;P5"</b> (adopted) means the detector attaches its head to three levels, strides 8,
+16 and 32. <b>"P2&ndash;P5"</b> (rejected) adds the stride-4 level as a fourth. Each level predicts
+independently, and the coarse levels handle big objects while the fine levels handle small ones.</p>
+
+<p>Adding P2 is the textbook remedy for small-object detection. It is also expensive: the stride-4
+map is <b>four times the area</b> of the stride-8 map, so it quadruples the number of candidate
+positions and roughly doubles total computation. Part&nbsp;III shows it did not pay.</p>
+
+<table>
+  <tr><th style="width:22%">Term</th><th>What it actually means</th></tr>
+  <tr><td><b>Anchor point</b></td>
+      <td>One candidate position on a feature map where the head may predict a box. P3&ndash;P5 at
+      640 px gives 80² + 40² + 20² = <b>8,400</b>. Adding P2 gives 34,000.</td></tr>
+  <tr><td><b>Anchor-free</b></td>
+      <td>YOLOv8 predicts a box directly from each position, rather than deforming pre-set template
+      shapes as older detectors did.</td></tr>
+  <tr><td><b>DFL</b><br><span style="color:var(--dim);font-size:8.2pt">Distribution Focal Loss</span></td>
+      <td>Instead of predicting each box edge as a single number, the network predicts a
+      <i>probability distribution</i> over 16 possible distances and takes its expected value. This
+      lets it express uncertainty about a boundary &mdash; useful when the object is 12 px tall and
+      its edge is genuinely ambiguous. <b>It is also where quantisation broke the model
+      (Part&nbsp;VII).</b></td></tr>
+  <tr><td><b>NMS</b><br><span style="color:var(--dim);font-size:8.2pt">Non-Maximum Suppression</span></td>
+      <td>Several anchors usually fire on the same object. NMS keeps the highest-scoring box and
+      discards overlapping duplicates. Here it runs in NumPy on the Pi rather than inside the
+      network.</td></tr>
+  <tr><td><b>Nano / the "n" in YOLOv8n</b></td>
+      <td>The smallest size in the family. Every layer's width and depth is scaled down. 3.0 M
+      parameters against ~68 M for the largest.</td></tr>
+  <tr><td><b>GFLOPs</b></td>
+      <td>Billions of arithmetic operations for one forward pass &mdash; the honest measure of
+      compute cost, independent of hardware. This model: <b>8.19</b>.</td></tr>
+  <tr><td><b>Transfer learning</b></td>
+      <td>Starting from weights trained on a large general dataset instead of from random. The
+      detector starts from COCO; the hazard classifier from ImageNet. It is why a 6,000-image
+      dataset is enough.</td></tr>
+  <tr><td><b>Fine-tuning</b></td>
+      <td>Continuing to train an already-trained network on new data, usually at a lower learning
+      rate, to adapt it to a new domain without destroying what it knows.</td></tr>
+  <tr><td><b>Epoch</b></td>
+      <td>One complete pass through the training set.</td></tr>
+</table>
+
+<h3>Making it fit on a Raspberry Pi</h3>
+
+<table>
+  <tr><th style="width:22%">Term</th><th>What it actually means</th></tr>
+  <tr><td><b>Quantisation</b></td>
+      <td>Storing numbers in 8 bits instead of 32 to shrink the file and speed up arithmetic. The
+      cost is precision, and <b>the cost is not always small</b> &mdash; see Part&nbsp;VII.</td></tr>
+  <tr><td><b>Weights vs activations</b></td>
+      <td><i>Weights</i> are the learned numbers, fixed after training &mdash; they dominate file
+      size. <i>Activations</i> are the intermediate values computed as data flows through &mdash;
+      they dominate arithmetic. <b>They can be quantised independently, and that distinction is the
+      single most important engineering decision in this report.</b></td></tr>
+  <tr><td><b>Full INT8</b></td>
+      <td>Both weights and activations in 8 bits. Fastest, smallest &mdash; and here it destroyed
+      the model, scoring 31.9% of reference.</td></tr>
+  <tr class="win"><td><b>w8a32</b> <span class="tag adopted">adopted</span></td>
+      <td>8-bit <b>w</b>eights, 32-bit float <b>a</b>ctivations. Identical file size to full INT8
+      because weights dominate size, but the arithmetic stays in floating point. <b>99.2% of
+      reference.</b></td></tr>
+  <tr><td><b>TFLite / LiteRT</b></td>
+      <td>A compact format and runtime for running trained models on small devices. The runtime is
+      ~3 MB against ~600 MB for full TensorFlow &mdash; which is what makes 1 GB of RAM
+      workable.</td></tr>
+  <tr><td><b>Tensor arena</b></td>
+      <td>The single block of memory LiteRT reserves for intermediate values. Allocated once at
+      load, never per frame. Measured here at 8.39 MB.</td></tr>
+  <tr><td><b>GSD</b><br><span style="color:var(--dim);font-size:8.2pt">Ground Sample Distance</span></td>
+      <td>How much ground one pixel covers. <span class="m">altitude / focal_px</span>. At 20 m
+      here: <b>14.7 mm per pixel</b>. It converts a real person into a pixel count, which is what
+      determines whether the detector can see them at all.</td></tr>
+  <tr><td><b>NETD</b></td>
+      <td>The smallest temperature difference a thermal sensor can distinguish. The MLX90640 is
+      0.1 K &mdash; good enough that scene clutter, not sensor noise, is the limiting factor.</td></tr>
+</table>
+
+<h2>Part I &middot; Design constraints</h2>
+
+<p>The architecture is not a general-purpose design. It is the consequence of four hard constraints,
+and every significant decision traces back to one of them.</p>
+
+<table>
+  <tr><th>Constraint</th><th>Consequence for the model</th></tr>
+  <tr><td><b>Raspberry Pi 4, 1 GB RAM</b><br><span style="color:var(--dim);font-size:8.4pt">~905 MB usable after the OS</span></td>
+      <td>Rules out whole-frame inference at useful rates. Forces a nominate-then-confirm cascade,
+      allocate-once tensor buffers, and NumPy post-processing rather than a second framework.</td></tr>
+  <tr><td><b>Battery-powered flight</b></td>
+      <td>Compute is energy. A 640&times;640 forward pass is 409,600 pixels of work; a 160&times;160
+      crop is 25,600. The gate nominates 2–6 crops, so the detector does roughly 1/16 to 1/3 of a
+      whole-frame detector's work.</td></tr>
+  <tr><td><b>Cost ceiling ≈ ₹14,000</b></td>
+      <td>Thermal sensing is an MLX90640 — <b>32&times;24 pixels</b>, not a radiometric core. At a
+      20 m survey altitude a prone adult is <b>2.6 thermal pixels</b>. The thermal path can
+      therefore only ever be a <i>detector of anomalies</i>, never a classifier of people.</td></tr>
+  <tr><td><b>Search-and-rescue, not surveillance</b></td>
+      <td>A missed casualty is far worse than a false alarm, so the gate is deliberately permissive
+      and the burden of rejection falls on later, more expensive stages. It also means calibrated
+      probabilities matter more than raw ranking — an operator must be able to trust the number.</td></tr>
+</table>
+
+<h2>Part II &middot; System architecture</h2>
+
+<p>Four stages, ordered by cost. Each runs only on what the previous stage passed.</p>
+
+<div class="pipe">
+  <div class="stage">
+    <div class="no">STAGE A</div><div class="nm">Thermal gate</div>
+    <div class="dt">Robust z-score over a 32&times;24 frame. Not machine learning — a statistical
+    contrast test against the frame's own median and MAD.</div>
+    <div class="cost">every frame &middot; ~0 ms</div>
+  </div>
+  <div class="stage">
+    <div class="no">STAGE B</div><div class="nm">Crop detector</div>
+    <div class="dt">YOLOv8n over 160 px (or 224 px for large blobs) crops centred on gate
+    nominations. The only heavy computation in the system.</div>
+    <div class="cost">2–6 crops/frame &middot; 3.5 ms each</div>
+  </div>
+  <div class="stage">
+    <div class="no">STAGE C</div><div class="nm">Scene classifier</div>
+    <div class="dt">MobileNetV2 over the whole visible frame at 1 Hz. Supplies disaster context,
+    not detection.</div>
+    <div class="cost">1 Hz &middot; whole frame</div>
+  </div>
+  <div class="stage">
+    <div class="no">STAGE D</div><div class="nm">Fusion ledger</div>
+    <div class="dt">Logistic regression over 18 features, accumulating log-odds across repeated
+    observations of the same ground location.</div>
+    <div class="cost">per candidate &middot; &lt;0.1 ms</div>
+  </div>
+</div>
+
+<h3>Stage A — why the gate is not a neural network</h3>
+
+<p>A 32&times;24 thermal frame contains 768 pixels. A prone adult at 20 m occupies roughly 2.6 of
+them. There is no learnable texture at that scale — only <i>contrast</i>. The gate therefore
+computes a robust z-score per pixel against the frame's own median and median-absolute-deviation,
+thresholds at <span class="m">z_t = 2.5</span>, and groups survivors by 8-connectivity. Parameters
+live in <span class="m">configs/pipeline.yaml</span> and are never hard-coded:</p>
+
+<pre>gate:
+  sigma_min_k: 0.15        # noise floor in kelvin; MLX90640 NETD is 0.1 K RMS
+  z_t: 2.5                 # nomination threshold
+  dt_min_k: 0.5            # minimum absolute thermal contrast
+  two_sided: true          # cold anomalies count too (water, voids)
+  max_blob_px: 30
+  budget: {z_lo: 1.5, z_hi: 4.0, n_min: 2, n_max: 6}</pre>
+
+<p><b>Two-sided is deliberate.</b> A body in water, or a void beneath rubble, reads <i>colder</i>
+than its surroundings. A one-sided "find hot things" gate would miss exactly the casualties that
+are hardest to find by eye.</p>
+
+<p><b>The budget clamps crop count, not confidence.</b> Between <span class="m">n_min = 2</span> and
+<span class="m">n_max = 6</span> crops are emitted per frame regardless of how many blobs pass, so
+the detector's per-frame cost is bounded no matter what the scene does. This is what makes the
+latency predictable enough to fly.</p>
+
+<h3>Stage B — the detector, in detail</h3>
+
+<p>The detector is a <b>YOLOv8-nano</b> with the P3–P5 detection head. Measured from the shipped
+checkpoint:</p>
+
+<table>
+  <tr><th>Property</th><th class="n">Value</th><th>Meaning</th></tr>
+  <tr><td>Parameters</td><td class="n">3,011,628</td><td>Trainable weights</td></tr>
+  <tr><td>Modules</td><td class="n">226</td><td>Backbone + neck + head</td></tr>
+  <tr><td>GFLOPs @ 640</td><td class="n">8.19</td><td>Whole-frame fallback cost</td></tr>
+  <tr><td>Detection levels</td><td class="n">3</td><td>Strides 8, 16, 32</td></tr>
+  <tr><td>Anchor points @ 640</td><td class="n">8,400</td><td>80² + 40² + 20²</td></tr>
+  <tr><td>Anchor points @ 160</td><td class="n">525</td><td>The deployed crop path</td></tr>
+  <tr><td>Classes</td><td class="n">4</td><td>Person, Car, Bicycle, OtherVehicle</td></tr>
+  <tr><td><span class="m">reg_max</span></td><td class="n">16</td><td>DFL bins per box side</td></tr>
+</table>
+
+<h4>Anchor-free, with distributional box regression</h4>
+<p>YOLOv8 predicts, at every anchor point, four <i>distributions</i> rather than four numbers. Each
+box side is represented as a softmax over <span class="m">reg_max = 16</span> bins, and the final
+distance is the expectation of that distribution. This Distribution Focal Loss formulation lets the
+network express uncertainty about an edge — valuable when the object is 12 pixels tall and its
+boundary is genuinely ambiguous.</p>
+
+<div class="box warn">
+<h4>This detail is not academic — it is where quantisation broke the model</h4>
+<p style="margin-bottom:0">The DFL expectation is a weighted sum over 16 softmax bins, followed by
+a division by the input size to normalise. When <i>activations</i> are quantised to 8 bits, that
+normalisation constant is quantised too. Measured on the shipped INT8 file, the effective divisor
+was <b>≈636 instead of 640</b> — a 0.6% error that shifted every box centre by ~2.5 px. See
+Part&nbsp;V.</p>
+</div>
+
+<h4>Why nano, and why 160 px crops</h4>
+<p>The <span class="m">n</span> scaling is load-bearing, not a default. The crop path's job is not
+hard: by the time a crop reaches the detector, the gate has already asserted that something
+anomalous is centred in it. The detector answers a nearly binary question — <i>person or
+not</i> — on a well-framed 160 px patch. Pixels-on-target for the crop path, computed from
+<span class="m">GSD = altitude / focal_px = 20 / 1359.3 = 14.7 mm/px</span>:</p>
+
+<table>
+  <tr><th>Path</th><th class="n">Prone adult</th><th class="n">Standing adult</th><th>Assessment</th></tr>
+  <tr><td>Thermal 32&times;24</td><td class="n">2.6 px</td><td class="n">~0.7 px</td><td>Anomaly detection only</td></tr>
+  <tr class="win"><td>RGB 160 px crop <span class="tag adopted">deployed</span></td><td class="n">115&times;31 px</td><td class="n">31&times;24 px</td><td>Comfortably resolvable</td></tr>
+  <tr><td>RGB 640 px full frame</td><td class="n">45&times;12 px</td><td class="n">12&times;9 px</td><td>Genuinely small-object</td></tr>
+</table>
+
+<p class="fig">The crop path is <b>not</b> a small-object problem. This single table is why the P2
+architecture was rejected — see Part III.</p>
+
+<h2 class="pagebreak">Part III &middot; Architecture selection: P3 vs P2</h2>
+
+<p>Two architectures were built, trained under identical conditions, and measured. This section
+documents the one that was rejected, because the reasoning is the most defensible part of the
+design.</p>
+
+<h3>The older/alternative architecture: P2–P5 <span class="tag rejected">rejected</span></h3>
+
+<p>The standard remedy for small-object detection is to add a higher-resolution detection level.
+The P2 variant adds a <b>stride-4</b> head to the existing stride-8/16/32 levels:</p>
+
+<table>
+  <tr><th>Property</th><th class="n">P3–P5 <span class="tag adopted">adopted</span></th><th class="n">P2–P5 <span class="tag rejected">rejected</span></th></tr>
+  <tr><td>Strides</td><td class="n">8, 16, 32</td><td class="n">4, 8, 16, 32</td></tr>
+  <tr><td>Detection levels</td><td class="n">3</td><td class="n">4</td></tr>
+  <tr><td>Modules</td><td class="n">226</td><td class="n">278</td></tr>
+  <tr><td>Anchor points @ 640</td><td class="n">8,400</td><td class="n">34,000</td></tr>
+  <tr><td>GFLOPs @ 640</td><td class="n">8.86</td><td class="n">17.43</td></tr>
+  <tr><td>Parameters</td><td class="n">3,157,200</td><td class="n">3,354,144</td></tr>
+</table>
+
+<p>Note that P2 adds only 6% more parameters but <b>97% more computation</b> and <b>four times the
+anchors</b>. The stride-4 feature map is 160&times;160 at a 640 px input — it is large, and every
+operation on it is expensive.</p>
+
+<h3>The measured comparison</h3>
+
+<p>Both variants: 30 epochs, HIT-UAV, imgsz 640, identical seed, identical augmentation, identical
+optimiser. The only difference is the head.</p>
+
+<table>
+  <tr><th>Metric</th><th class="n">P3</th><th class="n">P2</th><th>Verdict</th></tr>
+  <tr class="win"><td>Person AP<sub>50</sub></td><td class="n"><b>0.8211</b></td><td class="n">0.8010</td><td class="good">P3 by 2.5%</td></tr>
+  <tr><td>Overall mAP<sub>50</sub></td><td class="n"><b>0.6387</b></td><td class="n">0.5880</td><td class="good">P3 by 8.6%</td></tr>
+  <tr><td>AP<sub>50</sub> &mdash; objects 8–16 px</td><td class="n"><b>0.657</b></td><td class="n">0.612</td><td class="good">P3</td></tr>
+  <tr><td>AP<sub>50</sub> &mdash; objects 16–32 px</td><td class="n"><b>0.772</b></td><td class="n">0.753</td><td class="good">P3</td></tr>
+  <tr><td>AP<sub>50</sub> &mdash; objects 32+ px</td><td class="n"><b>0.814</b></td><td class="n">0.791</td><td class="good">P3</td></tr>
+  <tr><td>Compute</td><td class="n"><b>8.86</b></td><td class="n">17.43</td><td class="good">P3 at half</td></tr>
+</table>
+
+<p><b>P2 lost in every object-size bin, including the smallest — the bin it exists to improve — at
+twice the compute.</b> This is not noise; the ordering is consistent across all three bins and both
+aggregate metrics.</p>
+
+<h4>Why the intuitive choice failed</h4>
+<p>Three compounding reasons:</p>
+<ul>
+<li><b>The resolution was never the bottleneck.</b> HIT-UAV objects are 8–32 px. Stride 8 already
+samples a 12 px person across 1.5 feature cells; stride 4 samples it across 3. The extra detail is
+real but marginal, and it is detail the nano backbone has too little capacity to exploit.</li>
+<li><b>Four times the anchors is four times the optimisation difficulty.</b> With 34,000 anchor
+points and a comparable number of ground-truth boxes, the positive/negative ratio collapses. The
+task assignment problem becomes materially harder for no additional signal.</li>
+<li><b>The deployment path is 160 px crops, not 640 px frames</b> — where, per the pixels-on-target
+table, a prone adult is 115&times;31 px. P2's advantage, had it existed, would have applied to the
+fallback path only.</li>
+</ul>
+
+<div class="box warn">
+<h4>P2 also would not train on Apple Silicon with default settings</h4>
+<p>Two failures at once, both caused by the 34,000-anchor loss computation:</p>
+<ul style="margin-bottom:0">
+<li><b>fp16 overflow.</b> <span class="m">cls_loss</span> ran 4.97 → 46 → <b>−1224</b> by iteration
+6. A classification loss cannot be negative; the accumulator had overflowed.</li>
+<li><b>Memory exhaustion.</b> 8.15 GB allocated on an 8 GB machine, driving the system into swap
+and slowing iteration from 2.1 s to 466 s — a 220&times; degradation.</li>
+</ul>
+<p style="margin:6px 0 0">Resolved with <span class="m">--amp False --batch 6</span>. The comparison
+remains fair because Ultralytics accumulates gradients to a nominal batch of 64 regardless of the
+micro-batch: batch 16 → 64, batch 6 → 66.</p>
+</div>
+
+<h2>Part IV &middot; Training data</h2>
+
+<p>Three datasets, used for three different purposes. Two of them are thermal; the third teaches
+scene context.</p>
+
+<table>
+  <tr><th>Dataset</th><th>Modality</th><th class="n">Train</th><th class="n">Val</th><th>Role</th></tr>
+  <tr><td><b>HIT-UAV</b></td><td>Thermal, aerial nadir</td><td class="n">2,029</td><td class="n">290</td>
+      <td>Primary detector training. Clean overhead campus scenes, 4 classes.</td></tr>
+  <tr><td><b>RGBTDronePerson</b> (thermal half)</td><td>Thermal, aerial oblique</td><td class="n">4,900</td><td class="n">1,225</td>
+      <td>Second domain: urban, night, dense. Person only.</td></tr>
+  <tr class="lose"><td>RGBTDronePerson (visible half)</td><td>Visible, night</td><td class="n">4,900</td><td class="n">1,225</td>
+      <td><span class="bad">Abandoned — see Part X</span></td></tr>
+  <tr><td><b>AIDER</b></td><td>Visible, mixed aerial</td><td class="n" colspan="2">6,433 total</td>
+      <td>Scene hazard classifier. 5 classes.</td></tr>
+</table>
+
+<h3>The combined thermal training set</h3>
+
+<p>The adopted model is trained on <b>HIT-UAV + RGBTDronePerson(thermal) merged</b>: 6,929 training
+and 1,515 validation images. The merge is non-trivial in two respects.</p>
+
+<h4>Class compatibility</h4>
+<p>RGBT labels are all class 0 (<span class="m">person</span>); HIT-UAV's class 0 is
+<span class="m">Person</span>. The label sets are therefore <i>already compatible</i>, which allowed
+training to retain the pretrained 4-class detection head rather than rebuilding it for a single
+class. Reducing to <span class="m">nc=1</span> would have discarded the class branch's learned
+weights for no benefit.</p>
+
+<h4>The accepted cost, stated plainly</h4>
+<p>RGBT frames contain cars and bicycles that are <b>not labelled</b>, because that dataset
+annotates only people. Those become negative examples, so Car, Bicycle and OtherVehicle AP degrade.
+This is an accepted trade — the payload acts only on Person — but it means <b>overall mAP<sub>50</sub>
+must not be quoted from this model.</b> Per-dataset Person AP<sub>50</sub> is the honest metric.</p>
+
+<h4>Filesystem construction</h4>
+<p>Images are <b>hard-linked</b>, not copied or symlinked, consuming no additional disk. Symlinks
+fail here: Ultralytics locates labels by substituting the literal path component
+<span class="m">/images/</span> with <span class="m">/labels/</span>, and resolves symlinks
+<i>before</i> that substitution, turning the path back into <span class="m">images_thermal/</span>.
+Source prefixes (<span class="m">hit_</span>, <span class="m">rgbt_</span>) are preserved in
+filenames so the validation set can be scored per-source.</p>
+
+<h2>Part V &middot; Training methodology</h2>
+
+<p>Training proceeds in two stages, both on MPS (Apple Silicon GPU) on an 8 GB M1.</p>
+
+<table>
+  <tr><th>Stage</th><th>Initialisation</th><th>Data</th><th class="n">Epochs</th><th class="n">Batch</th></tr>
+  <tr><td>1 &mdash; Base</td><td>COCO <span class="m">yolov8n.pt</span></td><td>HIT-UAV</td><td class="n">30</td><td class="n">16</td></tr>
+  <tr><td>2 &mdash; Domain merge</td><td>Stage 1 <span class="m">best.pt</span></td><td>Combined thermal</td><td class="n">20</td><td class="n">12</td></tr>
+</table>
+
+<h3>Hyperparameters, as actually used</h3>
+
+<pre>optimizer: AdamW          lr0: 0.001        lrf: 0.01
+momentum: 0.937           weight_decay: 0.0005
+warmup_epochs: 3          patience: 8       seed: 0
+box: 7.5    cls: 0.5    dfl: 1.5            # loss weights
+imgsz: 640  device: mps  amp: True          # P3 only; P2 requires amp False</pre>
+
+<h3>Augmentation — and the two settings that are deliberately zero</h3>
+
+<pre>hsv_h: 0.0      &lt;-- disabled on purpose
+hsv_s: 0.0      &lt;-- disabled on purpose
+hsv_v: 0.3
+degrees: 180.0
+translate: 0.1   scale: 0.5   fliplr: 0.5
+mosaic: 1.0      close_mosaic: 10</pre>
+
+<div class="box cool">
+<h4>Why hue and saturation augmentation are switched off</h4>
+<p style="margin-bottom:0">A thermal image is <b>a single-channel intensity map</b>, replicated
+across three channels for the network's benefit. Its "colour" is not colour — it is temperature.
+Perturbing hue or saturation would make the three channels disagree, producing an image that
+corresponds to no physical scene and teaching the network to be invariant to a signal that carries
+the entire meaning. Brightness (<span class="m">hsv_v</span>) is retained at 0.3, because that
+<i>does</i> have a physical analogue: a scene that is uniformly warmer or cooler.</p>
+</div>
+
+<div class="box cool">
+<h4>Why rotation is the full ±180°</h4>
+<p style="margin-bottom:0">A nadir aerial view has <b>no canonical orientation</b>. A person lying
+north-to-south and one lying east-to-west are the same object under a rotation of the sensor, and
+the drone's yaw is arbitrary. Constraining rotation would teach a spurious prior. This is the
+opposite of the correct setting for ground-level photography, where gravity fixes "up".</p>
+</div>
+
+<h2 class="pagebreak">Part VI &middot; Results</h2>
+
+<h3>Detector, per dataset</h3>
+
+<p>Scored Person-only, at IoU 0.5, through identical letterboxing and identical NMS for every row.
+590 images, 5,213 ground-truth people.</p>
+
+<table>
+  <tr><th>Model</th><th class="n">HIT-UAV AP<sub>50</sub></th><th class="n">RGBT-thermal AP<sub>50</sub></th><th>Assessment</th></tr>
+  <tr class="lose"><td>Stage 1 &mdash; HIT-UAV only, 30 ep</td><td class="n">0.8229</td><td class="n">0.2752</td><td>Strong on one domain, poor on the other</td></tr>
+  <tr class="lose"><td>Stage 2 &mdash; combined, 20 ep</td><td class="n">0.8092</td><td class="n">0.5231</td><td>Generalises, but had not converged</td></tr>
+  <tr class="win"><td><b>Stage 3 &mdash; combined, +25 ep</b> <span class="tag adopted">adopted</span></td><td class="n"><b>0.8499</b></td><td class="n"><b>0.5443</b></td><td class="good">Better on BOTH than anything prior</td></tr>
+  <tr><td>Stage 3 vs Stage 1</td><td class="n good">+0.0270</td><td class="n good">+0.2691</td><td class="good">No trade-off remains</td></tr>
+</table>
+
+<p>The 20-epoch run appeared to cost 1.7% on the original domain. It had simply not converged &mdash;
+it was still improving when it stopped. Twenty-five further epochs recovered that and more:
+<b>the adopted model beats the HIT-UAV-only baseline on HIT-UAV itself</b> while nearly doubling
+accuracy on an independently collected dataset. <b>Training across two domains cost nothing.</b></p>
+
+<p>This is the defensible claim, and it is worth more than the raw number: a single-dataset result
+always invites the question of whether the network learned <i>people</i> or learned <i>that
+dataset's</i> particular sensor, altitude and scene statistics. Two independently collected
+datasets answer it before it is asked.</p>
+
+<h3>How the score behaves as the box requirement tightens</h3>
+
+<p>AP<sub>50</sub> requires only 50% overlap. Reporting it alone flatters any detector, so the full
+curve is given here.</p>
+
+<table>
+  <tr><th>Overlap required (IoU)</th><th class="n">AP</th><th>Interpretation</th></tr>
+  <tr class="win"><td>0.50 &mdash; the standard metric</td><td class="n"><b>0.8499</b></td><td>Finds the person</td></tr>
+  <tr><td>0.60</td><td class="n">0.7139</td><td></td></tr>
+  <tr><td>0.70</td><td class="n">0.4291</td><td>Fairly tight box</td></tr>
+  <tr><td>0.75</td><td class="n">0.2342</td><td>Tight box</td></tr>
+  <tr><td>0.90</td><td class="n">0.0011</td><td>Near pixel-perfect</td></tr>
+  <tr><td><b>AP<sub>50-95</sub></b> (mean over 0.50:0.95)</td><td class="n"><b>0.3712</b></td><td>The strict aggregate</td></tr>
+</table>
+
+<div class="box">
+<h4>Read this honestly: the model finds people reliably but boxes them loosely</h4>
+<p style="margin-bottom:0">For this mission that is the correct trade. The system must answer
+<i>"is there a person, and at what ground coordinate"</i> &mdash; not trace a silhouette. At the
+20&nbsp;m survey altitude the ground sample distance is 14.7&nbsp;mm/px, so a box that is 5&nbsp;px
+loose is <b>7&nbsp;cm on the ground</b>. No rescue outcome depends on 7&nbsp;cm. In a medical
+segmentation or an autonomous-driving stack, an AP<sub>50-95</sub> of 0.371 would be a defect;
+here it is capacity deliberately spent on size and speed instead.</p>
+</div>
+
+<h3>Pixels-on-target curve</h3>
+
+<p>Recall as a function of the ground-truth person height in pixels, measured by progressively
+downsampling the validation set and padding back to the original canvas — so the network sees
+<i>smaller people</i>, not smaller images. Padding uses the frame's own median, never black: on a
+thermal image, black is not neutral filler, it is a large very cold region.</p>
+
+<table>
+  <tr><th>Person height</th><th class="n">Samples</th><th class="n">Recall</th></tr>
+  <tr><td>4–8 px</td><td class="n">3</td><td class="n">0.333</td></tr>
+  <tr><td>8–16 px</td><td class="n">242</td><td class="n">0.657</td></tr>
+  <tr><td>16–32 px</td><td class="n">880</td><td class="n">0.772</td></tr>
+  <tr><td>32+ px</td><td class="n">43</td><td class="n">0.814</td></tr>
+</table>
+
+<p class="fig">This curve is not decorative — it is integrated to produce the Koopman sweep width
+<i>W</i>, the constant the entire search-coverage model rests on.</p>
+
+<h3>Scene hazard classifier</h3>
+
+<table>
+  <tr><th>Class</th><th class="n">Precision</th><th class="n">Recall</th><th class="n">F1</th><th class="n">Support</th></tr>
+  <tr><td>collapsed_building</td><td class="n">0.797</td><td class="n">0.979</td><td class="n">0.879</td><td class="n">96</td></tr>
+  <tr><td>fire</td><td class="n">0.938</td><td class="n">0.981</td><td class="n">0.959</td><td class="n">107</td></tr>
+  <tr><td>flooded_areas</td><td class="n">0.892</td><td class="n">0.958</td><td class="n">0.924</td><td class="n">95</td></tr>
+  <tr><td>traffic_incident</td><td class="n">0.896</td><td class="n">0.915</td><td class="n">0.905</td><td class="n">94</td></tr>
+  <tr><td>normal</td><td class="n">0.988</td><td class="n">0.949</td><td class="n">0.968</td><td class="n">894</td></tr>
+  <tr class="win"><td><b>Overall accuracy</b></td><td class="n" colspan="3"><b>0.952</b></td><td class="n">1,286</td></tr>
+</table>
+
+<p><b>Architecture:</b> ImageNet-pretrained MobileNetV2 with <span class="m">include_top=False</span>,
+frozen, plus a new classification head. Trained in two phases: head-only at
+<span class="m">lr 1e-3</span>, then the top third of the backbone unfrozen at
+<span class="m">lr 1e-4</span>. BatchNorm layers are held in inference mode throughout fine-tuning —
+updating running statistics from 32-image batches on a 6,433-image dataset is a reliable way to make
+validation accuracy collapse while training accuracy climbs.</p>
+
+<p><b>Class weighting is used here</b>, unlike in the fusion head. AIDER is 68%
+<span class="m">normal</span>; an unweighted model scores 68% by answering "normal" every time.</p>
+
+<h3>Fusion head <span class="bad">— the weakest component</span></h3>
+
+<p>A logistic regression over 18 features, deliberately not something larger. Its output must be a
+<i>calibrated probability</i>, because the ledger accumulates <span class="m">logit(p)</span> across
+repeated observations of the same ground location; a miscalibrated score compounds. Its weights must
+also be readable, so an operator can be told <i>why</i> a candidate was flagged.</p>
+
+<table>
+  <tr><th>Metric</th><th class="n">Value</th><th>Reading</th></tr>
+  <tr><td>ROC AUC</td><td class="n">0.670</td><td class="bad">Weak ranking</td></tr>
+  <tr><td>Average precision</td><td class="n">0.112</td><td class="bad">Weak, vs 0.031 base rate</td></tr>
+  <tr><td>Expected calibration error</td><td class="n">0.0058</td><td class="good">Well calibrated</td></tr>
+  <tr><td>Brier score</td><td class="n">0.0243</td><td>vs 0.0247 base-rate baseline</td></tr>
+</table>
+
+<p><b>Class balancing is deliberately NOT applied</b>, unlike the hazard classifier. The ledger
+accumulates log-odds across passes; a balanced fit would bias every increment in the same direction,
+and that bias compounds with each observation rather than averaging out.</p>
+
+<p><b>Five of eighteen features are structurally zero</b> and are recorded as such rather than
+quietly dropped: <span class="m">p_rgb</span>, <span class="m">has_rgb</span>,
+<span class="m">a_rgb</span> (the visible detector is unusable — Part X),
+<span class="m">iou</span>, <span class="m">d_c</span> (require the thermal↔RGB registration file,
+which needs both sensors physically mounted), and <span class="m">hits</span>,
+<span class="m">hit_ratio</span>, <span class="m">alt_band</span> (unmeasurable from a still-image
+dataset; they require flight).</p>
+
+<h2 class="pagebreak">Part VII &middot; Deployment and the quantisation study</h2>
+
+<p>The model that flies is not the model that is trained. It is converted to LiteRT (TFLite) and
+loaded by a ~3 MB runtime rather than a ~600 MB TensorFlow install. <b>Whether those two models are
+the same model had never been measured</b> — so an evaluation was built
+(<span class="m">training/eval_int8_gap.py</span>) that compares them directly, through the same
+letterbox and the same decoder, so that the only variable is the numerics.</p>
+
+<h3>What it found</h3>
+
+<table>
+  <tr><th>Variant</th><th class="n">Size</th><th class="n">Person AP<sub>50</sub></th><th class="n">% of reference</th><th class="n">ms/frame</th></tr>
+  <tr><td>PyTorch float32 (reference)</td><td class="n">—</td><td class="n">0.7252</td><td class="n">100.0%</td><td class="n">—</td></tr>
+  <tr><td>TFLite fp32</td><td class="n">12.26 MB</td><td class="n">0.7252</td><td class="n">100.0%</td><td class="n">89.0</td></tr>
+  <tr class="win"><td><b>TFLite w8a32</b> <span class="tag adopted">adopted</span></td><td class="n">3.32 MB</td><td class="n">0.7193</td><td class="n"><b>99.2%</b></td><td class="n">40.4</td></tr>
+  <tr><td>TFLite w8a16</td><td class="n">3.38 MB</td><td class="n">0.7208</td><td class="n">99.4%</td><td class="n bad">1064.8</td></tr>
+  <tr class="lose"><td>TFLite full INT8 <span class="tag rejected">rejected</span></td><td class="n">3.33 MB</td><td class="n bad">0.2315</td><td class="n bad">31.9%</td><td class="n">25.1</td></tr>
+</table>
+
+<p>That fp32 TFLite reproduces PyTorch to four decimal places confirms the conversion chain itself
+is exact. The loss is entirely attributable to quantisation.</p>
+
+<h3>Diagnosis of the INT8 failure</h3>
+
+<p>Class scores were <i>fine</i> — raw class-row correlation 0.987. The damage was confined to box
+regression, and it was <b>systematic rather than random</b>:</p>
+
+<pre>box error (int8 − float32), pixels at 640:
+  cx:  mean +2.460   median +2.715   std 2.293
+  cy:  mean +1.561   median +1.539   std 1.791
+  w :  mean −0.811   median −0.737   std 1.899
+  h :  mean −0.336   median −0.185   std 1.845</pre>
+
+<p>Quantisation <i>noise</i> is zero-mean. A consistent positive centre offset is not noise. Solving
+for the scale factor that best maps the INT8 output onto the float output gave
+<b>K = 636.06 for cx and 636.03 for cy</b> — identical to two decimal places across both axes. The
+graph's internal <span class="m">1/640</span> normalisation constant had itself been quantised, to
+an effective <span class="m">1/636</span>.</p>
+
+<p>Correcting the scale recovers AP from 0.2315 to 0.5312 — so roughly half the loss is that
+constant, and half is residual activation noise. At 9–45 px people, a surviving 1–2 px error is
+most of an IoU-0.5 match.</p>
+
+<h4>Why w8a32 is the correct choice</h4>
+<p><b>w8a32 quantises the weights to int8 but leaves activations in float32.</b> The file is the
+same 3.3 MB — weights dominate size — but the arithmetic that computes the DFL expectation and the
+normalisation stays in floating point. w8a16 is equally accurate and <b>26&times; slower</b>, because
+no optimised int16 kernels exist for these operations. fp32 is 3.7&times; the size for 0.8% more
+accuracy.</p>
+
+<div class="box">
+<h4>Post-fix verification</h4>
+<pre style="margin:5px 0 0">Person AP50  float32 (PyTorch)   0.8229
+Person AP50  w8a32   (deployed) 0.8237     +0.1%
+VERDICT: export is faithful</pre>
+</div>
+
+<h3>Measured ON the Raspberry Pi &mdash; not extrapolated</h3>
+
+<p>Every latency figure above is host-measured. On 11 September 2026 the stack was deployed to the
+target board and benchmarked there. This is the first execution of any part of this project on the
+hardware that flies.</p>
+
+<table>
+  <tr><th>Operation</th><th class="n">Median</th><th class="n">p90</th></tr>
+  <tr class="win"><td>Detector, 160 px crop <span class="tag adopted">the deployed path</span></td><td class="n"><b>28.2 ms</b></td><td class="n">28.3 ms</td></tr>
+  <tr><td>Detector, 224 px crop (large blobs)</td><td class="n">56.7 ms</td><td class="n">56.9 ms</td></tr>
+  <tr><td>Hazard classifier, 640&times;480 frame</td><td class="n">33.0 ms</td><td class="n">33.1 ms</td></tr>
+</table>
+
+<p><b>All three models resident simultaneously: 95.2 MB peak RSS</b>, leaving 730 MB of 905 free.
+SoC temperature 42.8&nbsp;&deg;C and <span class="m">throttled=0x0</span> &mdash; roughly half the
+80&nbsp;&deg;C soft-throttle point, running from the payload's own power bank.</p>
+
+<h4>The frame budget closes</h4>
+
+<p>The thermal sensor delivers full frames at 4&nbsp;Hz, giving 250 ms per frame:</p>
+
+<pre>gate (NumPy over 32x24)                 ~0 ms
+6 crops x 28.2 ms                      169 ms   &lt;- worst case
+hazard, amortised at 1 Hz                8 ms
+                                       ------
+                                       177 ms   -&gt; 29% headroom</pre>
+
+<p>The typical case &mdash; two nominated crops &mdash; is <b>56 ms</b>, leaving the processor idle
+78% of the time.</p>
+
+<div class="box">
+<h4>This measurement validates the entire architecture</h4>
+<p style="margin-bottom:0">The host-to-Pi ratio measured here is <b>~12&times;</b>. A whole-frame
+640&nbsp;px pass costs 27&nbsp;ms on the development machine, which extrapolates to roughly
+<b>320&nbsp;ms on the Pi</b> &mdash; over the entire 250&nbsp;ms frame budget before any other work
+is done. <b>A conventional whole-frame detector does not fit on this hardware at this frame rate.
+The nominate-then-confirm cascade does.</b> That is no longer an argument; it is a measurement.</p>
+</div>
+
+<h3>Software footprint on the Pi</h3>
+
+<table>
+  <tr><th>Item</th><th class="n">Measured</th></tr>
+  <tr><td>Detector model file</td><td class="n">3.23 MB</td></tr>
+  <tr><td>Hazard model file</td><td class="n">2.74 MB</td></tr>
+  <tr><td>Fusion head</td><td class="n">1.3 KB</td></tr>
+  <tr><td>TFLite tensor arena</td><td class="n">8.39 MB</td></tr>
+  <tr><td><b>Whole Python process</b></td><td class="n"><b>38.2 MB</b></td></tr>
+  <tr><td>Available on the Pi 4</td><td class="n">~905 MB</td></tr>
+  <tr><td>Inference, 160 px crop</td><td class="n">3.5 ms</td></tr>
+</table>
+
+<p>Input tensors are <b>NCHW float32</b>, and box regressions are <b>normalised to [0,1]</b> — both
+measured from the file rather than assumed, because neither matches the common documentation and
+neither raises when assumed wrongly. A pixels/normalised confusion scales every box by the input
+size and still returns plausible geometry. The runtime therefore <i>probes</i> the box convention at
+load time.</p>
+
+
+<h2 class="pagebreak">Part VIII &middot; Airframe integration</h2>
+
+<p>The payload is designed to attach to <b>a generic quadcopter</b>, not to a specific airframe. It
+is deliberately a self-contained module rather than an avionics component.</p>
+
+<h3>The physical interface</h3>
+
+<table>
+  <tr><th>Property</th><th class="n">Value</th><th>Note</th></tr>
+  <tr><td>Tray footprint</td><td class="n">145 &times; 135 &times; 9 mm</td><td>Flat plate, printed PLA/PETG</td></tr>
+  <tr><td>Assembled height</td><td class="n">~35.5 mm</td><td>With the power bank fitted</td></tr>
+  <tr><td>Printed mass</td><td class="n">29.8 g</td><td>Tray + GPS mast</td></tr>
+  <tr><td><b>Total payload mass</b></td><td class="n"><b>~340 g</b></td><td>Bank 209 g, Pi 46 g, sensors and cabling ~55 g</td></tr>
+  <tr><td>Primary attachment</td><td class="n">4 &times; M3</td><td>On a 133 &times; 123 mm rectangle, one per corner</td></tr>
+  <tr><td>Secondary attachment</td><td class="n">2 &times; 4.5 mm slots</td><td>Mid-edge, for a zip tie or hook-and-loop strap</td></tr>
+</table>
+
+<p>The corner M3s sit <b>on the fillet arc centres</b>, which gives a uniform 4.3 mm of material
+around each bolt in every direction &mdash; these four screws carry the whole payload, and an
+earlier inset-from-the-edges placement left them <i>breaching</i> the rounded corner by 0.53 mm.</p>
+
+<h3>How it attaches in practice</h3>
+
+<p>Few airframes will happen to have a 133 &times; 123 mm bolt pattern, so the intended fitment is
+the standard two-layer approach used for any drone payload:</p>
+
+<ol>
+<li><b>A damping plate between the airframe and the tray.</b> Four rubber ball dampers (M3, the
+common 20&ndash;30 mm spacing) isolate the payload from motor vibration. <b>This is not optional:</b>
+the MPU-6050 provides the attitude solution that projects detected pixels onto ground coordinates,
+and an undamped IMU on a quadcopter produces attitude noise that turns directly into GPS error on
+every detection.</li>
+<li><b>The tray bolts to the damping plate</b> via the four corner M3s, or straps to the airframe's
+existing battery rails through the two zip-tie slots. The slots exist precisely because strap
+mounting requires no matching hole pattern at all.</li>
+<li><b>The GPS mast is a separate part</b>, mounted above and away from the Pi. A Pi 4 radiates
+broadband RF right across the GPS L1 band at 1575 MHz &mdash; the HDMI serialiser especially &mdash;
+and a patch antenna sitting beside it loses satellites. The symptom is a slow or wandering fix
+rather than an obvious failure, which makes it easy to misdiagnose.</li>
+</ol>
+
+<h3>What airframe it needs</h3>
+
+<p>At 340 g, the payload suits a <b>450 mm-class quadcopter or larger</b> (an F450/S500 frame with
+2212-class motors, or any craft rated for 500 g of payload). A 5-inch or racing-class quad is
+unsuitable. The conventional rule of a 2:1 thrust-to-weight ratio at all-up weight should be
+maintained; below that, stability in wind degrades and endurance collapses.</p>
+
+<p>The <b>flat rather than stacked</b> layout is a deliberate consequence: the 209 g power bank
+dominates the mass budget, and stacking it would raise the centre of gravity and make the payload
+pendulum beneath the airframe. Flat keeps the CG low and close to the mounting plane, and prints
+with no supports.</p>
+
+<div class="box cool">
+<h4>The integration property that matters most: it is electrically independent</h4>
+<p style="margin-bottom:0">The payload has <b>its own battery, its own GPS and its own IMU</b>, and
+makes <b>no electrical connection to the flight controller</b>. It cannot brown out the flight
+stack, cannot inject noise onto a shared bus, and cannot contribute to a flyaway. Fitting it to a
+new airframe is a mechanical operation, not an avionics integration &mdash; no firmware change, no
+re-tuning, no recertification. That is what makes "works on a generic quadcopter" a real claim
+rather than a hopeful one.</p>
+</div>
+
+<h2>Part IX &middot; What this adds to a drone</h2>
+
+<p>The honest framing: this payload makes a drone <b>perceptually autonomous today</b>, and
+<b>navigationally autonomous with one cable</b> that is not yet fitted.</p>
+
+<h3>The levels, and where this sits</h3>
+
+<table>
+  <tr><th style="width:14%">Level</th><th>What it means</th><th>Status</th></tr>
+  <tr class="lose"><td><b>L0</b><br>Manual</td>
+      <td>A pilot flies; a human watches a live video feed and calls out anything they see. This is
+      how most drone search is done today.</td>
+      <td>The baseline being replaced</td></tr>
+  <tr class="win"><td><b>L1</b><br>Perceptual autonomy</td>
+      <td>The pilot (or an existing waypoint mission) flies the pattern. The payload independently
+      detects, confirms, fuses evidence across passes, geo-tags each candidate and logs it. No human
+      watches the feed. <b>No connection to the flight controller.</b></td>
+      <td class="good"><b>Built and deployed</b></td></tr>
+  <tr><td><b>L2</b><br>Closed-loop tasking</td>
+      <td>The payload talks to the flight controller over MAVLink and re-tasks the aircraft &mdash;
+      orbiting a high-confidence candidate for a second look, or densifying the search pattern where
+      the coverage model says probability is concentrated.</td>
+      <td>One UART cable away. <b>Not built.</b></td></tr>
+  <tr><td><b>L3</b><br>Mission autonomy</td>
+      <td>The payload plans the search itself from a probability map, and adapts it in flight.</td>
+      <td>Out of scope</td></tr>
+</table>
+
+<h3>Why L1 is the part that actually matters</h3>
+
+<p>The bottleneck in drone-based search is <b>not flying the aircraft</b> &mdash; waypoint missions
+have been solved for a decade. The bottleneck is <b>a human being watching a thermal video feed</b>.
+Sustained visual search degrades sharply with time on task; a 2.6-pixel warm blob passing across a
+low-resolution thermal image at 4 Hz is close to the worst case for human attention. The operator
+also cannot rewind, cannot accumulate weak evidence across three separate passes over the same
+rubble, and cannot attach a GPS coordinate to what they thought they saw.</p>
+
+<p>This payload does all four. Specifically, it contributes:</p>
+
+<ul>
+<li><b>Detection without supervision.</b> The aircraft can fly its pattern with nobody watching the
+feed, or beyond visual line of sight entirely.</li>
+<li><b>Evidence that accumulates.</b> The fusion ledger adds log-odds for the same ground location
+across repeated passes, so three weak sightings compound into one confident detection. A human
+watching a live feed cannot do this at all.</li>
+<li><b>A coordinate, not an impression.</b> Every candidate carries a GPS fix, computed by
+projecting the detection through the IMU attitude solution &mdash; which is why the damping plate
+in Part&nbsp;VIII is a detection-accuracy component, not a comfort feature.</li>
+<li><b>A calibrated probability.</b> The operator is given a number they can triage on, not a
+bounding box. This is why the fusion head is a logistic regression whose weights can be read and
+explained, rather than something larger and opaque.</li>
+<li><b>A quantified search.</b> Because coverage is modelled (Koopman: POD = 1 &minus;
+e<sup>&minus;C</sup>, C = W&middot;L/A), the system can report <i>how thoroughly an area was
+actually searched</i> &mdash; which is what lets a coordinator decide to move on rather than guess.</li>
+</ul>
+
+<h3>The path to L2, and why it is deliberately not built yet</h3>
+
+<p>The Pi's UART is already free for it: <span class="m">dtoverlay=disable-bt</span> is applied and
+<span class="m">/dev/ttyAMA0</span> is unclaimed, verified with <span class="m">fuser</span>. A
+single three-wire connection to the flight controller's TELEM port would carry MAVLink.</p>
+
+<p>It is not built because <b>the moment the payload can command the aircraft, it becomes flight-
+safety-critical</b>. Every failure mode above &mdash; a gate that fires on hot roofing, a detector
+confidently wrong on an unfamiliar scene &mdash; stops being a false alarm in a log and starts being
+an unplanned manoeuvre. That step should be taken after the perception stack has been validated in
+the field, not before. The current design's electrical independence is the property that makes L1
+deployable now with no safety case at all.</p>
+
+<h2 class="pagebreak">Part X &middot; Failure analysis</h2>
+
+<p>Four failures are documented here because each produced a working-looking system with wrong
+numbers, and none raised an error. They are the strongest evidence that the validation described
+above is necessary rather than ceremonial.</p>
+
+<h3>1. The visible-light detector could never have worked</h3>
+
+<p>A fine-tune on RGBTDronePerson's visible frames reached <b>mAP<sub>50</sub> 0.007</b> — precision
+1%, recall 24% — across three separate runs (8 epochs at half data, then 25 epochs at full data).
+Each failure was treated as a training problem.</p>
+
+<p><b>The cause was the data.</b> RGBTDronePerson's visible frames are <b>night images</b>: 32% have
+a mean brightness below 40/255. The labelled people are not visible in the visible channel at all.</p>
+
+<p>The decisive test — running the HIT-UAV thermal model, with no fine-tuning, against the same
+labels:</p>
+
+<table>
+  <tr><th>Frames</th><th class="n">Recall @ IoU 0.5</th><th class="n">Detections</th></tr>
+  <tr class="win"><td>Thermal</td><td class="n">49.9% (456/914)</td><td class="n">1,540</td></tr>
+  <tr class="lose"><td>Visible</td><td class="n bad">0.0% (0/914)</td><td class="n">692</td></tr>
+</table>
+
+<p>Zero matches from 692 detections is not "difficult" — it is "absent". The test also proves the
+labels are correct: a detector that had never seen this dataset finds half of them on the thermal
+frames. <b>No training configuration could have succeeded.</b></p>
+
+<p><b>Method worth generalising:</b> when a model will not learn, verify the signal is present in
+the data <i>before</i> adjusting hyperparameters. Running an existing unrelated model against the
+labels costs minutes. Here it would have saved days.</p>
+
+<h3>2. The hazard classifier answered "normal" to every image ever shown to it</h3>
+
+<p>Including AIDER's own <span class="m">fire/</span> and <span class="m">collapsed_building/</span>
+folders, which the Keras model classifies at 97.9% recall.</p>
+
+<p>The model was correct; the runtime was not. Two input conventions exist and this project ships
+both:</p>
+
+<table>
+  <tr><th>Model</th><th>Input tensor</th><th>Graph expects</th></tr>
+  <tr><td>Detectors (Ultralytics)</td><td class="m">float32</td><td>0–1 normalised</td></tr>
+  <tr><td>Hazard (MobileNetV2)</td><td class="m">uint8, scale 1.0, zp 0</td><td><b>raw 0–255</b></td></tr>
+</table>
+
+<p>The hazard model keeps <span class="m">preprocess_input</span> <i>inside</i> its graph. Feeding it
+<span class="m">pixels/255</span> quantised to <span class="m">rint(p/255)</span> — <b>0 below 128,
+1 above</b> — a two-level near-black image. Three of the eighteen fusion features were identically
+zero, and the fusion head correctly assigned them zero weight, fitting around dead inputs.</p>
+
+<p><b>Fix:</b> read the units off the tensor. <span class="m">scale × (qmax − zero_point)</span> is
+≈1.0 for a normalised graph and ≈255 for a raw-pixel graph — a 255&times; separation, so the
+threshold is unambiguous. <b>Result: fusion ROC AUC 0.620 → 0.670, AP 0.089 → 0.112.</b></p>
+
+<h3>3. A 97.8% accuracy that meant nothing</h3>
+
+<p>An earlier hazard classifier reported 97.8% validation accuracy. Its confusion matrix had four
+empty rows.</p>
+
+<p>Keras's <span class="m">shuffle=False</span> — added for reproducible report ordering — also
+disables shuffling of the <i>file list before the split</i>. Since
+<span class="m">image_dataset_from_directory</span> takes the last 20% of a class-ordered list, and
+<span class="m">normal</span> is the final class holding 4,390 of 6,433 images, <b>the entire
+validation set was one class</b>. The model scored 97.8% by answering "normal".</p>
+
+<p>The corrected figure is <b>95.2% across five populated classes</b> — a far more valuable number
+than the 97.8% it replaced.</p>
+
+<h3>4. Reporting code discarding completed training</h3>
+
+<p>The hazard script has twice crashed <i>after</i> training and quantisation completed — once
+destroying six consecutive runs of roughly 20 minutes each. Both crashes were in report generation,
+not in the model.</p>
+
+<p><b>Structural fix:</b> reporting is now a single <span class="m">finish()</span> function reached
+by both code paths, with a <span class="m">--report-only</span> flag that regenerates metrics from
+the saved model. A reporting failure can no longer cost a retrain.</p>
+
+<h2>Part XI &middot; Known limits</h2>
+
+<p>Stated explicitly, because a report that lists only successes is not useful for deciding what to
+do next.</p>
+
+<table>
+  <tr><th>Limitation</th><th>Status</th></tr>
+  <tr><td><b>The fusion head is weak</b> (ROC AUC 0.670)</td>
+      <td>Follows from five of eighteen features being structurally zero. Will improve when
+      registration and flight data exist — not before.</td></tr>
+  <tr><td><b>Gate recall is measured out-of-domain</b> — 2.9% on RGBT</td>
+      <td>A contrast gate tuned for rubble, evaluated on dense urban night scenes with ~10 people
+      per frame. <b>Not a valid figure for the mission.</b> Must be re-measured on the actual
+      MLX90640 over rubble.</td></tr>
+  <tr><td><b>Sweep width W is not published</b></td>
+      <td>Deliberately held back. It integrates gate recall; feeding the out-of-domain 2.9% figure
+      would understate coverage by roughly 5&times;.</td></tr>
+  <tr><td><b>No visible-light detector</b></td>
+      <td>The system is thermal-only today. A daytime visible branch requires a daytime aerial
+      dataset (VisDrone, SARD, HERIDAL) — scoped future work, not a broken component.</td></tr>
+  <tr><td><b>Thermal↔RGB registration not calibrated</b></td>
+      <td>Requires both sensors physically mounted. The code degrades safely without it.</td></tr>
+  <tr><td><b>Never flown</b></td>
+      <td>The stack is benchmarked on the target board but has not operated on an airframe in
+      motion. Vibration, attitude dynamics and real thermal scenes are all unvalidated.</td></tr>
+  <tr><td><b>OtherVehicle AP<sub>50</sub> ≈ 0.05</b></td>
+      <td>A junk catch-all class. It is why Person AP<sub>50</sub> is quoted rather than overall
+      mAP<sub>50</sub>.</td></tr>
+</table>
+
+<h2>Appendix &middot; Reproduction</h2>
+
+<pre>bash training/run_all.sh          # idempotent; skips completed steps
+
+  1  detector P3 baseline          HIT-UAV, 30 epochs
+  2  detector P2 (negative result) HIT-UAV, 30 epochs, --amp False --batch 6
+  3  pixels-on-target curve
+  4  thermal domain merge          combined, 20 epochs
+  5  LiteRT w8a32 export           160 / 224 / 640
+  6  hazard classifier             AIDER, 4 + 12 epochs
+  7  fusion dataset                RGBT val, real gate
+  8  fusion head                   logistic regression
+     eval_sweep_width              HELD BACK — RUN_SWEEP_WIDTH=1 to force</pre>
+
+<p><b>Environment.</b> Two virtual environments are required and must not be merged.
+<span class="m">.venv</span> (Python 3.13) runs the application, dashboard and tests.
+<span class="m">.venv-tf</span> (Python 3.12) runs the entire ML pipeline, because TensorFlow
+publishes no macOS-arm64 wheel for Python 3.13 and the LiteRT export needs it.</p>
+
+<p><b>The pinned versions fight each other.</b> <span class="m">torchvision</span> must match
+<span class="m">torch</span> exactly or the validator dies at the end of epoch 1 with
+<span class="m">RuntimeError: operator torchvision::nms does not exist</span>;
+<span class="m">litert-torch</span> requires <span class="m">torch &lt; 2.14</span>. The only
+combination satisfying both is <b>torch 2.13.0 + torchvision 0.28.0</b>. Re-check
+<span class="m">pip list | grep torch</span> after any installation.</p>
+
+<hr class="thin">
+<p style="font-size:8pt;color:var(--dim);font-family:'Helvetica Neue',Helvetica,Arial,sans-serif">
+SaResQ perception stack &middot; repository commit <span class="m">4fe9173</span> &middot;
+167 automated tests passing &middot; all figures measured on an Apple M1 (8 GB) unless stated.
+</p>
+
+</body>
+</html>
