@@ -22,10 +22,10 @@
         525
       ],
       "box_units": "normalized",
-      "box_peak_on_grey": 1.148,
-      "host_latency_ms_median": 3.49,
+      "box_peak_on_grey": 1.315,
+      "host_latency_ms_median": 2.39,
       "variant": "p3",
-      "source_weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt"
+      "source_weights": "results/detector/v8n_p3_thermalmix2_640/weights/best.pt"
     },
     {
       "path": "/Users/afzalamanullah/saresq/models/yolov8n_p3_224_w8a32.tflite",
@@ -50,9 +50,9 @@
       ],
       "box_units": "normalized",
       "box_peak_on_grey": 0.989,
-      "host_latency_ms_median": 5.93,
+      "host_latency_ms_median": 4.1,
       "variant": "p3",
-      "source_weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt"
+      "source_weights": "results/detector/v8n_p3_thermalmix2_640/weights/best.pt"
     },
     {
       "path": "/Users/afzalamanullah/saresq/models/yolov8n_p3_640_w8a32.tflite",
@@ -77,9 +77,9 @@
       ],
       "box_units": "normalized",
       "box_peak_on_grey": 0.996,
-      "host_latency_ms_median": 44.1,
+      "host_latency_ms_median": 26.69,
       "variant": "p3",
-      "source_weights": "results/detector/v8n_p3_thermalmix_640/weights/best.pt"
+      "source_weights": "results/detector/v8n_p3_thermalmix2_640/weights/best.pt"
     }
   ],
   "box_units": "normalized"
