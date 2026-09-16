@@ -23,6 +23,23 @@ echo "== copying =="
 scp -q tools/live_pipeline.py "$PI:$REMOTE/tools/live_pipeline.py"
 scp -q configs/pipeline.yaml  "$PI:$REMOTE/configs/pipeline.yaml"
 
+# The scene classifier is 2.7 MB and is NOT part of the fast path above, which
+# is deliberately two small files so a deploy finishes in a second over a phone
+# hotspot. Copy it only when the Pi does not already have it -- otherwise every
+# deploy would push 2.7 MB to overwrite an identical file.
+HAZ=models/mobilenetv2_aider_224_int8.tflite
+if [ -f "$HAZ" ]; then
+  if ssh "$PI" "test -s $REMOTE/$HAZ"; then
+    echo "   hazard model already on the Pi"
+  else
+    echo "   pushing hazard model (2.7 MB, first time only)"
+    ssh "$PI" "mkdir -p $REMOTE/models"
+    scp -q "$HAZ" "$PI:$REMOTE/$HAZ"
+  fi
+else
+  echo "   WARNING: $HAZ not found locally; the scene strip will read 'model not found'"
+fi
+
 echo "== restarting =="
 # A syntax error here would leave the service crash-looping under
 # Restart=always with nothing on screen, so the file is compiled before the

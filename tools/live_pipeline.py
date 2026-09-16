@@ -144,6 +144,7 @@ PAGE = """<!doctype html><meta charset=utf-8>
         display:flex;align-items:center;gap:8px}
  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:none}
  .dot.live{background:var(--ok);box-shadow:0 0 0 3px rgba(55,192,122,.16)}
+ .dot.hot{background:var(--heat);box-shadow:0 0 0 3px rgba(232,138,48,.18)}
  .where{color:var(--dim);font:11px/1 var(--mono);letter-spacing:.08em;
         text-transform:uppercase}
  header .sp{flex:1}
@@ -170,6 +171,17 @@ PAGE = """<!doctype html><meta charset=utf-8>
  #pos.fix{border-color:#1f6642;background:#0e1c15}
  #pos.fix b{color:var(--ok)}
  #pos.nofix b{color:var(--dim);font-size:13px}
+
+ /* ---- scene strip: what KIND of disaster, from the whole frame ---- */
+ #scene{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+        margin:0 14px 12px;padding:11px 16px;border-radius:10px;
+        border:1px solid var(--rule);background:var(--card)}
+ #scene b{font:600 15px/1.2 var(--mono);letter-spacing:.06em;color:var(--ink)}
+ #scene span:not(.dot){color:var(--soft);font:11.5px/1.4 var(--mono)}
+ #scene.alert{border-color:#7a3d13;background:#1d130c}
+ #scene.alert b{color:var(--heat)}
+ #scene.calm b{color:var(--ok)}
+ #scene.off b{color:var(--dim);font-size:13px}
 
  .grid{display:grid;gap:12px;padding:0 14px;max-width:1500px;margin:0 auto}
  .card{background:var(--card);border:1px solid var(--rule);border-radius:10px;
@@ -289,6 +301,12 @@ PAGE = """<!doctype html><meta charset=utf-8>
   <span class=dot id=gdot></span>
   <b id=g-coord>&mdash;</b>
   <span id=g-state>waiting for GPS&hellip;</span>
+</div>
+
+<div id=scene>
+  <span class=dot id=sdot></span>
+  <b id=s-main>&mdash;</b>
+  <span id=s-sub>scene classifier starting&hellip;</span>
 </div>
 
 <div class=grid>
@@ -469,6 +487,27 @@ async function poll(){
       n ? `detector confirmed · ${f(d.ms,0)} ms`
         : (g.fired ? `gate fired at +${f(g.z_max,1)}σ · no person confirmed`
                    : `peak +${f(g.z_max,1)}σ of ${f(g.z_t,1)} needed`);
+
+    /* Scene class. This answers a different question from the verdict: the
+       verdict says whether anyone is there, this says what kind of place it
+       is. They are deliberately separate -- a flooded street with nobody in
+       it is still worth routing a boat to. */
+    const hz = s.hazard || {}, sc = document.getElementById('scene');
+    const SCENE = {collapsed_building:'COLLAPSED BUILDING', fire:'FIRE',
+                   flooded_areas:'FLOODING', traffic_incident:'TRAFFIC INCIDENT',
+                   normal:'NORMAL SCENE'};
+    document.getElementById('sdot').className =
+      'dot' + (hz.ok ? (hz.top === 'normal' ? ' live' : ' hot') : '');
+    if (hz.ok) {
+      sc.className = hz.top === 'normal' ? 'calm' : 'alert';
+      document.getElementById('s-main').textContent = SCENE[hz.top] || hz.top;
+      document.getElementById('s-sub').textContent =
+        `${f(hz.p * 100, 0)}% \u00b7 ${f(hz.ms, 0)} ms \u00b7 MobileNetV2/AIDER, 95.2% val acc`;
+    } else {
+      sc.className = 'off';
+      document.getElementById('s-main').textContent = 'SCENE \u2014';
+      document.getElementById('s-sub').textContent = hz.why || 'starting\u2026';
+    }
 
     document.getElementById('f-thermal').innerHTML =
       `<b>${f(t.min,1)}&ndash;${f(t.max,1)}&deg;C</b> &middot; spread ${f(t.spread,1)}&deg;C`+
@@ -912,6 +951,9 @@ class App:
         self.crop_meta: list[dict] = []
         self.gate = {"z_max": 0.0, "z_t": 2.5, "fired": False, "n_blobs": 0,
                      "blobs": []}
+        # Scene class, filled by hazard_loop. Starts "not ok" with a reason, so
+        # the page says WHY there is no scene rather than showing a blank strip.
+        self.hazard = {"ok": False, "why": "starting\u2026"}
         self.seq = 0
         self.save_next = False
         # Captured events live in RAM, not on the card. A ring buffer of ~24
@@ -934,6 +976,7 @@ class App:
         self.camera.start()
         self.gps.start()
         threading.Thread(target=self.detect_loop, daemon=True).start()
+        threading.Thread(target=self.hazard_loop, daemon=True).start()
 
     def detect_loop(self):
         from saresq.detect.tflite_detector import CropDetector
@@ -1010,6 +1053,78 @@ class App:
                               "saved" if manual else "detection")
             time.sleep(0.05)
 
+    def hazard_loop(self):
+        """Classify the WHOLE scene -- flood / fire / collapse -- at ~1 Hz.
+
+        Its own thread, and that is not incidental. The classifier costs 33 ms
+        on a 640x480 frame (results/pi_benchmark.json) against a 250 ms frame
+        budget of which the detector already spends 169 ms. Running it inline
+        would put the pipeline at 202 ms and leave nothing for a slow frame;
+        at 1 Hz in a separate thread it is a ~3% duty cycle and the detector
+        never waits on it.
+
+        1 Hz rather than per-frame because AIDER is a dataset of whole aerial
+        scenes and scene context does not change between consecutive frames of
+        a survey pass -- the rate lives in configs/pipeline.yaml for that
+        reason, not as a constant here.
+
+        Every failure path here is caught and reported into self.hazard rather
+        than raised. This is the piece most likely to be missing on a fresh
+        card (a 2.7 MB model file that nothing else needs), and a demo that
+        dies at boot because a nice-to-have banner could not load would be a
+        far worse outcome than a strip that says "model not found".
+        """
+        hz_cfg = self.cfg.get("hazard", {})
+
+        def fail(why: str):
+            with self.lock:
+                self.hazard = {"ok": False, "why": why}
+            print(f"hazard: {why}", flush=True)
+
+        if self.args.no_hazard:
+            return fail("disabled (--no-hazard)")
+
+        path = pathlib.Path(self.args.hazard_model)
+        if not path.is_absolute():
+            path = REPO / path
+        if not path.exists():
+            return fail(f"model not found: {path.name}")
+
+        try:
+            # Imported here, not at module scope: the demo must still start on
+            # a card where saresq/detect/hazard.py or LiteRT is unavailable.
+            from saresq.detect.hazard import HazardClassifier
+            # Deliberately NOT passing classes=cfg["hazard"]["classes"]. The
+            # model carries no class names, so a wrong list would silently
+            # relabel every prediction and still pass the arity check. The
+            # ordering in saresq.detect.hazard.CLASSES is the one that matches
+            # train_hazard.py's class_names=, which IS the output order.
+            clf = HazardClassifier(str(path), num_threads=2)
+        except Exception as e:                      # noqa: BLE001 - see docstring
+            return fail(f"{type(e).__name__}: {e}")
+
+        period = 1.0 / max(float(hz_cfg.get("rate_hz", 1.0)), 0.05)
+        print(f"hazard: {path.name} at {1 / period:.1f} Hz", flush=True)
+
+        while True:
+            rgb, _ = self.camera.read()
+            if rgb is None:
+                time.sleep(0.5)
+                continue
+            t0 = time.time()
+            try:
+                probs = clf.predict(rgb)
+            except Exception as e:                  # noqa: BLE001
+                fail(f"predict failed: {type(e).__name__}: {e}")
+                time.sleep(5.0)
+                continue
+            ms = (time.time() - t0) * 1000
+            top = max(probs, key=probs.get)
+            with self.lock:
+                self.hazard = {"ok": True, "top": top, "p": float(probs[top]),
+                               "ms": ms, "probs": {k: round(v, 4) for k, v in probs.items()}}
+            time.sleep(period)
+
     def _capture(self, rgb, vis, th, g, dets, crops, why: str) -> None:
         """Freeze one moment as JPEGs so the Review tab can show it later."""
         def enc(img, q=80):
@@ -1032,6 +1147,13 @@ class App:
             "lat": fx["lat"] if fx["quality"] else None,
             "lon": fx["lon"] if fx["quality"] else None,
             "sats": fx["sats"],
+            # The scene the payload was looking at when this was frozen. An
+            # event reviewed an hour later is far more readable as "person,
+            # flooded area" than "person"; and it is the field an operator
+            # triages by when the queue is long.
+            "scene": (self.hazard.get("top") if self.hazard.get("ok") else None),
+            "scene_p": (round(self.hazard.get("p", 0.0), 3)
+                        if self.hazard.get("ok") else None),
             "s": self.session,
             "img": {
                 "thermal": enc(colorize(th)) if th is not None else b"",
@@ -1185,6 +1307,7 @@ def make_handler(app: App):
                 with app.lock:
                     info, g, meta, seq = (dict(app.det_info), dict(app.gate),
                                           list(app.crop_meta), app.seq)
+                    hz = dict(app.hazard)
                 t = ({"min": float(th.min()), "max": float(th.max()),
                       "spread": float(th.max() - th.min()), "fps": fps}
                      if th is not None else {})
@@ -1196,7 +1319,7 @@ def make_handler(app: App):
                     temp = "?"
                 self._send(200, "application/json", json.dumps({
                     "thermal": t, "gate": g, "detect": info, "crops": meta,
-                    "gps": app.gps.read(),
+                    "gps": app.gps.read(), "hazard": hz,
                     "seq": seq, "rotated": bool(app.args.rotate),
                     "rgb_w": app.args.width, "rgb_h": app.args.height,
                     "rgb_age": max(0.0, time.time() - stamp) if stamp else 0.0,
@@ -1237,6 +1360,11 @@ def main() -> int:
     ap.add_argument("--classes", default="0",
                     help="comma-separated class ids to keep; 0 is person in "
                          "COCO. Empty string keeps every class.")
+    ap.add_argument("--hazard-model",
+                    default=str(REPO / "models" / "mobilenetv2_aider_224_int8.tflite"),
+                    help="AIDER scene classifier (MobileNetV2, int8)")
+    ap.add_argument("--no-hazard", action="store_true",
+                    help="skip scene classification entirely")
     ap.add_argument("--rgb-model",
                     default=str(REPO / "models" / "yolov8n_coco_640_w8a32.tflite"),
                     help="VISIBLE-light detector. The thermal-trained "

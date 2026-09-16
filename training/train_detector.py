@@ -51,6 +51,18 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_DATA = REPO / "data" / "converted" / "hituav" / "hituav.yaml"
 
 
+def _stem_for(base: str | None) -> str:
+    """Run-name stem from the base checkpoint: yolo11n.pt -> 'v11n'."""
+    if not base:
+        return "v8n"
+    b = pathlib.Path(base).stem.lower()
+    if b.startswith("yolo11"):
+        return "v11" + b[len("yolo11"):]
+    if b.startswith("yolov"):
+        return "v" + b[len("yolov"):]
+    return b
+
+
 def pick_device(requested: str | None) -> str:
     """Resolve 'auto' to the best backend actually present."""
     if requested and requested != "auto":
@@ -64,7 +76,7 @@ def pick_device(requested: str | None) -> str:
     return "cpu"
 
 
-def build_model(variant: str, weights: str | None):
+def build_model(variant: str, weights: str | None, base: str | None = None):
     """P3 loads the stock checkpoint; P2 grafts those weights onto a 4-level head.
 
     ``.load()`` copies every tensor whose name and shape match, so the backbone
@@ -76,6 +88,15 @@ def build_model(variant: str, weights: str | None):
 
     if weights:
         return YOLO(weights)
+    if base:
+        # An explicit base checkpoint (yolo11n.pt, yolov8s.pt, ...). Verified
+        # 2026-09-16 that yolo11n emits the same (1, 4+nc, n_anchors) tensor as
+        # yolov8n -- DFL baked in, no NMS -- so saresq/detect/decode.py needs no
+        # change and the A/B is a pure backbone swap.
+        if variant == "p2":
+            raise SystemExit("--model with --variant p2 is not supported: the "
+                             "P2 graft needs a matching *-p2.yaml, not a .pt")
+        return YOLO(base)
     if variant == "p3":
         return YOLO("yolov8n.pt")
     if variant == "p2":
@@ -92,6 +113,15 @@ def main() -> None:
     ap.add_argument("--variant", choices=["p3", "p2"], required=True)
     ap.add_argument("--data", default=str(DEFAULT_DATA))
     ap.add_argument("--weights", default=None, help="start from a checkpoint (fine-tuning)")
+    ap.add_argument("--model", default=None,
+                    help="base checkpoint for a fresh run, e.g. yolo11n.pt (p3 only)")
+    ap.add_argument("--lr0", type=float, default=0.001,
+                    help="0.001 from cold; use ~0.0003 when continuing a converged run, "
+                         "or the warm restart throws away several epochs recovering")
+    ap.add_argument("--warmup", type=float, default=3.0,
+                    help="warmup epochs; drop to 1 when continuing a trained checkpoint")
+    ap.add_argument("--stem", default=None,
+                    help="override the run-name stem (default: derived from --model)")
     ap.add_argument("--tag", default="hituav", help="dataset tag used in the run name")
     ap.add_argument("--imgsz", type=int, default=640, help="native HIT-UAV size; do not upscale")
     ap.add_argument("--epochs", type=int, default=100)
@@ -109,10 +139,13 @@ def main() -> None:
     args = ap.parse_args()
 
     device = pick_device(args.device)
-    name = f"v8n_{args.variant}_{args.tag}_{args.imgsz}"
+    # The stem names the ARCHITECTURE, not the dataset, so a YOLO11n A/B lands
+    # in its own directory instead of overwriting the v8n numbers the deck quotes.
+    stem = args.stem or _stem_for(args.model)
+    name = f"{stem}_{args.variant}_{args.tag}_{args.imgsz}"
     out_root = pathlib.Path(args.out)
 
-    model = build_model(args.variant, args.weights)
+    model = build_model(args.variant, args.weights, args.model)
     info = model.info()  # (layers, params, gradients, GFLOPs)
 
     model.train(
@@ -137,9 +170,9 @@ def main() -> None:
         # fp32 stays finite.
         amp={"False": False, "True": True}[args.amp],
         optimizer="AdamW",
-        lr0=0.001,
+        lr0=args.lr0,
         cos_lr=True,
-        warmup_epochs=3,
+        warmup_epochs=args.warmup,
         # Augmentation for nadir aerial imagery (Correction C9): when the camera
         # points straight down there is no canonical "up", so any rotation or
         # flip is a physically valid view of the same scene -- unlike a
@@ -181,6 +214,8 @@ def main() -> None:
 
     summary = {
         "variant": args.variant,
+        "base_model": args.model or args.weights or f"yolov8n ({args.variant})",
+        "lr0": args.lr0,
         "data": args.data,
         "imgsz": args.imgsz,
         "epochs": args.epochs,
