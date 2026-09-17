@@ -11,6 +11,13 @@
         border-radius:3px; box-shadow:var(--lift); }
   .mc-tl { top:12px; left:12px; width:246px; }
   .mc-tr { top:12px; right:12px; display:flex; flex-direction:column; gap:6px; background:none; border:none; box-shadow:none; }
+  .mc-live { top:12px; right:56px; width:250px; }
+  .mc-live code { font-size:10px; }
+  @media (max-width:760px){
+    /* On a phone the live box goes full width under the header rather than
+       overlapping the flood control, which owns the top-left corner. */
+    .mc-live { top:auto; bottom:92px; right:12px; left:12px; width:auto; }
+  }
   .mc-bl { bottom:12px; left:12px; padding:7px 11px; }
   .mc-br { bottom:12px; right:12px; padding:7px 11px; max-width:330px; }
   .mc-hd { padding:8px 11px; border-bottom:1px solid var(--rule-soft); display:flex;
@@ -69,6 +76,12 @@
         <button class="tg" data-layer="d3" aria-pressed="false">3D</button>
       </div>
       <div class="tgs">
+        <button class="tg" data-base="sat" aria-pressed="false">Satellite</button>
+        <button class="tg" data-base="dark" aria-pressed="true">Dark</button>
+        <button class="tg" data-base="street" aria-pressed="false">Street</button>
+        <button class="tg" data-base="baked" aria-pressed="false">Offline</button>
+      </div>
+      <div class="tgs">
         <button class="tg" data-prof="car" aria-pressed="false">Car 0.30 m</button>
         <button class="tg" data-prof="emrg" aria-pressed="true">Emergency 0.60 m</button>
       </div>
@@ -87,11 +100,16 @@
     <button class="zb" id="zout" aria-label="Zoom out">&minus;</button>
   </div>
 
+  <div class="mc mc-live">
+    <div class="mc-hd"><span class="lbl">Live payload</span><span class="ps" id="baseStat">&mdash;</span></div>
+    <div class="mc-bd" id="livebox"><div class="ps">connecting&hellip;</div></div>
+  </div>
+
   <div class="mc mc-bl">
     <div class="scalebar"><div class="lab" id="scaleLab">—</div><div class="bar" id="scaleBar" style="width:80px"></div></div>
     <div class="ps" style="margin-top:4px" id="status">connecting…</div>
     <div class="ps" style="margin-top:3px;font-size:8.5px">
-      Basemap © OpenStreetMap contributors (ODbL) · Terrain NASA SRTM 30 m
+      <span id="attr">Basemap © OpenStreetMap contributors (ODbL)</span> · Terrain NASA SRTM 30 m
     </div>
   </div>
 
@@ -104,6 +122,7 @@
 
 {% block scripts %}
 <script src="/static/basemap.js"></script>
+<script src="/static/tiles.js"></script>
 <script src="/static/mapcore.js"></script>
 <script src="/static/mapview.js"></script>
 {% endblock %}

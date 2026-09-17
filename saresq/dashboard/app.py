@@ -17,6 +17,7 @@ import time
 
 from flask import Flask, abort, jsonify, render_template, request, send_file, send_from_directory
 
+from saresq.dashboard.payload import PayloadLink
 from saresq.dashboard.readiness import readiness
 from saresq.store.db import Store
 from saresq.store.media import MediaStore
@@ -34,6 +35,10 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
 
 VALID_VERDICTS = {"SURVIVOR", "NOT_SURVIVOR", "UNSURE", "DISPATCHED"}
+#: Set by main() when --payload is given. None means "no aircraft configured",
+#: which the UI shows as a state of its own rather than as a link failure --
+#: the dashboard is fully usable against a recorded database with no payload.
+LINK: PayloadLink | None = None
 _MIME = {"jpg": "image/jpeg", "mp4": "video/mp4", "bin": "application/octet-stream"}
 
 
@@ -124,6 +129,44 @@ def api_radar_fault():
         return jsonify(get_radar().inject(str(name), seconds))
     except KeyError:
         abort(400, "fault must be one of ['gps', 'link']")
+
+
+@app.route("/api/live")
+def api_live():
+    """Live payload state: position, verdict, scene, link health.
+
+    Always 200 with a `configured` flag rather than 404 when there is no
+    payload. The map polls this every second; a 404 would fill the console with
+    errors for the entirely normal case of reviewing a recorded mission.
+    """
+    if LINK is None:
+        return jsonify({"configured": False, "connected": False})
+    d = LINK.live()
+    d["configured"] = True
+    return jsonify(d)
+
+
+@app.route("/api/origin", methods=["POST"])
+def api_origin():
+    """Operator-set datum for captures that have no GPS fix.
+
+    Indoors a NEO-6M never fixes, so bench captures carry no position. This
+    lets the operator say where the payload actually is. Everything placed this
+    way is tagged pos_source="manual" and must be drawn differently from a
+    measured fix -- the point is to be useful without ever dressing an
+    assumption up as a measurement.
+    """
+    if LINK is None:
+        return jsonify({"error": "no payload configured"}), 409
+    body = request.get_json(silent=True) or {}
+    try:
+        lat, lon = float(body["lat"]), float(body["lon"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "lat and lon required"}), 400
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify({"error": "out of range"}), 400
+    LINK.set_origin(lat, lon)
+    return jsonify({"ok": True, "origin": {"lat": lat, "lon": lon}})
 
 
 @app.route("/api/readiness")
@@ -380,6 +423,11 @@ def main():
                          "the app or use it offline from a phone: a service worker requires "
                          "a secure context, and http://<lan-ip> is not one.")
     ap.add_argument("--cert-dir", default=".certs")
+    ap.add_argument("--payload", default=None,
+                    help="live payload as host or host:port, e.g. 192.168.1.2 "
+                         "(port defaults to 8091). Omit to review a recorded database.")
+    ap.add_argument("--origin", default=None,
+                    help="lat,lon datum for captures with no GPS fix (indoor demos)")
     args = ap.parse_args()
 
     app.config["DB_PATH"] = args.db
@@ -390,6 +438,19 @@ def main():
     pathlib.Path(app.config["MEDIA_DIR"]).mkdir(parents=True, exist_ok=True)
 
     app.config["CERT_DIR"] = str(pathlib.Path(args.cert_dir).expanduser().resolve())
+
+    global LINK
+    if args.payload:
+        LINK = PayloadLink(args.payload, store_factory=get_store)
+        if args.origin:
+            try:
+                la, lo = (float(v) for v in args.origin.split(","))
+                LINK.set_origin(la, lo)
+                print(f"  manual datum set to {la:.5f}, {lo:.5f} (used only without a GPS fix)")
+            except ValueError:
+                print(f"  ignoring --origin {args.origin!r}: expected 'lat,lon'")
+        LINK.start()
+        print(f"  payload link -> http://{LINK.host}")
 
     ssl_ctx = None
     if args.https:

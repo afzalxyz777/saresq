@@ -272,15 +272,41 @@ window.MapCore = (function () {
       ctx.restore();
     }
 
+    var lastTiles = null;
+
     function drawBase(o) {
       o = o || {};
       var level = o.level == null ? 12.0 : o.level;
       var show = o.show || { flood: true, roads: true, bldg: true, d3: false };
       ctx.fillStyle = o.ground || "#0B141A";
       ctx.fillRect(0, 0, vp.w, vp.h);
-      fillL(GEO.park, "#102A20");
-      fillL(GEO.water, "#123544");
-      strokeL(GEO.river, "#123544", Math.max(2, 14 / mpp()));
+
+      /* Raster tiles, when a network is there. They REPLACE the baked base
+       * geometry rather than sitting under it -- the baked water and building
+       * fills are opaque, so drawing both would simply hide the tiles and cost
+       * the download for nothing.
+       *
+       * What is never replaced is the flood surface and the road passability
+       * classification below: those are this project's own model output and
+       * exist at no zoom level on anyone's tile server. Tiles change what the
+       * city looks like, not what we know about it. */
+      var tiles = null;
+      if (o.tiles && o.tiles.on && window.TileLayer) {
+        tiles = window.TileLayer.draw(ctx, cam, vp, wx, wy, {
+          source: o.tiles.source, onTile: o.tiles.onTile, alpha: o.tiles.alpha
+        });
+      }
+      // Only treat the tile base as painted once tiles have actually arrived.
+      // Mid-load we keep drawing the baked layers, so a slow network degrades
+      // to the offline map instead of to an empty rectangle.
+      var tiled = !!(tiles && tiles.drawn > 0);
+      lastTiles = tiles;
+
+      if (!tiled) {
+        fillL(GEO.park, "#102A20");
+        fillL(GEO.water, "#123544");
+        strokeL(GEO.river, "#123544", Math.max(2, 14 / mpp()));
+      }
       if (show.flood) {
         var nw = P(DEM.lat1, DEM.lon0), se = P(DEM.lat0, DEM.lon1);
         ctx.save();
@@ -290,12 +316,14 @@ window.MapCore = (function () {
         ctx.restore();
       }
       if (show.bldg && cam.z >= 15.6) {
+        // 3D extrusion is ours and stays over tiles; the flat footprint fill is
+        // only a stand-in for what the tiles already draw better.
         if (show.d3) drawExtruded(level, show.flood);
-        else { fillL(GEO.bldg, "#18272F"); strokeL(GEO.bldg, "#253945", .7); }
+        else if (!tiled) { fillL(GEO.bldg, "#18272F"); strokeL(GEO.bldg, "#253945", .7); }
       }
       if (show.roads) {
         drawRoads(level, o.profile || "emrg", o.origin, o.dimRoads);
-        strokeL(GEO.rail, "#33454F", 1.3, [7, 5]);
+        if (!tiled) strokeL(GEO.rail, "#33454F", 1.3, [7, 5]);
       }
       if (o.aoiBox !== false) {
         var a = P(DEM.lat1, DEM.lon0), b = P(DEM.lat0, DEM.lon1);
@@ -389,6 +417,7 @@ window.MapCore = (function () {
     var view = {
       cam: cam, vp: vp, ctx: ctx, canvas: cv, svg: ov,
       P: P, unP: unP, mpp: mpp, size: size, drawBase: drawBase,
+      tileInfo: function () { return lastTiles; },
       zoom: zoom, panTo: panTo, fitBounds: fitBounds,
       classifyRoads: classifyRoads, demAt: demAt,
       dragged: function () { return !!(drag && drag.moved); }

@@ -13,7 +13,16 @@
     level: 12.0,
     profile: "emrg",
     show: { flood: true, roads: true, bldg: true, d3: false },
-    targets: [], hazards: [], sel: null, fitted: false
+    targets: [], hazards: [], sel: null, fitted: false,
+    // Tiles on by default: if the network is there the coordinator gets the
+    // whole city, and mapcore falls back to the baked geometry by itself when
+    // no tile arrives, so switching this on cannot leave a blank map.
+    tiles: { on: true, source: "dark" },
+    live: null,
+    // Breadcrumb of where the aircraft has been. Capped because a long flight
+    // at 1 Hz would otherwise grow without bound in a page nobody reloads.
+    trail: [], TRAIL_MAX: 600,
+    followed: false
   };
 
   var host = document.getElementById("maparea");
@@ -44,6 +53,65 @@
     for (var k in at || {}) o[k] = at[k];
     var e = sve("text", o); e.textContent = s; return e;
   }
+  /* The aircraft itself. Drawn last so it is never hidden by a target pin,
+     and drawn differently depending on where the position CAME from: a GPS fix
+     is a solid ring, an operator-set datum is dashed and labelled MANUAL. The
+     two must never look alike -- a rescuer reading a manual datum as a measured
+     fix is the worst failure this page could cause. */
+  function drawPayload() {
+    var L = S.live;
+    if (!L || !L.configured) return;
+    var lat = L.lat, lon = L.lon, src = "gps";
+    if (lat == null || lon == null) {
+      if (!L.origin) return;                 // nothing to draw, and nothing invented
+      lat = L.origin.lat; lon = L.origin.lon; src = "manual";
+    }
+    var s = view.P(lat, lon);
+    var stale = L.age_s != null && L.age_s > 5;
+    var col = !L.connected || stale ? "#6D838D"
+            : (L.verdict === "PERSON" ? "#F46454"
+            : (L.verdict === "HEAT" ? "#F3A83C" : "#3FCDEC"));
+
+    // breadcrumb
+    if (S.trail.length > 1) {
+      var d = S.trail.map(function (p, i) {
+        var q = view.P(p[0], p[1]);
+        return (i ? "L " : "M ") + q[0].toFixed(1) + " " + q[1].toFixed(1);
+      }).join(" ");
+      ov.appendChild(sve("path", { d: d, fill: "none", stroke: col,
+        "stroke-opacity": .38, "stroke-width": 1.6, "stroke-linejoin": "round" }));
+    }
+
+    var g = sve("g", {});
+    // Position uncertainty, to scale. HDOP is unitless, so it is turned into
+    // metres with the receiver's nominal ~2.5 m UERE; a manual datum gets a
+    // deliberately large 25 m ring because that is honestly what it is worth.
+    var errM = src === "manual" ? 25 : Math.max(2.5, (L.hdop || 1) * 2.5);
+    g.appendChild(sve("circle", { cx: s[0], cy: s[1], r: Math.max(6, errM / view.mpp()),
+      fill: col, "fill-opacity": .07, stroke: col, "stroke-opacity": .5,
+      "stroke-width": 1.1, "stroke-dasharray": src === "manual" ? "3 4" : null }));
+    g.appendChild(sve("circle", { cx: s[0], cy: s[1], r: 13, fill: "#091015",
+      "fill-opacity": .92, stroke: col, "stroke-width": 2.4,
+      "stroke-dasharray": src === "manual" ? "4 3" : null }));
+    // A quadcopter glyph: four arms, so it reads as the aircraft and not as
+    // another target pin.
+    ["M -7 -7 L 7 7", "M 7 -7 L -7 7"].forEach(function (d) {
+      g.appendChild(sve("path", { d: d, transform: "translate(" + s[0] + "," + s[1] + ")",
+        stroke: col, "stroke-width": 2, "stroke-linecap": "round" }));
+    });
+    [[-7,-7],[7,-7],[-7,7],[7,7]].forEach(function (o) {
+      g.appendChild(sve("circle", { cx: s[0] + o[0], cy: s[1] + o[1], r: 3.2,
+        fill: "none", stroke: col, "stroke-width": 1.5 }));
+    });
+    g.appendChild(label(s[0] + 18, s[1] - 2, "PAYLOAD",
+      { "font-weight": 700, "font-size": 11, fill: col }));
+    g.appendChild(label(s[0] + 18, s[1] + 10,
+      src === "manual" ? "MANUAL DATUM \u00b7 not a GPS fix"
+                       : (L.sats || 0) + " sats \u00b7 HDOP " + (L.hdop == null ? "\u2014" : L.hdop.toFixed(1)),
+      { "font-size": 9.5, fill: src === "manual" ? "#F3A83C" : "#6D838D" }));
+    ov.appendChild(g);
+  }
+
   function drawOverlay() {
     ov.innerHTML = "";
     S.hazards.forEach(function (h) {
@@ -87,6 +155,7 @@
       });
       ov.appendChild(g);
     });
+    drawPayload();
   }
 
   var raf = false;
@@ -95,7 +164,10 @@
     raf = true;
     requestAnimationFrame(function () {
       raf = false;
-      view.drawBase({ level: S.level, show: S.show, profile: S.profile });
+      view.drawBase({
+        level: S.level, show: S.show, profile: S.profile,
+        tiles: { on: S.tiles.on, source: S.tiles.source, onTile: draw }
+      });
       drawOverlay();
       chrome();
     });
@@ -174,6 +246,116 @@
     });
   }
 
+  // ---- basemap source ----
+  document.querySelectorAll("[data-base]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var v = b.getAttribute("data-base");
+      S.tiles.on = v !== "baked";
+      if (S.tiles.on) S.tiles.source = v;
+      document.querySelectorAll("[data-base]").forEach(function (c) {
+        var cv = c.getAttribute("data-base");
+        c.setAttribute("aria-pressed", String(S.tiles.on ? cv === S.tiles.source : cv === "baked"));
+      });
+      draw();
+      setTimeout(baseStatus, 700);
+    });
+  });
+  function baseStatus() {
+    var el = document.getElementById("baseStat");
+    if (!el) return;
+    if (!S.tiles.on) { el.textContent = "offline geometry"; return; }
+    var h = window.TileLayer ? window.TileLayer.health() : null;
+    var t = view.tileInfo();
+    var at = document.getElementById("attr");
+    if (at) at.textContent = S.tiles.on && window.TileLayer
+      ? window.TileLayer.attribution(S.tiles.source)
+      : "Baked OSM geometry \u00a9 OpenStreetMap contributors (ODbL)";
+    el.textContent = !h || h.ok === 0
+      ? (h && h.fail ? "no network \u2014 offline geometry" : "loading\u2026")
+      : (t && t.drawn ? "z" + t.z + " \u00b7 " + h.ok + " tiles" : "offline geometry");
+  }
+
+  /* Shift-click sets the datum used for captures with no GPS fix. Deliberately
+     a modifier: a bare click selects a target, and an operator who nudges the
+     map must not silently relocate every unfixed find in the mission. */
+  document.getElementById("cv").addEventListener("click", function (ev) {
+    if (!ev.shiftKey || view.dragged()) return;
+    var r = host.getBoundingClientRect();
+    var ll = view.unP(ev.clientX - r.left, ev.clientY - r.top);
+    fetch("/api/origin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat: ll[0], lon: ll[1] })
+    }).then(function (r) { return r.json(); })
+      .then(function () { pollLive(); })
+      .catch(function () {});
+  });
+
+  // ---- live payload ----
+  function fmt(v, n, unit) {
+    return v == null ? "\u2014" : v.toFixed(n) + (unit || "");
+  }
+  function pollLive() {
+    fetch("/api/live").then(function (r) { return r.json(); }).then(function (L) {
+      S.live = L;
+      if (L.configured && L.connected && L.lat != null && L.lon != null) {
+        var last = S.trail[S.trail.length - 1];
+        // Only extend the breadcrumb on real movement: a stationary payload
+        // would otherwise pile thousands of identical points into the path.
+        if (!last || Math.abs(last[0] - L.lat) > 1e-6 || Math.abs(last[1] - L.lon) > 1e-6) {
+          S.trail.push([L.lat, L.lon]);
+          if (S.trail.length > S.TRAIL_MAX) S.trail.shift();
+        }
+        if (!S.followed) { view.panTo(L.lat, L.lon); S.followed = true; }
+      }
+      livePanel(L);
+      draw();
+    }).catch(function () {
+      S.live = { configured: true, connected: false, why: "dashboard unreachable" };
+      livePanel(S.live); draw();
+    });
+  }
+  function livePanel(L) {
+    var box = document.getElementById("livebox");
+    if (!box) return;
+    if (!L || !L.configured) {
+      box.innerHTML = "<div class='ps'>No payload configured."
+        + "<br><span style='color:var(--muted)'>start with <code>--payload &lt;pi-ip&gt;</code></span></div>";
+      return;
+    }
+    var stale = L.age_s != null && L.age_s > 5;
+    var dot = !L.connected || stale ? "#6D838D"
+            : (L.verdict === "PERSON" ? "#F46454"
+            : (L.verdict === "HEAT" ? "#F3A83C" : "#4FC489"));
+    var pos = L.lat != null
+      ? L.lat.toFixed(5) + "\u00b0N " + L.lon.toFixed(5) + "\u00b0E"
+      : (L.origin ? "<span style='color:#F3A83C'>manual datum \u00b7 no GPS fix</span>"
+                  : "<span style='color:#F46454'>no position \u2014 shift-click to set datum</span>");
+    box.innerHTML =
+      "<div style='display:flex;align-items:center;gap:7px'>"
+      + "<span style='width:8px;height:8px;border-radius:50%;background:" + dot + "'></span>"
+      + "<b style='font-family:var(--mono);font-size:13px;color:" + dot + "'>"
+      + (!L.connected ? "LINK DOWN" : (L.verdict || "\u2014")) + "</b>"
+      + "<span class='ps' style='margin-left:auto'>" + (L.host || "") + "</span></div>"
+      + "<div class='ps' style='margin-top:6px;line-height:1.75'>" + pos
+      + "<br>" + (L.fix ? (L.sats || 0) + " sats \u00b7 HDOP " + fmt(L.hdop, 1)
+                        : "GPS: " + (L.gps_state || "no fix")
+                          + " \u00b7 " + (L.in_view || 0) + " in view")
+      + "<br>thermal " + fmt(L.t_min, 1) + "\u2013" + fmt(L.t_max, 1) + "\u00b0C"
+      + " \u00b7 peak +" + fmt(L.z_max, 1) + "\u03c3"
+      + (L.blobs ? " \u00b7 " + L.blobs + " blob(s)" : "")
+      + (L.scene ? "<br>scene <b style='color:" + (L.scene === "normal" ? "#4FC489" : "#F3A83C")
+                   + "'>" + L.scene.replace(/_/g, " ") + "</b> "
+                   + Math.round((L.scene_p || 0) * 100) + "%" : "")
+      + "<br>" + (L.ingested || 0) + " event(s) stored"
+      + (L.age_s != null ? " \u00b7 " + L.age_s.toFixed(1) + "s ago" : "")
+      + (L.temp ? " \u00b7 CPU " + L.temp : "")
+      + "</div>";
+  }
+
   refresh();
   setInterval(refresh, 4000);
+  pollLive();
+  setInterval(pollLive, 1000);
+  setTimeout(baseStatus, 900);
+  setInterval(baseStatus, 3000);
 })();
