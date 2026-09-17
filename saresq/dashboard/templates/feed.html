@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Feed{% endblock %}
+{% block head %}
+<style>
+  .wrap { padding:14px; max-width:1560px; margin:0 auto; }
+  #verdict { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+             border:1px solid var(--rule); border-left:3px solid var(--rule);
+             background:var(--panel); border-radius:3px; padding:13px 16px; margin-bottom:12px; }
+  #verdict b { font:650 24px/1.1 var(--mono); letter-spacing:-.01em; color:var(--ink); }
+  #verdict span { color:var(--muted); font:12px/1.4 var(--mono); }
+  #verdict.found { border-left-color:#4FC489; background:#0e1c15; }
+  #verdict.found b { color:#4FC489; }
+  #verdict.heat  { border-left-color:#F3A83C; background:#1d130c; }
+  #verdict.heat b { color:#F3A83C; }
+  #verdict.down  { border-left-color:#6D838D; }
+  #verdict.down b { color:#6D838D; }
+  .fgrid { display:grid; gap:12px; grid-template-columns:1fr; }
+  @media (min-width:1000px){ .fgrid { grid-template-columns:2fr 1fr; } }
+  .pan { background:var(--panel); border:1px solid var(--rule); border-radius:3px;
+         overflow:hidden; display:flex; flex-direction:column; min-width:0; }
+  .pan h2 { font:600 10.5px/1 var(--mono); letter-spacing:.12em; text-transform:uppercase;
+            color:var(--muted); margin:0; padding:11px 13px; border-bottom:1px solid var(--rule-soft);
+            display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .pan canvas { width:100%; display:block; aspect-ratio:4/3; background:#000; min-width:0; }
+  .pan .foot { padding:9px 13px; font:11.5px/1.5 var(--mono); color:var(--muted);
+               border-top:1px solid var(--rule-soft); min-height:34px; }
+  .pan .foot b { color:var(--ink); }
+  .half { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+  @media (max-width:620px){ .half { grid-template-columns:1fr; } }
+  .crops { display:flex; gap:7px; overflow-x:auto; padding:11px 13px; }
+  .crops figure { margin:0; flex:none; width:104px; }
+  .crops img { width:104px; height:104px; object-fit:cover; border-radius:2px;
+               border:1px solid var(--rule); display:block; background:#000; }
+  .crops figcaption { font:9.5px/1.35 var(--mono); color:var(--muted); margin-top:4px; text-align:center; }
+  .pill { font:9px/1 var(--mono); font-weight:700; letter-spacing:.09em; padding:3px 6px;
+          border-radius:2px; border:1px solid var(--rule); color:var(--muted); }
+  .pill.on { background:#1d130c; border-color:#7a3d13; color:#F3A83C; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; padding:11px 13px;
+        font:11.5px/1.6 var(--mono); }
+  .kv dt { color:var(--muted); } .kv dd { margin:0; color:var(--ink); }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="wrap">
+  <div id="verdict"><b id="v-main">&mdash;</b><span id="v-sub">connecting to payload&hellip;</span></div>
+
+  <div class="fgrid">
+    <div class="pan">
+      <h2>Detector <span class="pill" id="p-det">&mdash;</span></h2>
+      <canvas id="c-detect" width="640" height="480"></canvas>
+      <div class="foot" id="f-detect">&mdash;</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="pan">
+        <h2>Thermal 32&times;24 <span class="pill" id="p-gate">gate</span></h2>
+        <canvas id="c-thermal" width="512" height="384"></canvas>
+        <div class="foot" id="f-thermal">&mdash;</div>
+      </div>
+      <div class="pan">
+        <h2>Payload</h2>
+        <dl class="kv" id="kv"></dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="half" style="margin-top:12px">
+    <div class="pan">
+      <h2>RGB camera</h2>
+      <canvas id="c-rgb" width="640" height="480"></canvas>
+      <div class="foot" id="f-rgb">&mdash;</div>
+    </div>
+    <div class="pan">
+      <h2>Gate crops <span class="pill" id="p-crops">&mdash;</span></h2>
+      <div class="crops" id="crops"></div>
+      <div class="foot">Regions the thermal gate handed to the detector.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="/static/feed.js"></script>{% endblock %}

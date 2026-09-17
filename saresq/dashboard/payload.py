@@ -162,6 +162,10 @@ class PayloadLink(threading.Thread):
             "sats": gps.get("sats"), "in_view": gps.get("in_view"),
             "fix": bool(gps.get("quality")), "gps_state": gps.get("state"),
             "hdop": gps.get("hdop"), "alt": gps.get("alt"),
+            # Per-crop z and temperature, so the feed page's captions come from
+            # the same poll as the count and cannot disagree with the pictures.
+            "crops": [{"i": c.get("i", i), "z": c.get("z"), "T": c.get("T")}
+                      for i, c in enumerate(st.get("crops") or [])],
             "temp": st.get("temp"), "up": st.get("up"),
         }
 

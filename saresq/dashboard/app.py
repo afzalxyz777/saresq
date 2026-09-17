@@ -73,6 +73,54 @@ def page_radar():
     return render_template("radar.html", page="/radar")
 
 
+@app.route("/feed")
+def page_feed():
+    return render_template("feed.html", active="feed")
+
+
+#: Frames the payload serves as one complete JPEG per request. The .mjpg
+#: variants exist too but are not used: a browser repaints a
+#: multipart/x-mixed-replace stream while a frame is still arriving, so the top
+#: of the incoming image appears over grey. Fetching discrete JPEGs and drawing
+#: only after decode is what fixed that on the payload's own page.
+FEED_KINDS = {"thermal": "/thermal.jpg", "rgb": "/rgb.jpg", "detect": "/detect.jpg"}
+
+
+@app.route("/api/feed/<kind>")
+def api_feed(kind: str):
+    """Proxy one live frame from the payload.
+
+    Proxied rather than pointed at directly so the ground station stays the
+    single origin an operator needs: the browser may be on a network that
+    reaches the laptop but not the aircraft, and going direct would also put
+    the payload's address into every page.
+    """
+    import urllib.error
+    import urllib.request
+
+    if LINK is None:
+        return ("no payload configured", 409)
+    path = FEED_KINDS.get(kind)
+    if path is None:
+        if kind.startswith("crop"):
+            path = "/crop/" + kind[4:]
+        else:
+            abort(404)
+    try:
+        # Short: three panels poll this, and an unreachable aircraft must fail
+        # fast enough that the page keeps ticking rather than stacking up
+        # requests that all time out together.
+        with urllib.request.urlopen(f"http://{LINK.host}{path}", timeout=2.0) as r:
+            blob = r.read()
+    except (urllib.error.URLError, OSError, TimeoutError) as e:
+        # 503, not 500: the aircraft being out of range is an expected state of
+        # the world, and the page shows it as "link down" rather than an error.
+        return (f"payload unreachable: {type(e).__name__}", 503)
+    resp = app.response_class(blob, mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/evidence")
 def page_evidence():
     return render_template("evidence.html", page="/evidence")

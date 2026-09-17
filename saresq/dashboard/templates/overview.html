@@ -1,21 +1,290 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
+{% block head %}
+<style>
+  .hero { display:flex; gap:22px; align-items:center; flex-wrap:wrap;
+          padding:26px 0 22px; border-bottom:1px solid var(--rule-soft); }
+  .hero img { width:88px; height:88px; flex:none; }
+  .hero h1 { margin:0; font:700 40px/1 system-ui,-apple-system,sans-serif; letter-spacing:-.025em;
+             color:var(--ink); }
+  .hero .tag { color:var(--ink-2); font:15px/1.5 system-ui,sans-serif; margin-top:7px; max-width:62ch; }
+  .hero .sub { color:var(--muted); font:11px/1.4 var(--mono); letter-spacing:.09em;
+               text-transform:uppercase; margin-top:9px; }
+  .lead { font:15.5px/1.75 system-ui,sans-serif; color:var(--ink-2); max-width:72ch; }
+  .lead b { color:var(--ink); font-weight:600; }
+  .steps { display:grid; gap:11px; margin:0; padding:0; list-style:none; }
+  .steps li { display:grid; grid-template-columns:30px 1fr; gap:13px; align-items:start; }
+  .steps .n { font:700 12px/26px var(--mono); text-align:center; height:26px; border-radius:50%;
+              background:var(--panel-3); color:var(--ink); border:1px solid var(--rule); }
+  .steps h4 { margin:3px 0 3px; font:600 14px/1.3 system-ui,sans-serif; color:var(--ink); }
+  .steps p { margin:0; font:13.5px/1.65 system-ui,sans-serif; color:var(--ink-2); max-width:70ch; }
+  .steps code { font-size:12px; }
+  .flowwrap { overflow-x:auto; padding:4px 0 2px; }
+  .flowwrap svg { min-width:880px; width:100%; height:auto; display:block; }
+  table.doc { width:100%; border-collapse:collapse; font:13px/1.55 system-ui,sans-serif; }
+  table.doc th { text-align:left; font:600 10px/1 var(--mono); letter-spacing:.11em;
+                 text-transform:uppercase; color:var(--muted); padding:11px 13px;
+                 border-bottom:1px solid var(--rule); white-space:nowrap; }
+  table.doc td { padding:11px 13px; border-bottom:1px solid var(--rule-soft);
+                 color:var(--ink-2); vertical-align:top; }
+  table.doc td b { color:var(--ink); }
+  table.doc tr:last-child td { border-bottom:0; }
+  table.doc .num { font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--ink);
+                   white-space:nowrap; }
+  .numgrid { display:grid; gap:11px; grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); }
+  .numgrid .panel { padding:14px 15px; }
+  .numgrid .big { font:500 25px/1.15 var(--mono); color:var(--ink); font-variant-numeric:tabular-nums; }
+  .numgrid .cap { font:10px/1.35 var(--mono); letter-spacing:.09em; text-transform:uppercase;
+                  color:var(--muted); margin-bottom:6px; }
+  .numgrid .src { font:11px/1.45 system-ui,sans-serif; color:var(--muted); margin-top:5px; }
+  .pagelist { display:grid; gap:9px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .pagelist a { display:block; padding:13px 15px; border:1px solid var(--rule); border-radius:3px;
+                background:var(--panel); text-decoration:none; }
+  .pagelist a:hover { border-color:var(--ink-2); }
+  .pagelist strong { display:block; color:var(--ink); font:600 13.5px/1.3 system-ui,sans-serif; }
+  .pagelist span { display:block; color:var(--muted); font:12px/1.55 system-ui,sans-serif; margin-top:4px; }
+  .warn { border-left:3px solid #F3A83C; }
+  .warn li { color:var(--ink-2); font:13.5px/1.7 system-ui,sans-serif; margin-bottom:7px; }
+  .warn li b { color:#F3A83C; font-weight:600; }
+  details.doc { border:1px solid var(--rule); border-radius:3px; background:var(--panel); }
+  details.doc > summary { padding:13px 15px; cursor:pointer; font:600 12px/1 var(--mono);
+                          letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); }
+  details.doc[open] > summary { border-bottom:1px solid var(--rule-soft); }
+  .pb { padding:15px; }
+</style>
+{% endblock %}
+
 {% block body %}
 <div class="wrap">
-  <div class="grid g3">
-    <div class="panel kpi"><span class="lbl">Subsystems ready</span>
-      <div class="v" id="kOk">—<small> / 9</small></div>
-      <div class="d">Filesystem and database facts, not flags.</div></div>
-    <div class="panel kpi"><span class="lbl">Targets on file</span>
-      <div class="v" id="kTargets">—</div><div class="d" id="kTargetsD">—</div></div>
-    <div class="panel kpi"><span class="lbl">Evidence artefacts</span>
-      <div class="v" id="kMedia">—</div><div class="d" id="kMediaD">—</div></div>
-    <div class="panel kpi"><span class="lbl">Fusion labels</span>
-      <div class="v" id="kLabels">—</div>
-      <div class="d">Operator verdicts usable as training pairs.</div></div>
+
+  <div class="hero">
+    <img src="/static/logo.svg" alt="SaResQ">
+    <div style="min-width:0">
+      <h1>SaResQ</h1>
+      <div class="tag">A thermal + visible camera payload that finds people from a small
+        drone, decides on the aircraft whether what it sees is a person, and sends the
+        answer to the ground over a radio that is too slow for video.</div>
+      <div class="sub">Raspberry Pi 4 &middot; MLX90640 &middot; Pi Camera v2 &middot; <span id="heroLink">checking payload&hellip;</span></div>
+    </div>
   </div>
 
+  <h2 class="sec">The problem, and the idea</h2>
+  <section class="panel pb">
+    <p class="lead">After an earthquake or a flood, the slow part of a rescue is not
+      travelling &mdash; it is <b>searching</b>. A drone can cover a collapsed block in
+      minutes, but it comes back with an hour of video that a person still has to watch.</p>
+    <p class="lead" style="margin-bottom:0">SaResQ watches instead. A thermal camera says
+      <b>where to look</b>, a normal camera says <b>what is there</b>, and only the few
+      frames that contain a person are ever sent anywhere. The reason it is built this way
+      is a hard limit: the radio a small drone carries moves about
+      <b>16 kilobits per second</b>. A single video frame takes thirteen seconds on it.
+      A map pin takes fourteen milliseconds.</p>
+  </section>
+
+  <h2 class="sec">How it works</h2>
+  <section class="panel pb">
+    <div class="flowwrap">
+      <svg viewBox="0 0 980 260" role="img"
+           aria-label="Pipeline from thermal and visible sensors through the gate and detector to the ground station">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="#5A7180"/>
+          </marker>
+          <style>
+            .bx { fill:#111C24; stroke:#24343E; stroke-width:1.3; rx:4; }
+            .t  { font:600 12.5px system-ui,sans-serif; fill:#DCE7EC; }
+            .s  { font:10.5px ui-monospace,monospace; fill:#6D838D; }
+            .lk { stroke:#5A7180; stroke-width:1.5; fill:none; marker-end:url(#ar); }
+            .hd { font:700 9.5px ui-monospace,monospace; letter-spacing:.11em; fill:#6D838D; }
+          </style>
+        </defs>
+
+        <text x="8" y="14" class="hd">ON THE AIRCRAFT</text>
+        <rect x="8" y="26" width="700" height="150" rx="5" fill="#0D171E" stroke="#1D2A33" stroke-width="1.2"/>
+
+        <rect class="bx" x="24" y="44" width="122" height="52"/>
+        <text x="34" y="64" class="t">Thermal</text>
+        <text x="34" y="80" class="s">MLX90640 32&#215;24</text>
+        <text x="34" y="92" class="s">4 Hz</text>
+
+        <rect class="bx" x="24" y="110" width="122" height="52"/>
+        <text x="34" y="130" class="t">Visible</text>
+        <text x="34" y="146" class="s">Pi Camera v2</text>
+        <text x="34" y="158" class="s">1640&#215;1232</text>
+
+        <rect class="bx" x="180" y="44" width="132" height="52"/>
+        <text x="190" y="64" class="t">Gate</text>
+        <text x="190" y="80" class="s">robust z &#8805; 2.5&#963;</text>
+        <text x="190" y="92" class="s">median + MAD</text>
+
+        <rect class="bx" x="346" y="44" width="132" height="52"/>
+        <text x="356" y="64" class="t">Crop</text>
+        <text x="356" y="80" class="s">160 px at the blob</text>
+        <text x="356" y="92" class="s">affine, 0.51 th.px</text>
+
+        <rect class="bx" x="512" y="44" width="178" height="52"/>
+        <text x="522" y="64" class="t">Detector &#183; YOLOv8n</text>
+        <text x="522" y="80" class="s">person / vehicle</text>
+        <text x="522" y="92" class="s">28.2 ms per crop</text>
+
+        <rect class="bx" x="346" y="110" width="344" height="52"/>
+        <text x="356" y="130" class="t">Scene classifier &#183; MobileNetV2</text>
+        <text x="356" y="146" class="s">flood / fire / collapse / traffic / normal</text>
+        <text x="356" y="158" class="s">whole frame &#183; 1 Hz &#183; 33.0 ms</text>
+
+        <path class="lk" d="M146 70 H176"/>
+        <path class="lk" d="M312 70 H342"/>
+        <path class="lk" d="M478 70 H508"/>
+        <path class="lk" d="M146 136 H342"/>
+        <path class="lk" d="M86 110 V100"/>
+        <path class="lk" d="M404 110 V100" opacity=".45"/>
+
+        <text x="740" y="14" class="hd">OVER THE RADIO</text>
+        <rect x="740" y="26" width="232" height="150" rx="5" fill="#0D171E" stroke="#1D2A33" stroke-width="1.2"/>
+        <rect class="bx" x="756" y="44" width="200" height="52"/>
+        <text x="766" y="64" class="t">Alert &#183; 28 bytes</text>
+        <text x="766" y="80" class="s">position, class, confidence</text>
+        <text x="766" y="92" class="s">14 ms on a 16 kbps link</text>
+        <rect class="bx" x="756" y="110" width="200" height="52"/>
+        <text x="766" y="130" class="t">Crop &#183; ~5 kB</text>
+        <text x="766" y="146" class="s">the evidence, 2.5 s behind</text>
+        <path class="lk" d="M690 70 H752"/>
+        <path class="lk" d="M690 136 H752"/>
+
+        <rect class="bx" x="8" y="196" width="964" height="48"/>
+        <text x="22" y="216" class="t">Ground station &#8212; this software</text>
+        <text x="22" y="233" class="s">live feed &#183; map with the payload on it &#183; surveillance scope &#183; evidence &#183; operator review queue</text>
+        <path class="lk" d="M856 176 V192"/>
+      </svg>
+    </div>
+
+    <ol class="steps" style="margin-top:18px">
+      <li><span class="n">1</span><div>
+        <h4>The thermal camera looks for anything warmer than its surroundings</h4>
+        <p>Not &ldquo;warmer than 30&nbsp;&deg;C&rdquo; &mdash; there is no such fixed number. It compares
+        every pixel against the <b>median</b> of the frame, scaled by the median absolute
+        deviation, and flags anything <b>2.5 standard deviations</b> above it. Median and MAD
+        are used instead of mean and standard deviation because a person in the frame would
+        otherwise inflate the very threshold meant to find them.</p></div></li>
+      <li><span class="n">2</span><div>
+        <h4>Those hot spots become crops of the normal camera</h4>
+        <p>The thermal array is only 32&#215;24 &mdash; a person at 20&nbsp;m is about
+        <b>2.6 pixels</b>. That is enough to say &ldquo;something warm is there&rdquo;, never
+        enough to say &ldquo;that is a person&rdquo;. A calibrated affine transform maps the hot
+        spot into the 1640&#215;1232 visible frame, where the same person is roughly 115&#215;31
+        pixels.</p></div></li>
+      <li><span class="n">3</span><div>
+        <h4>A neural network judges only those crops</h4>
+        <p>Running the detector on every full frame would not fit the Pi&rsquo;s budget. Running
+        it on <b>six 160&nbsp;px crops</b> costs 169&nbsp;ms of a 250&nbsp;ms frame. The thermal
+        camera has done the expensive part &mdash; deciding where to spend the compute.</p></div></li>
+      <li><span class="n">4</span><div>
+        <h4>A second network reads the scene as a whole</h4>
+        <p>Separately, once a second, the whole frame goes to a classifier that says whether
+        this is a <b>flood, a fire, a collapsed building, a traffic incident, or a normal
+        scene</b>. A survivor in a flooded street and one on dry ground are different
+        dispatch decisions.</p></div></li>
+      <li><span class="n">5</span><div>
+        <h4>Only the answer is transmitted</h4>
+        <p>A confirmed detection becomes a <b>28-byte alert</b> &mdash; position, class,
+        confidence &mdash; that arrives almost instantly, with the confirming crop following
+        a couple of seconds later. Full video never goes over the radio, because it
+        cannot.</p></div></li>
+    </ol>
+  </section>
+
+  <h2 class="sec">The models</h2>
+  <section class="panel" style="overflow-x:auto">
+    <table class="doc">
+      <thead><tr><th>Model</th><th>Job</th><th>Trained on</th><th>Result</th><th>On the Pi</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>YOLOv8n</b><br><span class="s" style="color:var(--muted);font:11px var(--mono)">P3&ndash;P5 head, INT8 weights</span></td>
+          <td>Finds people and vehicles in a visible-light crop. Vehicles are kept on purpose:
+              they are the training signal for <i>rejecting</i> a warm car bonnet.</td>
+          <td>HIT-UAV (aerial thermal) + RGBTDronePerson (urban, night)</td>
+          <td class="num">Person AP50<br>0.8510 HIT-UAV<br>0.4776 RGBT</td>
+          <td class="num">28.2 ms<br>160 px crop</td>
+        </tr>
+        <tr>
+          <td><b>MobileNetV2</b><br><span style="color:var(--muted);font:11px var(--mono)">INT8, 224 px</span></td>
+          <td>Classifies the whole scene: collapsed building, fire, flooded area,
+              traffic incident, or normal.</td>
+          <td>AIDER aerial disaster imagery</td>
+          <td class="num">95.2%<br>over 1,286 images</td>
+          <td class="num">33.0 ms<br>once per second</td>
+        </tr>
+        <tr>
+          <td><b>Contrast gate</b><br><span style="color:var(--muted);font:11px var(--mono)">not learned</span></td>
+          <td>Decides which parts of a thermal frame are worth a neural network at all.
+              Plain statistics, so its behaviour can be predicted rather than trusted.</td>
+          <td>&mdash;</td>
+          <td class="num">z &#8805; 2.5&#963;<br>median + 1.4826&#183;MAD</td>
+          <td class="num">&lt; 1 ms</td>
+        </tr>
+        <tr>
+          <td><b>Kalman tracker</b><br><span style="color:var(--muted);font:11px var(--mono)">not learned</span></td>
+          <td>Follows the aircraft and each contact between scans, so a track coasts
+              through a dropped fix instead of vanishing.</td>
+          <td>&mdash;</td>
+          <td class="num">constant-acceleration<br>model</td>
+          <td class="num">&lt; 1 ms</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <h2 class="sec">Measured on the hardware</h2>
+  <div class="numgrid">
+    <div class="panel"><div class="cap">Frame budget</div><div class="big">177 / 250 ms</div>
+      <div class="src">Six crops plus the scene classifier, against a 4&nbsp;Hz thermal frame. 29% headroom.</div></div>
+    <div class="panel"><div class="cap">Memory</div><div class="big">95.2 MB</div>
+      <div class="src">Peak, all three models loaded, of 905&nbsp;MB on a 1&nbsp;GB Pi 4.</div></div>
+    <div class="panel"><div class="cap">Thermal&#8594;RGB registration</div><div class="big">0.51 px</div>
+      <div class="src">Residual in thermal pixels, 38 correspondences. 7.4&#215; better than the uncalibrated mapping.</div></div>
+    <div class="panel"><div class="cap">Alert on the radio</div><div class="big">28 bytes</div>
+      <div class="src">Position as int32 degrees&#215;10&#8311;, exact to 1.1&nbsp;cm. A float32 would quantise to metres.</div></div>
+  </div>
+
+  <h2 class="sec">What each page is for</h2>
+  <div class="pagelist">
+    <a href="/feed"><strong>Feed</strong><span>What the payload is seeing right now &mdash; detector, thermal, camera, and the crops the gate handed over.</span></a>
+    <a href="/map"><strong>Map</strong><span>Where the aircraft is and where the finds are, on satellite or offline geometry.</span></a>
+    <a href="/radar"><strong>Radar</strong><span>Surveillance scope: tracks, search coverage, and whether the radio link is up.</span></a>
+    <a href="/evidence"><strong>Evidence</strong><span>Every frame and crop the payload kept, browsable.</span></a>
+    <a href="/review"><strong>Review</strong><span>The operator queue: confirm or reject each find. Verdicts become training labels.</span></a>
+    <a href="/analytics"><strong>Analytics</strong><span>Sensor geometry, search effort, and the detector&rsquo;s own training curves.</span></a>
+  </div>
+
+  <h2 class="sec">What this does not do</h2>
+  <section class="panel pb warn">
+    <ul class="warn" style="margin:0;padding-left:18px">
+      <li><b>It does not see through rubble.</b> Thermal reads surface temperature. A person
+          under a slab is invisible to it; what it finds is someone exposed, or a warm gap.</li>
+      <li><b>It has no fix indoors.</b> The GPS needs sky. Captures without a fix carry no
+          coordinates, and an operator-set datum is drawn dashed and labelled so it can never
+          be read as a measurement.</li>
+      <li><b>It does not stream video at range.</b> Thirteen seconds a frame on the radio.
+          Live video works over Wi-Fi, within a few hundred metres.</li>
+      <li><b>The detector is not certain.</b> AP50 of 0.85 on aerial thermal means it misses
+          things. That is why a human confirms every find in the review queue.</li>
+    </ul>
+  </section>
+
   <h2 class="sec">Build readiness</h2>
+  <div class="grid g3" style="margin-bottom:12px">
+    <div class="panel kpi"><span class="lbl">Subsystems ready</span>
+      <div class="v" id="kOk">&mdash;</div>
+      <div class="d">Filesystem and database facts, not flags.</div></div>
+    <div class="panel kpi"><span class="lbl">Targets on file</span>
+      <div class="v" id="kTargets">&mdash;</div><div class="d" id="kTargetsD">&mdash;</div></div>
+    <div class="panel kpi"><span class="lbl">Evidence artefacts</span>
+      <div class="v" id="kMedia">&mdash;</div><div class="d" id="kMediaD">&mdash;</div></div>
+    <div class="panel kpi"><span class="lbl">Operator verdicts</span>
+      <div class="v" id="kLabels">&mdash;</div>
+      <div class="d">Usable as fusion training pairs.</div></div>
+  </div>
+
   <section class="panel">
     <div class="ph"><span class="pt">Subsystem status</span>
       <span class="ps" id="rdSub">—</span></div>
@@ -36,6 +305,27 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+/* The hero line states what hardware this is. Whether that hardware is
+   currently talking is a different fact, so it is fetched rather than written
+   into the page. */
+(function () {
+  function tick() {
+    fetch("/api/live").then(function (r) { return r.json(); }).then(function (L) {
+      var el = document.getElementById("heroLink");
+      if (!el) return;
+      if (!L.configured) {
+        el.innerHTML = "<span style='color:var(--muted)'>no payload configured</span>";
+      } else if (L.connected) {
+        el.innerHTML = "<span style='color:#4FC489'>&#9679; payload live</span> \u00b7 " + L.host;
+      } else {
+        el.innerHTML = "<span style='color:#6D838D'>&#9679; payload offline</span> \u00b7 " + L.host;
+      }
+    }).catch(function () {});
+  }
+  tick(); setInterval(tick, 3000);
+})();
+</script>
 <script>
 fetch("/api/readiness").then(function (r) { return r.json(); }).then(function (d) {
   document.getElementById("kOk").innerHTML = d.n_ok + "<small> / " + d.items.length + "</small>";

@@ -55,8 +55,8 @@ window.TileLayer = (function () {
   var cache = new Map();          // key -> {img, ok}
   var inflight = 0;
   var okCount = 0, failCount = 0;
-  var MAX_CACHE = 400;
-  var MAX_INFLIGHT = 8;           // browsers cap per-host connections anyway
+  var MAX_CACHE = 600;
+  var MAX_INFLIGHT = 16;
 
   function key(s, z, x, y) { return s + "/" + z + "/" + x + "/" + y; }
 
@@ -93,6 +93,25 @@ window.TileLayer = (function () {
     return rec;
   }
 
+  /* An ancestor of this tile that IS loaded, plus the sub-rectangle of it that
+   * covers the child. Standard pyramid behaviour, and the reason a real map
+   * goes blurry-then-sharp while a naive one goes black-then-sharp: the dark
+   * rectangles people see on a slow network are simply tiles that had not
+   * arrived, drawn as bare background.
+   */
+  function ancestor(name, z, x, y) {
+    for (var up = 1; up <= 5 && z - up >= 0; up++) {
+      var f = Math.pow(2, up);
+      var px = Math.floor(x / f), py = Math.floor(y / f);
+      var rec = cache.get(key(name, z - up, px, py));
+      if (rec && rec.ok) {
+        var span = TILE / f;
+        return { img: rec.img, sx: (x - px * f) * span, sy: (y - py * f) * span, ss: span };
+      }
+    }
+    return null;
+  }
+
   /* Draw the tile pyramid for the current camera.
    * cam: {lat, lon, z} (z fractional), vp: {w, h}. wx/wy are mapcore's. */
   function draw(ctx, cam, vp, wx, wy, opts) {
@@ -116,6 +135,20 @@ window.TileLayer = (function () {
     var x1 = Math.floor((left + vp.w / scale) / TILE);
     var y1 = Math.floor((top + vp.h / scale) / TILE);
 
+    // Warm the parent level first, so the fallback above has something to
+    // upscale on the very first paint rather than only after a zoom out.
+    if (zi > 0) {
+      var pz = zi - 1, pcx = wx(cam.lon, pz), pcy = wy(cam.lat, pz);
+      var pl = pcx - (vp.w / 2) / (scale * 2), pt = pcy - (vp.h / 2) / (scale * 2);
+      for (var py2 = Math.floor(pt / TILE); py2 <= Math.floor((pt + vp.h / (scale * 2)) / TILE); py2++) {
+        for (var px2 = Math.floor(pl / TILE); px2 <= Math.floor((pl + vp.w / (scale * 2)) / TILE); px2++) {
+          var pn = Math.pow(2, pz);
+          if (py2 < 0 || py2 >= pn) continue;
+          get(name, pz, ((px2 % pn) + pn) % pn, py2, opts.onTile);
+        }
+      }
+    }
+
     var drawn = 0, want = 0, redraw = opts.onTile;
     ctx.save();
     ctx.imageSmoothingEnabled = true;
@@ -127,9 +160,18 @@ window.TileLayer = (function () {
         want++;
         var wrapped = ((tx % n) + n) % n;       // wrap at the antimeridian
         var rec = get(name, zi, wrapped, ty, redraw);
-        if (!rec || !rec.ok) continue;
         var sx = (tx * TILE - cxp) * scale + vp.w / 2;
         var sy = (ty * TILE - cyp) * scale + vp.h / 2;
+        if (!rec || !rec.ok) {
+          // Not here yet: upscale whatever ancestor we already hold rather than
+          // leaving a black rectangle. It sharpens when the real tile lands.
+          var a = ancestor(name, zi, wrapped, ty);
+          if (a) {
+            ctx.drawImage(a.img, a.sx, a.sy, a.ss, a.ss, sx, sy, span + 1, span + 1);
+            drawn++;
+          }
+          continue;
+        }
         // +1 px: adjacent tiles otherwise show hairline seams at fractional
         // zoom, because each edge rounds independently.
         ctx.drawImage(rec.img, sx, sy, span + 1, span + 1);
