@@ -24,6 +24,29 @@ class Store:
         self.conn.executescript(_SCHEMA_EXT_PATH.read_text())
         self.conn.commit()
 
+    def purge_mission(self) -> dict[str, int]:
+        """Empty every per-mission table, keeping the schema.
+
+        A mission is one flight of one payload. When the aircraft is power
+        cycled it comes back with a new session token and everything before it
+        belongs to a different sortie -- carrying those targets forward would
+        put last flight's finds on this flight's map, which is the kind of
+        mistake that sends a team to an empty building.
+
+        Deletion order follows the foreign keys: media and pass_features point
+        at passes, passes and alerts and verdicts point at targets.
+        """
+        counts: dict[str, int] = {}
+        for table in ("media", "pass_features", "alerts", "verdicts",
+                      "passes", "frames", "hazards", "targets"):
+            try:
+                cur = self.conn.execute(f"DELETE FROM {table}")
+                counts[table] = cur.rowcount if cur.rowcount > 0 else 0
+            except sqlite3.OperationalError:
+                continue                      # table absent in this schema
+        self.conn.commit()
+        return counts
+
     def close(self) -> None:
         self.conn.close()
 

@@ -14,6 +14,12 @@
 (function () {
   "use strict";
 
+  function mmss(sec) {
+    if (sec == null) return "\u2014";
+    var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return m >= 60 ? Math.floor(m / 60) + "h" + (m % 60) + "m"
+                   : m + "m" + (s < 10 ? "0" : "") + s + "s";
+  }
   function f(v, n, dash) { return (v == null || isNaN(v)) ? (dash || "—") : v.toFixed(n); }
 
   /* One panel. Holds its own in-flight flag so a slow link cannot queue up a
@@ -126,7 +132,10 @@
                                   : (L.in_view || 0) + " in view · " + (L.gps_state || "no fix"))
         + row("Scene", L.scene ? L.scene.replace(/_/g, " ") + " · "
                                  + Math.round((L.scene_p || 0) * 100) + "%" : "—")
-        + row("Events stored", (L.ingested || 0) + "")
+        + row("Mission", L.session
+                ? L.session + " \u00b7 " + mmss(L.session_age_s)
+                : "\u2014")
+        + row("Events", (L.ingested || 0) + " this mission")
         + row("CPU", L.temp || "—");
 
       crops(L.connected ? (L.crops || []) : []);

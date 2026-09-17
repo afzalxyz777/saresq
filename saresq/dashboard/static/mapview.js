@@ -320,6 +320,14 @@
   if (gb) gb.addEventListener("click", function () { useBrowserLocation(true); });
 
   // ---- live payload ----
+  /* Mission clock. The mission starts when the PAYLOAD starts, not when the
+     dashboard did, so this is the age of the aircraft's own session. */
+  function mmss(sec) {
+    if (sec == null) return "\u2014";
+    var m = Math.floor(sec / 60), s2 = Math.floor(sec % 60);
+    return m >= 60 ? Math.floor(m / 60) + "h" + (m % 60) + "m"
+                   : m + "m" + (s2 < 10 ? "0" : "") + s2 + "s";
+  }
   function fmt(v, n, unit) {
     return v == null ? "\u2014" : v.toFixed(n) + (unit || "");
   }
@@ -408,7 +416,8 @@
                    + (L.scene === "normal" ? "#4FC489" : "#F3A83C") + "'>"
                    + L.scene.replace(/_/g, " ") + "</b> "
                    + Math.round((L.scene_p || 0) * 100) + "%" : "")
-      + "<br>" + (L.ingested || 0) + " event(s) stored"
+      + "<br>" + (L.ingested || 0) + " event(s) this mission"
+      + (L.session ? " \u00b7 " + mmss(L.session_age_s) : "")
       + (L.age_s != null ? " \u00b7 " + L.age_s.toFixed(1) + "s ago" : "")
       + (L.temp ? " \u00b7 CPU " + L.temp : "")
       + "</div>";

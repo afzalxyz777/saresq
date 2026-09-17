@@ -38,14 +38,21 @@ EVENTS = [
 ]
 
 
+#: Mutable so a test can simulate the payload being power cycled: the handler
+#: reads it on every request, and rewriting it is exactly what a restarted
+#: aircraft looks like from the ground.
+LIVE = {"events": EVENTS}
+
+
 @pytest.fixture()
 def payload_server():
+    LIVE["events"] = EVENTS
     class H(http.server.BaseHTTPRequestHandler):
         def log_message(self, *a):  # keep pytest output clean
             pass
 
         def do_GET(self):  # noqa: N802
-            body = json.dumps(EVENTS if self.path == "/events" else STATS).encode()
+            body = json.dumps(LIVE["events"] if self.path == "/events" else STATS).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -132,3 +139,67 @@ def test_merge_radius_matches_the_haversine_it_is_compared_against():
                                            (0.45, "MEDIUM"), (0.2, "LOW")])
 def test_confidence_bands(conf, expected):
     assert _klass(conf) == expected
+
+
+def _wait_for(link, n, timeout=4.0):
+    end = time.time() + timeout
+    while time.time() < end and link.live().get("ingested", 0) < n:
+        time.sleep(0.05)
+    return link.live().get("ingested", 0)
+
+
+def test_a_new_payload_session_clears_the_previous_mission(payload_server, tmp_path):
+    """Power cycling the aircraft starts a new mission, not a continuation.
+
+    Carrying the last sortie's targets forward would put old finds on the new
+    flight's map -- the kind of mistake that sends a team to an empty building.
+    """
+    db = tmp_path / "t.db"
+    link = PayloadLink(payload_server, store_factory=lambda: Store(str(db)),
+                       media_root=None, events_s=0.3)
+    link.start()
+    try:
+        _wait_for(link, len(EVENTS))
+        first = Store(str(db)).all_targets()
+        assert len(first) == 3
+        assert link.live()["session"] == "ab"
+
+        # The payload restarts: same kinds of events, a new token, ids from 1.
+        LIVE["events"] = [dict(e, s="cd") for e in EVENTS[:2]]
+        end = time.time() + 5.0
+        while time.time() < end and link.live().get("session") != "cd":
+            time.sleep(0.05)
+        assert link.live()["session"] == "cd", "link never noticed the new session"
+        _wait_for(link, 2)
+
+        after = Store(str(db)).all_targets()
+        # Events 1 and 2 are metres apart, so the new mission is ONE target --
+        # not three carried over plus a new one.
+        assert len(after) == 1, f"previous mission was not cleared: {after}"
+        assert link.live()["ingested"] == 2
+    finally:
+        link.stop()
+
+
+def test_a_link_drop_is_not_a_new_mission(payload_server, tmp_path):
+    """A radio blip must never wipe the flight in progress.
+
+    The purge keys on the session TOKEN changing, never on connectivity, so an
+    aircraft passing behind a building keeps its targets.
+    """
+    db = tmp_path / "t.db"
+    link = PayloadLink(payload_server, store_factory=lambda: Store(str(db)),
+                       media_root=None, events_s=0.3)
+    link.start()
+    try:
+        _wait_for(link, len(EVENTS))
+        before = len(Store(str(db)).all_targets())
+        assert before == 3
+
+        # Same token, events keep arriving -- as after any reconnect.
+        LIVE["events"] = list(EVENTS)
+        time.sleep(1.0)
+        assert len(Store(str(db)).all_targets()) == before
+        assert link.live()["ingested"] == len(EVENTS)
+    finally:
+        link.stop()

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import math
+import pathlib
 import threading
 import time
 import urllib.error
@@ -90,6 +91,11 @@ class PayloadLink(threading.Thread):
         self._lock = threading.Lock()
         self._state: dict = {"connected": False, "why": "not started"}
         self._seen: set[tuple[str, int]] = set()   # (session, event id) already stored
+        #: The payload stamps every event with a token fixed at ITS process
+        #: start, so a power cycle changes it. That token -- not the dashboard's
+        #: lifetime and not the link dropping -- is what bounds a mission.
+        self._session: str | None = None
+        self._session_started: float | None = None
         self._origin: tuple[float, float] | None = None
         self._origin_src = "manual"
         self._origin_acc: float | None = None
@@ -125,6 +131,27 @@ class PayloadLink(threading.Thread):
     def stop(self) -> None:
         self._stop.set()
 
+    def _wipe_media(self) -> None:
+        """Delete the blobs behind the rows purge_mission just removed.
+
+        Rows without blobs would be broken thumbnails; blobs without rows would
+        be an invisible leak that fills the card over a day of flying. Only the
+        media root is touched, and only its contents.
+        """
+        root = self._media_root
+        if not root:
+            return
+        import shutil
+        try:
+            base = pathlib.Path(root)
+            for child in base.iterdir():
+                if child.is_dir():
+                    shutil.rmtree(child, ignore_errors=True)
+                else:
+                    child.unlink(missing_ok=True)
+        except OSError as e:                          # noqa: BLE001
+            print(f"payload-link: could not clear media root: {e}", flush=True)
+
     # ---- what the UI reads --------------------------------------------------
     def live(self) -> dict:
         with self._lock:
@@ -137,6 +164,9 @@ class PayloadLink(threading.Thread):
             src, acc = self._origin_src, self._origin_acc
         s["origin"] = ({"lat": o[0], "lon": o[1], "source": src, "accuracy_m": acc}
                        if o else None)
+        s["session"] = self._session
+        s["session_age_s"] = (time.time() - self._session_started
+                              if self._session_started else None)
         return s
 
     # ---- polling ------------------------------------------------------------
@@ -213,7 +243,36 @@ class PayloadLink(threading.Thread):
             return
         store = self._store_factory()
         try:
+            # A new token means a different sortie. Clear before ingesting, so
+            # the first event of the new flight lands in an empty store rather
+            # than merging into a target from the last one.
+            #
+            # Keyed on the TOKEN CHANGING, never on the link dropping: a radio
+            # blip is not a new mission, and wiping the map every time the
+            # aircraft passes behind a building would destroy the record of the
+            # flight in progress.
+            seen_tokens = {str(e.get("s", "")) for e in events if e.get("s")}
+            if seen_tokens:
+                token = sorted(seen_tokens)[-1]
+                if self._session is not None and token != self._session:
+                    n = store.purge_mission()
+                    self._wipe_media()
+                    self._seen.clear()
+                    self._ingested = 0
+                    print(f"payload-link: new payload session {token} "
+                          f"(was {self._session}) -- cleared "
+                          f"{n.get('targets', 0)} target(s), {n.get('media', 0)} artefact(s)",
+                          flush=True)
+                if token != self._session:
+                    self._session = token
+                    self._session_started = time.time()
+
+            # Read AFTER any purge. Reading first left a stale in-memory list
+            # pointing at deleted rows, and the next event tried to hang a pass
+            # off a target that no longer existed -- a foreign-key failure that
+            # silently dropped every capture of the new mission.
             targets = store.all_targets()
+
             media = None
             if self._media_root:
                 from saresq.store.media import MediaStore
