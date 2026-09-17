@@ -31,7 +31,11 @@
   };
   var S = {
     snap: null, sel: null, err: null,
-    show: { rings: true, plan: true, coverage: true, swath: true, trail: true, rf: true },
+    show: { rings: true, plan: true, coverage: true, swath: true, trail: true },
+    //: RSSI history for the link strip. Client-side because the service keeps
+    //: only the current value -- the question "has the link been stable?" needs
+    //: a shape over time, not a number.
+    rssi: [], RSSI_MAX: 240,
     lastFetch: 0, paused: false
   };
   var reduceMotion = window.matchMedia
@@ -145,21 +149,49 @@
     ctx.restore();
   }
 
+  /* Bearing spokes and a plain ground. NOT a basemap.
+   *
+   * This page used to draw the same roads and buildings the Map page draws,
+   * which made the two look like one page shown twice -- the worst outcome,
+   * because the split is real: Map answers "where are the survivors" for
+   * someone dispatching a team, Radar answers "is the search working" for
+   * someone running it. Coverage, sweep count and link health have no
+   * geography in them, and putting a city under them only competed with the
+   * symbology. North-up range rings and bearing spokes are the frame this
+   * display actually needs.
+   */
+  function drawGrid(ctx, snap) {
+    var g = view.P(snap.gcs[0], snap.gcs[1]);
+    var maxR = Math.hypot(view.vp.w, view.vp.h);
+    ctx.save();
+    ctx.strokeStyle = "rgba(90,113,128,.16)";
+    ctx.lineWidth = 1;
+    for (var b = 0; b < 360; b += 30) {
+      var rad = (b - 90) * Math.PI / 180;
+      ctx.beginPath();
+      ctx.moveTo(g[0], g[1]);
+      ctx.lineTo(g[0] + Math.cos(rad) * maxR, g[1] + Math.sin(rad) * maxR);
+      ctx.stroke();
+    }
+    // Cardinal labels sit just inside the viewport edge, so they stay put as
+    // the operator pans rather than drifting off with the origin.
+    ctx.fillStyle = "rgba(109,131,141,.75)";
+    ctx.font = "700 10px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    [["N", view.vp.w / 2, 14], ["S", view.vp.w / 2, view.vp.h - 8],
+     ["W", 12, view.vp.h / 2], ["E", view.vp.w - 12, view.vp.h / 2]]
+      .forEach(function (c) { ctx.fillText(c[0], c[1], c[2]); });
+    ctx.restore();
+  }
+
   function drawScope() {
     var ctx = view.ctx, snap = S.snap;
-    view.drawBase({
-      show: { roads: true, bldg: view.cam.z >= 16.4, d3: false },
-      aoiBox: false, dimRoads: true
-    });
-    // Knock the map back so the surveillance symbology reads on top of it. A
-    // scope where the basemap competes with the tracks is a pretty map, not a
-    // usable display -- but knock it back too far and you have thrown away the
-    // context that makes a position mean anything.
     ctx.save();
-    ctx.fillStyle = "rgba(4,8,11,.24)";
+    ctx.fillStyle = "#070D11";
     ctx.fillRect(0, 0, view.vp.w, view.vp.h);
     ctx.restore();
     if (!snap) return;
+    drawGrid(ctx, snap);
 
     var a = snap.aoi, nw = view.P(a.lat1, a.lon0), se = view.P(a.lat0, a.lon1);
 
@@ -170,23 +202,9 @@
       ctx.restore();
     }
 
-    // RF shadow footprints -- why the link drops where it drops.
-    if (S.show.rf) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(244,100,84,.55)";
-      ctx.fillStyle = "rgba(244,100,84,.10)";
-      ctx.setLineDash([4, 3]); ctx.lineWidth = 1;
-      ctx.font = "600 8.5px ui-monospace, monospace";
-      snap.obstructions.forEach(function (o) {
-        var p = view.P(o.lat1, o.lon0), q = view.P(o.lat0, o.lon1);
-        ctx.fillRect(p[0], p[1], q[0] - p[0], q[1] - p[1]);
-        ctx.strokeRect(p[0], p[1], q[0] - p[0], q[1] - p[1]);
-        ctx.fillStyle = "rgba(244,100,84,.8)";
-        ctx.fillText(o.top_m.toFixed(0) + " m", p[0] + 3, p[1] - 3);
-        ctx.fillStyle = "rgba(244,100,84,.10)";
-      });
-      ctx.restore();
-    }
+    // The RF shadow layer drew two hand-typed buildings that nobody surveyed.
+    // They have been removed from the link model, so there is nothing left to
+    // outline; the layer went with them.
 
     // Planned pattern, and the segment boundary.
     if (S.show.plan) {
@@ -465,6 +483,56 @@
   }
 
   // ------------------------------------------------------------- html panels
+  /* RSSI over time. A single dBm number says whether the link is up now; the
+     question an operator actually has is whether it has been holding, and that
+     is a shape. Thresholds are drawn in so a dip toward -105 reads as a dip
+     toward losing imagery, not just as a smaller number. */
+  function drawRssi() {
+    var cv = document.getElementById("rssiStrip");
+    if (!cv) return;
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = cv.clientWidth || 240, h = 46;
+    if (cv.width !== Math.round(w * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    }
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = "#0A1218"; ctx.fillRect(0, 0, w, h);
+
+    var LO = -120, HI = -40;
+    function y(v) { return h - ((v - LO) / (HI - LO)) * h; }
+
+    [[-95, "rgba(79,196,137,.35)"], [-105, "rgba(244,100,84,.35)"]].forEach(function (t) {
+      ctx.strokeStyle = t[1]; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y(t[0])); ctx.lineTo(w, y(t[0])); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    var d = S.rssi;
+    if (d.length < 2) {
+      ctx.fillStyle = "#6D838D";
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.fillText("no link history yet", 8, h / 2 + 3);
+      return;
+    }
+    var step = w / (S.RSSI_MAX - 1);
+    var x0 = w - (d.length - 1) * step;
+    ctx.beginPath();
+    d.forEach(function (v, i) {
+      var x = x0 + i * step;
+      i ? ctx.lineTo(x, y(v)) : ctx.moveTo(x, y(v));
+    });
+    ctx.strokeStyle = "#3FCDEC"; ctx.lineWidth = 1.6;
+    ctx.lineJoin = "round"; ctx.stroke();
+    ctx.lineTo(w, h); ctx.lineTo(x0, h); ctx.closePath();
+    ctx.fillStyle = "rgba(63,205,236,.12)"; ctx.fill();
+
+    var last = d[d.length - 1], lo = Math.min.apply(null, d);
+    var el = document.getElementById("rssiSpan");
+    if (el) el.textContent = last.toFixed(0) + " dBm now \u00b7 worst " + lo.toFixed(0);
+  }
+
   function renderPanels() {
     var snap = S.snap;
     var lk = document.getElementById("linkbox");
@@ -472,7 +540,23 @@
       lk.innerHTML = '<div class="ps">' + esc(S.err || "connecting…") + "</div>";
       return;
     }
-    var L = snap.link, st = L.state, col = COL[st];
+    var L = snap.link;
+    // No aircraft reporting means there is no link to describe. Showing "UP,
+    // 0 dBm, blocker clear, GPS nominal" against nothing flying is the same
+    // failure as a populated map with no mission: every field reads as a
+    // measurement of a thing that is not there.
+    if (!snap.platform || L.range_m == null) {
+      lk.innerHTML =
+        '<div class="lk-row"><span class="lk-dot" style="background:#6D838D"></span>'
+        + '<b style="color:#6D838D">NO AIRCRAFT</b>'
+        + '<span class="ps">nothing reporting</span></div>'
+        + '<div class="ps" style="padding:9px 12px 2px;line-height:1.6;color:var(--muted)">'
+        + "The link budget needs a position to compute a range. Start the dashboard "
+        + "with <code>--payload &lt;pi-ip&gt;</code> and power the payload, or "
+        + "<code>--simulate</code> to rehearse the display.</div>";
+      return;
+    }
+    var st = L.state, col = COL[st];
     var span = Math.max(0, Math.min(1, (L.rssi_dbm + 120) / 80));
     lk.innerHTML =
       '<div class="lk-row"><span class="lk-dot" style="background:' + col + '"></span>'
@@ -616,6 +700,7 @@
   // ------------------------------------------------------------------- loop
   var raf = false;
   function draw() {
+    drawRssi();
     if (raf) return;
     raf = true;
     requestAnimationFrame(function () {
@@ -634,6 +719,14 @@
       return r.json();
     }).then(function (d) {
       S.snap = d; S.err = null; S.lastFetch = Date.now() / 1000;
+      // Record link strength only while an aircraft is actually reporting.
+      // With nothing flying the service has no range to anything, and padding
+      // the strip with a floor value would draw a link that was never up.
+      var r0 = d.link && d.link.rssi_dbm;
+      if (d.platform && typeof r0 === "number" && d.link.range_m != null) {
+        S.rssi.push(r0);
+        if (S.rssi.length > S.RSSI_MAX) S.rssi.shift();
+      }
       if (!S.framed) {
         // Frame the segment plus the ground station, once. A fixed zoom that
         // looks right on a laptop shows a corner of the search area on a phone.

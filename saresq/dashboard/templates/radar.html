@@ -162,7 +162,6 @@
         <button class="tg" data-show="coverage" aria-pressed="true">Coverage</button>
         <button class="tg" data-show="swath"    aria-pressed="true">Swath</button>
         <button class="tg" data-show="trail"    aria-pressed="true">Trail</button>
-        <button class="tg" data-show="rf"       aria-pressed="true">RF shadow</button>
       </div>
     </div>
 
@@ -183,6 +182,12 @@
   <aside class="side">
     <div class="sec-h"><b>Downlink</b><span class="ps" id="scanstat">—</span></div>
     <div id="linkbox"><div class="ps" style="padding:12px">connecting…</div></div>
+    <div style="padding:0 12px 11px">
+      <canvas id="rssiStrip" height="46" style="width:100%;height:46px;display:block"></canvas>
+      <div class="ps" style="display:flex;justify-content:space-between;margin-top:3px">
+        <span id="rssiSpan">—</span><span style="color:var(--muted)">&minus;95 up &middot; &minus;105 down</span>
+      </div>
+    </div>
     <!-- Outside #linkbox on purpose: renderPanels() replaces that element's
          innerHTML every poll, which would destroy these buttons twice a second. -->
     <div class="faults">
