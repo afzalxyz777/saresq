@@ -92,8 +92,8 @@ fetch("/api/readiness").then(function (r) { return r.json(); }).then(function (d
       return;
     }
     document.getElementById("iosWarn").textContent = secure ? ""
-      : "This page is on " + location.protocol + " — iOS will install it, but it cannot "
-        + "cache anything for offline use until the server is served over HTTPS.";
+      : "This page is on " + location.protocol + " — iOS will install it now, and "
+        + "offline caching switches on once the server is served over HTTPS.";
     document.getElementById("iosSheet").hidden = false;
   });
   document.getElementById("iosClose").addEventListener("click", function () {

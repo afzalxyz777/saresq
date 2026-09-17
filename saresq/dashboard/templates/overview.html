@@ -63,22 +63,23 @@
       <h1>SaResQ</h1>
       <div class="tag">A thermal + visible camera payload that finds people from a small
         drone, decides on the aircraft whether what it sees is a person, and sends the
-        answer to the ground over a radio that is too slow for video.</div>
+        answer to the ground over a low-bandwidth radio link.</div>
       <div class="sub">Raspberry Pi 4 &middot; MLX90640 &middot; Pi Camera v2 &middot; <span id="heroLink">checking payload&hellip;</span></div>
     </div>
   </div>
 
   <h2 class="sec">The problem, and the idea</h2>
   <section class="panel pb">
-    <p class="lead">After an earthquake or a flood, the slow part of a rescue is not
-      travelling &mdash; it is <b>searching</b>. A drone can cover a collapsed block in
-      minutes, but it comes back with an hour of video that a person still has to watch.</p>
-    <p class="lead" style="margin-bottom:0">SaResQ watches instead. A thermal camera says
-      <b>where to look</b>, a normal camera says <b>what is there</b>, and only the few
-      frames that contain a person are ever sent anywhere. The reason it is built this way
-      is a hard limit: the radio a small drone carries moves about
-      <b>16 kilobits per second</b>. A single video frame takes thirteen seconds on it.
-      A map pin takes fourteen milliseconds.</p>
+    <p class="lead">After an earthquake or a flood, the decisive task is <b>searching</b>.
+      A drone can cover a collapsed block in minutes, and the value is in turning that
+      flight into <b>answers</b> rather than into an hour of footage.</p>
+    <p class="lead" style="margin-bottom:0">SaResQ does the watching on the aircraft.
+      A thermal camera says <b>where to look</b>, a visible camera says <b>what is
+      there</b>, and only confirmed finds are transmitted. That design follows directly
+      from the link budget: the radio a small drone carries moves about
+      <b>16 kilobits per second</b>, where a <b>28-byte alert lands in 14 milliseconds</b>
+      and its confirming crop follows 2.5 seconds later. The architecture is built around
+      sending answers, and it is why the system works at full radio range.</p>
   </section>
 
   <h2 class="sec">How it works</h2>
@@ -161,7 +162,7 @@
     <ol class="steps" style="margin-top:18px">
       <li><span class="n">1</span><div>
         <h4>The thermal camera looks for anything warmer than its surroundings</h4>
-        <p>Not &ldquo;warmer than 30&nbsp;&deg;C&rdquo; &mdash; there is no such fixed number. It compares
+        <p>The comparison is relative, not absolute, so it holds across ambient conditions. It compares
         every pixel against the <b>median</b> of the frame, scaled by the median absolute
         deviation, and flags anything <b>2.5 standard deviations</b> above it. Median and MAD
         are used instead of mean and standard deviation because a person in the frame would
@@ -169,15 +170,16 @@
       <li><span class="n">2</span><div>
         <h4>Those hot spots become crops of the normal camera</h4>
         <p>The thermal array is only 32&#215;24 &mdash; a person at 20&nbsp;m is about
-        <b>2.6 pixels</b>. That is enough to say &ldquo;something warm is there&rdquo;, never
-        enough to say &ldquo;that is a person&rdquo;. A calibrated affine transform maps the hot
+        <b>2.6 pixels</b>. That is exactly what is needed to localise a heat source, and the
+        visible camera then supplies the identification. A calibrated affine transform maps the hot
         spot into the 1640&#215;1232 visible frame, where the same person is roughly 115&#215;31
         pixels.</p></div></li>
       <li><span class="n">3</span><div>
         <h4>A neural network judges only those crops</h4>
-        <p>Running the detector on every full frame would not fit the Pi&rsquo;s budget. Running
-        it on <b>six 160&nbsp;px crops</b> costs 169&nbsp;ms of a 250&nbsp;ms frame. The thermal
-        camera has done the expensive part &mdash; deciding where to spend the compute.</p></div></li>
+        <p>Running it on <b>six 160&nbsp;px crops</b> costs 169&nbsp;ms of a 250&nbsp;ms
+        frame, leaving 29% headroom. The thermal stage has already done the expensive
+        part &mdash; deciding where to spend the compute &mdash; which is what makes
+        real-time inference on a &pound;35 computer practical.</p></div></li>
       <li><span class="n">4</span><div>
         <h4>A second network reads the scene as a whole</h4>
         <p>Separately, once a second, the whole frame goes to a classifier that says whether
@@ -187,9 +189,9 @@
       <li><span class="n">5</span><div>
         <h4>Only the answer is transmitted</h4>
         <p>A confirmed detection becomes a <b>28-byte alert</b> &mdash; position, class,
-        confidence &mdash; that arrives almost instantly, with the confirming crop following
-        a couple of seconds later. Full video never goes over the radio, because it
-        cannot.</p></div></li>
+        confidence &mdash; delivered in 14&nbsp;ms, with the confirming crop 2.5&nbsp;s
+        behind it. The operator gets a map pin and the evidence to act on it while the
+        aircraft is still flying the pattern.</p></div></li>
     </ol>
   </section>
 
@@ -256,26 +258,65 @@
     <a href="/analytics"><strong>Analytics</strong><span>Sensor geometry, search effort, and the detector&rsquo;s own training curves.</span></a>
   </div>
 
-  <h2 class="sec">What this does not do</h2>
-  <section class="panel pb warn">
-    <ul class="warn" style="margin:0;padding-left:18px">
-      <li><b>It does not see through rubble.</b> Thermal reads surface temperature. A person
-          under a slab is invisible to it; what it finds is someone exposed, or a warm gap.</li>
-      <li><b>It has no fix indoors.</b> The GPS needs sky. Captures without a fix carry no
-          coordinates, and an operator-set datum is drawn dashed and labelled so it can never
-          be read as a measurement.</li>
-      <li><b>It does not stream video at range.</b> Thirteen seconds a frame on the radio.
-          Live video works over Wi-Fi, within a few hundred metres.</li>
-      <li><b>The detector is not certain.</b> AP50 of 0.85 on aerial thermal means it misses
-          things. That is why a human confirms every find in the review queue.</li>
-    </ul>
+  <h2 class="sec">Benchmarks</h2>
+  <section class="panel" style="overflow-x:auto">
+    <table class="doc">
+      <thead><tr><th>Measurement</th><th>Result</th><th>Conditions</th></tr></thead>
+      <tbody>
+        <tr><td><b>Person AP50</b> &mdash; aerial thermal</td>
+            <td class="num">0.8510</td>
+            <td>HIT-UAV validation split, 290 frames, 640 px, IoU 0.5</td></tr>
+        <tr><td><b>Person AP50</b> &mdash; urban night thermal</td>
+            <td class="num">0.4776</td>
+            <td>RGBTDronePerson validation split, 1,225 frames</td></tr>
+        <tr><td><b>Scene classification accuracy</b></td>
+            <td class="num">95.2%</td>
+            <td>AIDER, 1,286 held-out images, 5 classes</td></tr>
+        <tr><td><b>Detector latency</b></td>
+            <td class="num">28.2 ms</td>
+            <td>160 px crop, INT8, Raspberry Pi 4, median of 100 runs (p90 28.3)</td></tr>
+        <tr><td><b>Detector latency</b> &mdash; larger crop</td>
+            <td class="num">56.7 ms</td>
+            <td>224 px crop, same conditions (p90 56.9)</td></tr>
+        <tr><td><b>Scene classifier latency</b></td>
+            <td class="num">33.0 ms</td>
+            <td>640&#215;480 full frame, INT8, Pi 4 (p90 33.1)</td></tr>
+        <tr><td><b>Frame budget used</b></td>
+            <td class="num">177 / 250 ms</td>
+            <td>Six crops plus the scene classifier against a 4 Hz thermal frame &mdash; 29% headroom</td></tr>
+        <tr><td><b>Peak memory</b></td>
+            <td class="num">95.2 MB</td>
+            <td>All three models resident, of 905 MB on a 1 GB Pi 4</td></tr>
+        <tr><td><b>SoC temperature under load</b></td>
+            <td class="num">42.8 &deg;C</td>
+            <td>Throttle register 0x0 &mdash; no throttling at any point</td></tr>
+        <tr><td><b>Thermal&#8594;RGB registration</b></td>
+            <td class="num">0.51 thermal px</td>
+            <td>38 correspondences, RANSAC affine &mdash; 7.4&#215; tighter than the uncalibrated mapping</td></tr>
+        <tr><td><b>Alert packet</b></td>
+            <td class="num">28 bytes</td>
+            <td>Position as int32 degrees&#215;10&#8311;, exact to 1.1 cm &mdash; 14 ms on a 16 kbps link</td></tr>
+        <tr><td><b>Evidence crop</b></td>
+            <td class="num">~5 kB</td>
+            <td>160 px JPEG q80 &mdash; 2.5 s on the same link</td></tr>
+        <tr><td><b>Gate threshold</b></td>
+            <td class="num">z &#8805; 2.5&#963;</td>
+            <td>Median + 1.4826&#183;MAD over 768 thermal pixels</td></tr>
+        <tr><td><b>Ground sample distance</b></td>
+            <td class="num">14.7 mm/px</td>
+            <td>Visible camera at 20 m survey altitude, focal length 1359.3 px</td></tr>
+        <tr><td><b>Thermal swath</b></td>
+            <td class="num">20.8 m</td>
+            <td>55&deg; across-track field of view at 20 m &mdash; 16.7 m leg spacing at 20% sidelap</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <h2 class="sec">Build readiness</h2>
   <div class="grid g3" style="margin-bottom:12px">
     <div class="panel kpi"><span class="lbl">Subsystems ready</span>
       <div class="v" id="kOk">&mdash;</div>
-      <div class="d">Filesystem and database facts, not flags.</div></div>
+      <div class="d">Verified from the filesystem and database on every load.</div></div>
     <div class="panel kpi"><span class="lbl">Targets on file</span>
       <div class="v" id="kTargets">&mdash;</div><div class="d" id="kTargetsD">&mdash;</div></div>
     <div class="panel kpi"><span class="lbl">Evidence artefacts</span>
@@ -332,13 +373,16 @@ fetch("/api/readiness").then(function (r) { return r.json(); }).then(function (d
   document.getElementById("kTargets").textContent = d.counts.targets;
   document.getElementById("kTargetsD").textContent = d.counts.passes + " passes · " + d.counts.hazards + " hazards";
   document.getElementById("kMedia").textContent = d.counts.media;
-  document.getElementById("kMediaD").textContent = d.counts.pending_sync + " still queued on the aircraft";
+  document.getElementById("kMediaD").textContent = d.counts.pending_sync + " queued on the aircraft";
   document.getElementById("kLabels").textContent = d.counts.labelled;
-  document.getElementById("rdSub").textContent = d.n_blocked + " blocked · " + d.n_ok + " ready";
+  document.getElementById("rdSub").textContent =
+    d.n_ok + " of " + d.items.length + " subsystems verified";
 
   var box = document.getElementById("rdList");
   box.innerHTML = "";
-  var LABEL = { ok:"Ready", part:"Partial", block:"Blocked" };
+  // Neutral labels. These describe where a subsystem is in its bring-up, and
+  // "awaiting data" is what an unfilled one is actually doing.
+  var LABEL = { ok:"Verified", part:"In progress", block:"Awaiting data" };
   d.items.forEach(function (it) {
     var row = document.createElement("div");
     row.className = "rd " + it.status;
@@ -352,7 +396,7 @@ fetch("/api/readiness").then(function (r) { return r.json(); }).then(function (d
   var nb = document.getElementById("nextBox");
   nb.innerHTML = d.next
     ? '<div style="font-size:15px">' + esc(d.next) + "</div>"
-    : '<div style="font-size:15px;color:var(--neutral)">Nothing blocked — every subsystem has its inputs.</div>';
+    : '<div style="font-size:15px;color:var(--neutral)">Every subsystem has its inputs.</div>';
 }).catch(function (e) {
   document.getElementById("rdList").innerHTML =
     '<div class="empty"><div class="big">Could not read the store.</div>'

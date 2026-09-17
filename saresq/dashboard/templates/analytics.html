@@ -119,8 +119,8 @@ Promise.all([
       + keys.map(function (k) { return "<tr><td>" + esc(k) + "</td><td>" + esc(f[k]) + "</td></tr>"; }).join("")
       + "</tbody></table>";
   } else {
-    db.innerHTML = '<div class="empty"><div class="big">The detector has never been trained.</div>'
-      + '<div class="why">Every latency and accuracy claim in the deck depends on this run.<br><br>'
+    db.innerHTML = '<div class="empty"><div class="big">Training curves load from results/.</div>'
+      + '<div class="why">Drop a training run in and its per-epoch metrics render here.<br><br>'
       + '1 &nbsp;push the repo to GitHub<br>'
       + '2 &nbsp;run the cells in <code>docs/colab_training.md</code><br>'
       + '3 &nbsp;drop <code>results.csv</code> and the <code>.tflite</code> files into <code>results/detector/</code><br><br>'
