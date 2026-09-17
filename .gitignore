@@ -37,3 +37,10 @@ results/**/*.keras
 results/*.log
 results/detector/*.log
 models/**/*.keras
+
+# The thermal->RGB affine is six numbers and 400 bytes, but it cannot be
+# regenerated without the payload, a hot target and a bench session -- and it
+# is specific to THIS pair of lenses at their measured 2.7 cm separation.
+# Losing it costs a rebuild of the rig, so it is tracked despite living beside
+# generated calibration output.
+!saresq/calib/thermal_to_rgb.json

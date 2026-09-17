@@ -934,6 +934,68 @@ def colorize(thermal: np.ndarray, size=(512, 384), span_min: float = 6.0
     return img
 
 
+CALIB = REPO / "saresq" / "calib" / "thermal_to_rgb.json"
+
+
+@functools.lru_cache(maxsize=1)
+def load_affine():
+    """The thermal->RGB affine, or None if this payload has not been calibrated.
+
+    Cached: it is a 2x3 matrix read from disk, and the detect loop would
+    otherwise stat the file thirty times a second for a number that changes
+    when someone runs the calibration, not while flying.
+    """
+    try:
+        m = json.loads(CALIB.read_text())
+        return (np.asarray(m["matrix"], dtype=np.float32),
+                float(m.get("residual_thermal_px", 0.0)))
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def draw_thermal_contours(vis, thermal, affine, levels=(2.0, 3.0, 4.0)):
+    """Outline the heat, in the RGB frame, where the calibration says it is.
+
+    CONTOURS RATHER THAN A BLEND. An alpha-blended heat map over the detector
+    view hides the thing the detector is drawing boxes on, and at 32x24 a blend
+    is 99.96% interpolation painted over real pixels. Outlines add a layer
+    without taking one away, and they make the registration itself checkable at
+    a glance: if the line does not sit on the warm object, the calibration is
+    wrong and you can see it immediately.
+
+    The z-map is warped at QUARTER resolution and the contour points scaled up.
+    Warping 768 thermal pixels into 2 million RGB ones costs real milliseconds
+    on a Pi 4 for detail that does not exist in the source; a quarter-size warp
+    is ~8x cheaper and, from a 32x24 array, loses nothing.
+    """
+    if affine is None or thermal is None:
+        return 0
+    H, W = vis.shape[:2]
+    q = 4
+    m = affine.copy()
+    m[0, :] /= q
+    m[1, :] /= q                      # same mapping, quarter-scale destination
+
+    med = float(np.median(thermal))
+    mad = float(np.median(np.abs(thermal - med)))
+    z = (thermal - med) / max(1.4826 * mad, 0.15)
+
+    warped = cv2.warpAffine(z.astype(np.float32), m, (W // q, H // q),
+                            flags=cv2.INTER_LINEAR, borderValue=0.0)
+    drawn = 0
+    for lv, col, th in zip(levels, ((120, 90, 220), (70, 170, 255), (90, 240, 255)), (1, 2, 2)):
+        mask = (warped >= lv).astype(np.uint8)
+        if not mask.any():
+            continue
+        cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for c in cnts:
+            if cv2.contourArea(c) < 2:
+                continue
+            cv2.polylines(vis, [c * q], True, col, th, cv2.LINE_AA)
+            drawn += 1
+    return drawn
+
+
 class App:
     """Shared state: newest of everything, plus the detector thread."""
 
@@ -1005,6 +1067,10 @@ class App:
                 dets = [d for d in dets if int(d.cls) in self.args.classes]
 
             vis = rgb.copy()
+            # Heat outlines go on FIRST, so detection boxes and scores stay the
+            # topmost thing on the frame.
+            cal = None if self.args.no_contours else load_affine()
+            n_cont = draw_thermal_contours(vis, th, cal[0] if cal else None)
             for d in dets:
                 x0, y0, x1, y1 = (int(v) for v in d.xyxy)
                 s = float(d.score)
@@ -1035,7 +1101,9 @@ class App:
             with self.lock:
                 self.det_img = vis
                 self.det_info = {"n": len(dets), "ms": ms, "conf": self.args.conf,
-                                 "model": pathlib.Path(self.args.rgb_model).name}
+                                 "model": pathlib.Path(self.args.rgb_model).name,
+                                 "contours": n_cont,
+                                 "calib": (round(cal[1], 3) if cal else None)}
                 self.crops, self.crop_meta, self.gate = crops, meta, g
                 self.seq += 1
                 manual, self.save_next = self.save_next, False
@@ -1360,6 +1428,8 @@ def main() -> int:
     ap.add_argument("--classes", default="0",
                     help="comma-separated class ids to keep; 0 is person in "
                          "COCO. Empty string keeps every class.")
+    ap.add_argument("--no-contours", action="store_true",
+                    help="do not outline the thermal field on the detector view")
     ap.add_argument("--hazard-model",
                     default=str(REPO / "models" / "mobilenetv2_aider_224_int8.tflite"),
                     help="AIDER scene classifier (MobileNetV2, int8)")
