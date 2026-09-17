@@ -12,6 +12,8 @@
   .mc-tl { top:12px; left:12px; width:246px; }
   .mc-tr { top:12px; right:12px; display:flex; flex-direction:column; gap:6px; background:none; border:none; box-shadow:none; }
   .mc-live { top:12px; right:56px; width:250px; }
+  .mc-haz { top:12px; right:318px; width:210px; }
+  @media (max-width:1180px){ .mc-haz { display:none; } }
   .mc-live code { font-size:10px; }
   /* A scenario layer must never be mistakeable for a measurement, and this got
      much easier to mistake the moment real satellite imagery went underneath
@@ -71,43 +73,33 @@
   <svg id="ov" xmlns="http://www.w3.org/2000/svg" aria-label="Live targets and hazards over the survey area"></svg>
 
   <div class="mc mc-tl">
-    <div class="mc-hd">
-      <span class="lbl">Flood scenario</span>
-      <span class="sim">MODELLED</span>
-    </div>
+    <div class="mc-hd"><span class="lbl">Layers</span><span class="ps" id="baseStat">&mdash;</span></div>
     <div class="mc-bd">
-      <div class="lvl"><b><span id="lvlVal">12.0</span> m</b><span class="ps">assumed water surface</span></div>
-      <input type="range" id="lvl" min="4" max="16" step="0.25" value="12"
-             aria-label="Assumed flood water surface level in metres">
-      <div class="ps" style="margin-top:6px;color:var(--muted);line-height:1.5">
-        Not an observation. SRTM terrain against a level <b>you choose</b> &mdash;
-        &ldquo;if water reached here, what is cut off?&rdquo;
-      </div>
-      <div class="ps" id="cutStat" style="margin-top:5px">&mdash;</div>
-      <div class="tgs">
-        <button class="tg" data-layer="flood" aria-pressed="false">Flood</button>
-        <button class="tg" data-layer="roads" aria-pressed="true">Roads</button>
-        <button class="tg" data-layer="bldg" aria-pressed="true">Buildings</button>
-        <button class="tg" data-layer="d3" aria-pressed="false">3D</button>
-      </div>
-      <div class="tgs">
+      <div class="tgs" style="margin-top:0;padding-top:0;border:0">
         <button class="tg" data-base="sat" aria-pressed="false">Satellite</button>
         <button class="tg" data-base="dark" aria-pressed="true">Dark</button>
         <button class="tg" data-base="street" aria-pressed="false">Street</button>
         <button class="tg" data-base="baked" aria-pressed="false">Offline</button>
       </div>
       <div class="tgs">
-        <button class="tg" data-prof="car" aria-pressed="false">Car 0.30 m</button>
-        <button class="tg" data-prof="emrg" aria-pressed="true">Emergency 0.60 m</button>
+        <button class="tg" data-layer="roads" aria-pressed="true">Roads</button>
+        <button class="tg" data-layer="bldg" aria-pressed="true">Buildings</button>
+        <button class="tg" data-layer="d3" aria-pressed="false">3D</button>
       </div>
       <div class="key">
-        <span><i style="background:#4FC489"></i>Passable</span>
-        <span><i style="background:#F3A83C"></i>Caution</span>
-        <span><i style="background:#E8792B"></i>Emrg only</span>
-        <span><i style="background:#F46454"></i>Impassable</span>
-        <span><i style="background:var(--muted);height:0;border-top:2px dashed var(--muted)"></i>Cut off</span>
+        <span><i style="background:#F46454"></i>High</span>
+        <span><i style="background:#F3A83C"></i>Medium</span>
+        <span><i style="background:#6D838D"></i>Low</span>
+      </div>
+      <div class="ps" style="margin-top:8px;padding-top:8px;border-top:1px dotted var(--rule-soft);color:var(--muted);line-height:1.5">
+        Shift-click to set a datum for captures with no GPS fix.
       </div>
     </div>
+  </div>
+
+  <div class="mc mc-haz">
+    <div class="mc-hd"><span class="lbl">Scene</span><span class="obs">OBSERVED</span></div>
+    <div class="mc-bd" id="hazbox"><div class="ps">no imagery classified yet</div></div>
   </div>
 
   <div class="mc-tr">

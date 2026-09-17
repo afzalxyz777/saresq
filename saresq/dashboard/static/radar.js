@@ -30,7 +30,7 @@
     UP: "#4FC489", DEGRADED: "#F3A83C", DOWN: "#F46454"
   };
   var S = {
-    snap: null, level: 12.0, profile: "emrg", sel: null, err: null,
+    snap: null, sel: null, err: null,
     show: { rings: true, plan: true, coverage: true, swath: true, trail: true, rf: true },
     lastFetch: 0, paused: false
   };
@@ -47,7 +47,7 @@
     minZoom: 14, maxZoom: 20.5,
     onChange: draw,
     onHover: function (ll) {
-      var el = M.demAt(ll[0], ll[1]);
+      var el = null;
       document.getElementById("cursor").textContent =
         ll[0].toFixed(5) + "°N " + ll[1].toFixed(5) + "°E"
         + (el == null ? "" : "  ·  " + el.toFixed(1) + " m");
@@ -148,9 +148,8 @@
   function drawScope() {
     var ctx = view.ctx, snap = S.snap;
     view.drawBase({
-      level: S.level, profile: S.profile,
-      show: { flood: true, roads: true, bldg: view.cam.z >= 16.4, d3: false },
-      floodAlpha: 0.85, aoiBox: false, dimRoads: true
+      show: { roads: true, bldg: view.cam.z >= 16.4, d3: false },
+      aoiBox: false, dimRoads: true
     });
     // Knock the map back so the surveillance symbology reads on top of it. A
     // scope where the basemap competes with the tracks is a pretty map, not a
@@ -483,10 +482,10 @@
       + '<u style="left:' + ((L.down_dbm + 120) / 80 * 100).toFixed(0) + '%"></u>'
       + '<u style="left:' + ((L.up_dbm + 120) / 80 * 100).toFixed(0) + '%"></u></div>'
       + '<div class="lk-grid">'
-      + kv("Range", L.range_m.toFixed(0) + " m")
-      + kv("Free space", "−" + L.fspl_db.toFixed(0) + " dB")
-      + kv("Structure", L.structure_db > 0 ? "−" + L.structure_db.toFixed(0) + " dB" : "—")
-      + kv("Diffraction", L.diffraction_db > 0 ? "−" + L.diffraction_db.toFixed(0) + " dB" : "—")
+      + kv("Range", L.range_m == null ? "\u2014" : L.range_m.toFixed(0) + " m")
+      + kv("Free space", "−" + (L.fspl_db == null ? "\u2014" : L.fspl_db.toFixed(0)) + " dB")
+      + kv("Structure", L.structure_db > 0 ? "−" + (L.structure_db == null ? "\u2014" : L.structure_db.toFixed(0)) + " dB" : "—")
+      + kv("Diffraction", L.diffraction_db > 0 ? "−" + (L.diffraction_db == null ? "\u2014" : L.diffraction_db.toFixed(0)) + " dB" : "—")
       + kv("Blocker", L.blocker || "clear")
       + kv("GPS", L.gps_denied ? "<b style='color:" + COL.DOWN + "'>DENIED</b>" : "nominal")
       + "</div>"
@@ -709,12 +708,6 @@
         body: JSON.stringify({ fault: b.getAttribute("data-fault"), seconds: 30 })
       }).then(poll);
     });
-  });
-  var lvl = document.getElementById("lvl");
-  if (lvl) lvl.addEventListener("input", function () {
-    S.level = parseFloat(lvl.value);
-    document.getElementById("lvlVal").textContent = S.level.toFixed(1);
-    draw();
   });
   document.addEventListener("visibilitychange", function () {
     S.paused = document.hidden;

@@ -165,7 +165,16 @@ class RadarService:
         self.link_state = "UP"
         self.link_since = self.t0
         self.last_rssi = 0.0
-        self.last_detail: dict[str, Any] = {}
+        #: Same KEYS the link model returns, so a consumer never has to branch
+        #: on whether an aircraft is reporting. Before this, nothing flying
+        #: meant an empty dict and the scope threw on L.range_m.toFixed().
+        #: Values are None, not zero: there is no range to a thing that is not
+        #: there, and 0 m would read as "directly overhead".
+        self.last_detail: dict[str, Any] = {
+            "range_m": None, "fspl_db": None, "structure_db": None,
+            "diffraction_db": None, "through_m": 0.0, "blocker": None,
+            "gps_denied": False,
+        }
         self.bytes_delivered = 0
         #: Fault injection. The propagation model above is honest, and what it
         #: honestly says is that a 433 MHz link at 400 m has roughly 60 dB of

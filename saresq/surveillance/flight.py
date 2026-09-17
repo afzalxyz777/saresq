@@ -75,15 +75,26 @@ class Obstruction:
 SEGMENT_A = Box(22.57239, 88.36383, 22.57401, 88.36617)
 GROUND_STATION = (22.5726, 88.3639)
 GCS_ANTENNA_M = 2.0
-#: Terrain in this AOI runs 2-20 m on SRTM with a mean near 11 m. The link
-#: model needs one datum, not a surface, so it uses the mean and treats the
-#: obstruction heights as absolute -- the DEM itself lives in the browser.
+#: One flat datum for the link geometry. The 48x48 SRTM raster this was
+#: averaged from has been removed (unsourced, resampled finer than its native
+#: 30 m, and a surface model that put rooftops above the streets beside them),
+#: so this is now just a nominal ground height for the aircraft's AGL.
 TERRAIN_DATUM_M = 11.0
 
-OBSTRUCTIONS = (
-    Obstruction("NE residential block", Box(22.57300, 88.36470, 22.57352, 88.36560), 28.0),
-    Obstruction("Market shed row", Box(22.57262, 88.36420, 22.57284, 88.36470), 22.0),
-)
+#: EMPTY BY DEFAULT, and that is the honest state.
+#:
+#: This held two hand-typed buildings -- "NE residential block", 28 m, and
+#: "Market shed row", 22 m -- boxes and heights that someone invented. They
+#: drove the RF SHADOW overlay, the STRUCTURE / DIFFRACTION readout and the
+#: BLOCKER field, so the scope reported diffraction loss through masonry that
+#: was never surveyed.
+#:
+#: The link model itself is real physics: free-space path loss plus knife-edge
+#: diffraction, and it still runs. What it no longer does is run against made-up
+#: geometry. Pass obstructions=(...) to LinkBudget when a real survey exists;
+#: with none, the budget is free-space over the datum, which is a statement the
+#: inputs can actually support.
+OBSTRUCTIONS: tuple[Obstruction, ...] = ()
 
 
 def swath_m(alt_m: float = SURVEY_ALT_M) -> float:

@@ -7,7 +7,9 @@ import pytest
 
 from saresq.surveillance.filters import AlphaBeta, gate_radius_m, kalata_gains, variance_reduction
 from saresq.surveillance.flight import (
+    Box,
     LinkBudget,
+    Obstruction,
     SurveyPlan,
     detection_probability,
     lateral_offset_m,
@@ -223,15 +225,29 @@ def test_swath_matches_the_payload_geometry():
     assert leg_spacing_m(20.0) == pytest.approx(swath_m(20.0) * 0.8)
 
 
-def test_link_weakens_with_range_and_with_obstruction():
+def test_link_weakens_with_range():
+    """Free-space loss alone, which is what the default budget now models."""
     lb = LinkBudget()
-    near, _ = lb.rssi_dbm(22.5727, 88.3640, 20.0)
+    near, d_near = lb.rssi_dbm(22.5727, 88.3640, 20.0)
     far, _ = lb.rssi_dbm(22.5740, 88.3660, 20.0)
     assert near > far
+    # No obstructions are configured by default any more -- the two that used
+    # to be were hand-typed buildings nobody surveyed.
+    assert d_near["through_m"] == 0
 
+
+def test_an_obstruction_attenuates_when_one_is_actually_supplied():
+    """The diffraction model is real; it just needs real geometry to run on.
+
+    Supplied here explicitly rather than taken from a module default, so the
+    test proves the physics without the package having to assert that a
+    particular building exists in Kolkata.
+    """
+    block = Obstruction("test block", Box(22.57300, 88.36470, 22.57352, 88.36560), 28.0)
+    lb = LinkBudget(obstructions=(block,))
     clear, d_clear = lb.rssi_dbm(22.5722, 88.3630, 20.0)
     blocked, d_blocked = lb.rssi_dbm(22.5740, 88.36520, 20.0)
-    assert d_blocked["through_m"] > 0 and d_blocked["blocker"]
+    assert d_blocked["through_m"] > 0 and d_blocked["blocker"] == "test block"
     assert d_clear["through_m"] == 0
     assert blocked < clear
 

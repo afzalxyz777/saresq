@@ -47,120 +47,18 @@ window.MapCore = (function () {
     }
   })();
 
-  var DEM = BASEMAP.dem;
-  function demAt(lat, lon) {
-    var fx = (lon - DEM.lon0) / (DEM.lon1 - DEM.lon0) * (DEM.nx - 1);
-    var fy = (lat - DEM.lat0) / (DEM.lat1 - DEM.lat0) * (DEM.ny - 1);
-    if (!(fx >= 0 && fy >= 0 && fx <= DEM.nx - 1 && fy <= DEM.ny - 1)) return null;
-    var i = Math.floor(fx), j = Math.floor(fy), tx = fx - i, ty = fy - j;
-    var i1 = Math.min(DEM.nx - 1, i + 1), j1 = Math.min(DEM.ny - 1, j + 1), z = DEM.z;
-    return (z[j * DEM.nx + i] * (1 - tx) + z[j * DEM.nx + i1] * tx) * (1 - ty)
-         + (z[j1 * DEM.nx + i] * (1 - tx) + z[j1 * DEM.nx + i1] * tx) * ty;
-  }
-
-  // ---- road trafficability (published vehicle-stability depth bands) ------
-  var TRAFFIC = [
-    { k: "PASSABLE",   max: 0.15, col: "#4FC489" },
-    { k: "CAUTION",    max: 0.30, col: "#F3A83C" },
-    { k: "RESTRICTED", max: 0.60, col: "#E8792B" },
-    { k: "IMPASSABLE", max: 1e9,  col: "#F46454" }
-  ];
-  var PROFILES = { car: 0.30, emrg: 0.60 };
-  var RG = null, RC = null;
-
-  function roadGraph() {
-    if (RG) return RG;
-    var segs = [], adj = new Map();
-    function nid(la, lo) {
-      var k = la.toFixed(5) + "," + lo.toFixed(5);
-      if (!adj.has(k)) adj.set(k, []);
-      return k;
-    }
-    [["major", 2.4], ["road", 1.7], ["minor", 1.1]].forEach(function (pair) {
-      (GEO[pair[0]] || []).forEach(function (f) {
-        var p = f.p;
-        for (var i = 0; i + 3 < p.length; i += 2) {
-          var a = nid(p[i], p[i + 1]), b = nid(p[i + 2], p[i + 3]);
-          if (a === b) continue;
-          var idx = segs.length;
-          segs.push({ a: a, b: b, la0: p[i], lo0: p[i + 1], la1: p[i + 2], lo1: p[i + 3], w: pair[1] });
-          adj.get(a).push(idx); adj.get(b).push(idx);
-        }
-      });
-    });
-    RG = { segs: segs, adj: adj };
-    return RG;
-  }
-
-  /* Depth-classify every road segment, then flood-fill outward from the
-   * staging point to find what an ambulance can actually reach. A road can be
-   * dry and still be useless if every route to it is under water, and that
-   * distinction is the one the dispatcher needs. */
-  function classifyRoads(level, profile, origin) {
-    var key = level.toFixed(2) + "|" + profile;
-    if (RC && RC.key === key) return RC;
-    var G = roadGraph();
-    G.segs.forEach(function (s) {
-      var worst = 0, seen = 0;
-      for (var i = 0; i <= 3; i++) {
-        var t = i / 3;
-        var e = demAt(s.la0 + (s.la1 - s.la0) * t, s.lo0 + (s.lo1 - s.lo0) * t);
-        if (e == null) continue;
-        seen++; worst = Math.max(worst, level - e);
-      }
-      if (!seen) { s.cls = null; s.depth = null; return; }
-      s.depth = Math.max(0, worst);
-      for (var c = 0; c < TRAFFIC.length; c++) if (s.depth <= TRAFFIC[c].max) { s.cls = c; break; }
-    });
-    var ford = PROFILES[profile], start = null, bd = Infinity;
-    var org = origin || [22.5726, 88.3639];
-    G.adj.forEach(function (_, k) {
-      var p = k.split(","), d = Math.hypot(+p[0] - org[0], +p[1] - org[1]);
-      if (d < bd) { bd = d; start = k; }
-    });
-    var reach = new Set();
-    if (start) {
-      var q = [start]; reach.add(start);
-      while (q.length) {
-        var cur = q.pop();
-        (G.adj.get(cur) || []).forEach(function (si) {
-          var s = G.segs[si];
-          if (s.depth == null || s.depth > ford) return;   // unassessed is never assumed safe
-          var o = s.a === cur ? s.b : s.a;
-          if (!reach.has(o)) { reach.add(o); q.push(o); }
-        });
-      }
-    }
-    var cut = 0, tot = 0;
-    G.segs.forEach(function (s) {
-      s.reach = reach.has(s.a) && reach.has(s.b);
-      if (s.depth != null) {
-        var L = Math.hypot((s.la1 - s.la0) * 110574, (s.lo1 - s.lo0) * 102796);
-        tot += L; if (!s.reach) cut += L;
-      }
-    });
-    RC = { key: key, cutFrac: tot ? cut / tot : 0, tot: tot };
-    return RC;
-  }
-
-  // ---- flood raster, rebuilt only when the level moves --------------------
-  var fcv = document.createElement("canvas"), fkey = null;
-  fcv.width = DEM.nx; fcv.height = DEM.ny;
-  function floodRaster(level) {
-    var k = level.toFixed(3);
-    if (fkey === k) return fcv;
-    var c = fcv.getContext("2d"), img = c.createImageData(DEM.nx, DEM.ny), d = img.data, z = DEM.z;
-    for (var j = 0; j < DEM.ny; j++) for (var i = 0; i < DEM.nx; i++) {
-      var dep = level - z[j * DEM.nx + i], o = ((DEM.ny - 1 - j) * DEM.nx + i) * 4;
-      if (dep <= 0) { d[o + 3] = 0; continue; }
-      var t = Math.min(1, dep / 5);
-      d[o] = Math.round(120 - 88 * t); d[o + 1] = Math.round(200 - 122 * t);
-      d[o + 2] = Math.round(240 - 54 * t); d[o + 3] = Math.round((0.20 + 0.32 * t) * 255);
-    }
-    c.putImageData(img, 0, 0); fkey = k;
-    return fcv;
-  }
-
+  /* The 48x48 DEM, the flood raster and the road passability classifier used
+   * to live here and have been removed. The DEM had no generating script in
+   * the repo, no verifiable provenance, 19.6 m cells resampled from SRTM's
+   * native 30 m, and -- being a SURFACE model -- put rooftops above the
+   * streets beside them in a delta city that is genuinely flat at ~9 m.
+   * floodRaster() thresholded it with no hydraulic connectivity at all, so an
+   * isolated depression "flooded" with no path to the river.
+   *
+   * None of that is a flood model, and a road coloured "impassable" is a
+   * dispatch instruction. Observed flooding now comes from the AIDER scene
+   * classifier, which looks at the imagery the payload actually captured.
+   */
   function css(n) {
     return getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   }
@@ -223,12 +121,12 @@ window.MapCore = (function () {
       ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.lineJoin = "round";
       ctx.stroke(); ctx.restore();
     }
-    function drawExtruded(level, floodOn) {
+    function drawExtruded() {
       var lift = Math.max(2, 9 / mpp()), list = [];
       GEO.bldg.forEach(function (f) {
         if (!visible(f.b)) return;
-        var la = (f.b[0] + f.b[2]) / 2, lo = (f.b[1] + f.b[3]) / 2, e = demAt(la, lo);
-        list.push({ f: f, y: P(la, lo)[1], d: floodOn && e != null ? Math.max(0, level - e) : 0 });
+        var la = (f.b[0] + f.b[2]) / 2, lo = (f.b[1] + f.b[3]) / 2;
+        list.push({ f: f, y: P(la, lo)[1], d: 0 });
       });
       list.sort(function (a, b) { return a.y - b.y; });
       var wall = css("--rule"), roof = "#18272F";
@@ -250,24 +148,30 @@ window.MapCore = (function () {
         ctx.fill(); ctx.strokeStyle = wall; ctx.lineWidth = .6; ctx.stroke();
       });
     }
-    function drawRoads(level, profile, origin, dim) {
-      classifyRoads(level, profile, origin);
-      var G = roadGraph();
-      // Road width tracks zoom so a lane stays roughly a lane -- but only up to
-      // a point. Uncapped, `4/mpp` reaches 7.5x past z18 and paints 18-pixel
-      // arteries that swamp everything drawn on top of them.
+    /* Roads, coloured by their OWN class -- major / road / minor -- which is
+     * the one thing the baked geometry actually knows about them.
+     *
+     * This used to colour them passable/caution/impassable from a flood model.
+     * That model was removed: it thresholded an unsourced 48x48 DEM with no
+     * hydraulic connectivity, resampled 1.5x finer than SRTM's native 30 m, on
+     * a surface model that puts rooftops above streets. Colouring a road
+     * "impassable" is a dispatch instruction, and nothing here could support
+     * one. Road importance can be drawn honestly; road passability cannot.
+     */
+    var ROAD_STYLE = { major: [2.4, "#5A7180"], road: [1.7, "#465A67"], minor: [1.1, "#38494F"] };
+
+    function drawRoads(dim) {
       var k = Math.min(3.0, Math.max(1, 4 / mpp()));
       ctx.save(); ctx.lineCap = "round";
-      G.segs.forEach(function (s) {
-        var a = P(s.la0, s.lo0), b = P(s.la1, s.lo1);
-        if (Math.max(a[0], b[0]) < -30 || Math.min(a[0], b[0]) > vp.w + 30) return;
-        if (Math.max(a[1], b[1]) < -30 || Math.min(a[1], b[1]) > vp.h + 30) return;
-        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
-        ctx.lineWidth = Math.max(1.1, s.w * k * (dim ? 0.55 : 1));
-        ctx.setLineDash(s.reach ? [] : [5, 4]);
-        ctx.globalAlpha = (s.cls == null ? .3 : (s.reach ? .95 : .5)) * (dim ? 0.5 : 1);
-        ctx.strokeStyle = s.cls == null ? css("--muted") : TRAFFIC[s.cls].col;
-        ctx.stroke();
+      ["minor", "road", "major"].forEach(function (cls) {
+        var st = ROAD_STYLE[cls];
+        ctx.strokeStyle = st[1];
+        ctx.globalAlpha = dim ? 0.45 : 0.9;
+        (GEO[cls] || []).forEach(function (f) {
+          if (!visible(f.b)) return;
+          ctx.lineWidth = Math.max(1.1, st[0] * k * (dim ? 0.55 : 1));
+          if (trace(f)) ctx.stroke();
+        });
       });
       ctx.restore();
     }
@@ -276,8 +180,7 @@ window.MapCore = (function () {
 
     function drawBase(o) {
       o = o || {};
-      var level = o.level == null ? 12.0 : o.level;
-      var show = o.show || { flood: true, roads: true, bldg: true, d3: false };
+      var show = o.show || { roads: true, bldg: true, d3: false };
       ctx.fillStyle = o.ground || "#0B141A";
       ctx.fillRect(0, 0, vp.w, vp.h);
 
@@ -307,33 +210,19 @@ window.MapCore = (function () {
         fillL(GEO.water, "#123544");
         strokeL(GEO.river, "#123544", Math.max(2, 14 / mpp()));
       }
-      if (show.flood) {
-        var nw = P(DEM.lat1, DEM.lon0), se = P(DEM.lat0, DEM.lon1);
-        ctx.save();
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-        ctx.globalAlpha = o.floodAlpha == null ? 1 : o.floodAlpha;
-        ctx.drawImage(floodRaster(level), nw[0], nw[1], se[0] - nw[0], se[1] - nw[1]);
-        ctx.restore();
-      }
       if (show.bldg && cam.z >= 15.6) {
         // 3D extrusion is ours and stays over tiles; the flat footprint fill is
         // only a stand-in for what the tiles already draw better.
-        if (show.d3) drawExtruded(level, show.flood);
+        if (show.d3) drawExtruded();
         else if (!tiled) { fillL(GEO.bldg, "#18272F"); strokeL(GEO.bldg, "#253945", .7); }
       }
       if (show.roads) {
-        drawRoads(level, o.profile || "emrg", o.origin, o.dimRoads);
+        drawRoads(o.dimRoads);
         if (!tiled) strokeL(GEO.rail, "#33454F", 1.3, [7, 5]);
       }
-      if (o.aoiBox !== false) {
-        var a = P(DEM.lat1, DEM.lon0), b = P(DEM.lat0, DEM.lon1);
-        ctx.save(); ctx.setLineDash([6, 5]); ctx.strokeStyle = css("--muted");
-        ctx.lineWidth = 1; ctx.globalAlpha = .7;
-        ctx.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
-        ctx.font = "600 10px ui-monospace, monospace"; ctx.fillStyle = css("--muted");
-        ctx.fillText("SRTM ANALYSIS AOI", a[0] + 6, a[1] + 14);
-        ctx.restore();
-      }
+      // The dashed "SRTM ANALYSIS AOI" rectangle was the flood model's own
+      // analysis extent. With that model gone the box outlined nothing, so it
+      // is gone too rather than left as a border with no meaning.
     }
 
     // ---- interaction ------------------------------------------------------
@@ -419,7 +308,6 @@ window.MapCore = (function () {
       P: P, unP: unP, mpp: mpp, size: size, drawBase: drawBase,
       tileInfo: function () { return lastTiles; },
       zoom: zoom, panTo: panTo, fitBounds: fitBounds,
-      classifyRoads: classifyRoads, demAt: demAt,
       dragged: function () { return !!(drag && drag.moved); }
     };
     size();
@@ -443,9 +331,7 @@ window.MapCore = (function () {
   }
 
   return {
-    D2R: D2R, NS: NS, GEO: GEO, DEM: DEM, demAt: demAt,
-    TRAFFIC: TRAFFIC, PROFILES: PROFILES,
-    roadGraph: roadGraph, classifyRoads: classifyRoads, floodRaster: floodRaster,
+    D2R: D2R, NS: NS, GEO: GEO,
     css: css, sve: sve, niceScale: niceScale, create: create,
     wx: wx, wy: wy, lonAt: lonAt, latAt: latAt
   };

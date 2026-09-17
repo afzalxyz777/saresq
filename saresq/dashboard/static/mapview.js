@@ -10,12 +10,7 @@
   var M = window.MapCore, sve = M.sve;
 
   var S = {
-    level: 12.0,
-    profile: "emrg",
-    // Flood starts OFF. It is a what-if, and a what-if that paints itself over
-    // the map before anyone asked for it is an assertion. Roads stay on because
-    // their colouring is neutral until a level is chosen.
-    show: { flood: false, roads: true, bldg: true, d3: false },
+    show: { roads: true, bldg: true, d3: false },
     targets: [], hazards: [], sel: null, fitted: false,
     // Tiles on by default: if the network is there the coordinator gets the
     // whole city, and mapcore falls back to the baked geometry by itself when
@@ -37,13 +32,8 @@
     cam: { lat: 22.57323, lon: 88.36497, z: 17.2 },
     onChange: draw,
     onHover: function (ll) {
-      var el = M.demAt(ll[0], ll[1]);
-      var d = el == null ? null : Math.max(0, S.level - el);
-      document.getElementById("readout").innerHTML =
-        ll[0].toFixed(5) + "°N " + ll[1].toFixed(5) + "°E"
-        + (el == null ? " · outside AOI"
-                      : " · elev " + el.toFixed(1) + " m"
-                        + (d > 0 ? " · depth " + d.toFixed(1) + " m" : " · dry"));
+      document.getElementById("readout").textContent =
+        ll[0].toFixed(5) + "\u00b0N " + ll[1].toFixed(5) + "\u00b0E";
     }
   });
 
@@ -130,15 +120,11 @@
     S.targets.forEach(function (t) {
       if (t.lat == null) return;
       var s = view.P(t.lat, t.lon), col = CLS_COL[t.class] || "#3FCDEC", r = 11;
-      var e = M.demAt(t.lat, t.lon), depth = e == null ? null : Math.max(0, S.level - e);
       var g = sve("g", { style: "cursor:pointer", class: "hit" });
       if (t.pos_err_m)
         g.appendChild(sve("circle", { cx: s[0], cy: s[1], r: Math.max(3, t.pos_err_m / view.mpp()),
           fill: col, "fill-opacity": .10, stroke: col, "stroke-opacity": .35,
           "stroke-width": .9, "stroke-dasharray": "2 3" }));
-      if (depth > 0)
-        g.appendChild(sve("circle", { cx: s[0], cy: s[1], r: r + 5, fill: "none",
-          stroke: "#F46454", "stroke-width": 1.6 }));
       if (S.sel === t.target_id)
         g.appendChild(sve("circle", { cx: s[0], cy: s[1], r: r + 9, fill: "none",
           stroke: col, "stroke-width": 1.4 }));
@@ -149,12 +135,13 @@
       g.appendChild(label(s[0] + r + 6, s[1] - 1, "T-" + String(t.target_id).padStart(3, "0"),
         { "font-weight": 600, "font-size": 11.5 }));
       g.appendChild(label(s[0] + r + 6, s[1] + 11,
-        (t.class || "?") + " P" + (t.p_final == null ? "—" : t.p_final.toFixed(2))
-        + (depth > 0 ? "  water " + depth.toFixed(1) + "m" : ""),
-        { "font-size": 9.5, fill: depth > 0 ? "#F46454" : "#6D838D" }));
+        (t.class || "?") + " P" + (t.p_final == null ? "\u2014" : t.p_final.toFixed(2))
+        + " \u00b7 " + (t.n_passes || 1) + " pass"
+        + ((t.n_passes || 1) > 1 ? "es" : ""),
+        { "font-size": 9.5, fill: "#6D838D" }));
       g.addEventListener("click", function () {
         if (view.dragged()) return;
-        S.sel = t.target_id; showInfo(t, depth); draw();
+        S.sel = t.target_id; showInfo(t); draw();
       });
       ov.appendChild(g);
     });
@@ -168,7 +155,7 @@
     requestAnimationFrame(function () {
       raf = false;
       view.drawBase({
-        level: S.level, show: S.show, profile: S.profile,
+        show: S.show,
         tiles: { on: S.tiles.on, source: S.tiles.source, onTile: draw }
       });
       drawOverlay();
@@ -181,36 +168,24 @@
     bar.style.width = sc.px.toFixed(1) + "px";
     lab.style.width = sc.px.toFixed(1) + "px";
     lab.textContent = sc.label;
-    var R = M.classifyRoads(S.level, S.profile);
-    // Phrased in the conditional it actually is. "100% of 30.9 km cut" states
-    // a fact about the world; "would be cut" states a consequence of the
-    // assumption the operator just dialled in.
-    document.getElementById("cutStat").innerHTML =
-      "<b>" + Math.round(R.cutFrac * 100) + "%</b> of " + (R.tot / 1000).toFixed(1)
-      + " km of road <b>would be</b> cut at this level";
+
   }
-  function showInfo(t, depth) {
+  function showInfo(t) {
     document.getElementById("info").innerHTML =
       "<div class='lbl'>Target T-" + String(t.target_id).padStart(3, "0") + "</div>"
       + "<div class='ps' style='margin-top:4px;line-height:1.8'>"
       + (t.class || "?") + " · P " + (t.p_final == null ? "—" : t.p_final.toFixed(2))
       + " · " + (t.decision || "—") + "<br>"
       + t.lat.toFixed(5) + "°N " + t.lon.toFixed(5) + "°E<br>"
-      + (depth > 0 ? "<span style='color:#F46454'>in " + depth.toFixed(2) + " m of water</span>"
-                   : "dry ground")
-      + " · CEP " + (t.pos_err_m || 0).toFixed(1) + " m<br>"
+      + (t.pos_err_m >= 20 ? "<span style='color:#F3A83C'>manual datum \u00b7 \u00b1"
+                              + (t.pos_err_m || 0).toFixed(0) + " m</span>"
+                           : "CEP " + (t.pos_err_m || 0).toFixed(1) + " m") + "<br>"
       + "<a href='/review'>open in review queue</a></div>";
   }
 
   // ---- controls ----
   document.getElementById("zin").addEventListener("click", function () { view.zoom(view.cam.z + 1); });
   document.getElementById("zout").addEventListener("click", function () { view.zoom(view.cam.z - 1); });
-  var lvl = document.getElementById("lvl");
-  lvl.addEventListener("input", function () {
-    S.level = parseFloat(lvl.value);
-    document.getElementById("lvlVal").textContent = S.level.toFixed(1);
-    draw();
-  });
   document.querySelectorAll("[data-layer]").forEach(function (b) {
     b.addEventListener("click", function () {
       var k = b.getAttribute("data-layer");
@@ -317,13 +292,34 @@
         }
         if (!S.followed) { view.panTo(L.lat, L.lon); S.followed = true; }
       }
-      livePanel(L);
+      livePanel(L); hazPanel(L);
       draw();
     }).catch(function () {
       S.live = { configured: true, connected: false, why: "dashboard unreachable" };
-      livePanel(S.live); draw();
+      livePanel(S.live); hazPanel(S.live); draw();
     });
   }
+  /* The observed counterpart to what used to be a modelled flood layer. This
+     says what the payload's camera actually saw, with the classifier's own
+     confidence, or says nothing at all. */
+  function hazPanel(L) {
+    var box = document.getElementById("hazbox");
+    if (!box) return;
+    if (!L || !L.configured || !L.scene) {
+      box.innerHTML = "<div class='ps'>no imagery classified yet</div>";
+      return;
+    }
+    var bad = L.scene !== "normal";
+    box.innerHTML =
+      "<b style='font-family:var(--mono);font-size:13px;color:"
+      + (bad ? "#F3A83C" : "#4FC489") + "'>"
+      + L.scene.replace(/_/g, " ").toUpperCase() + "</b>"
+      + "<div class='ps' style='margin-top:5px;line-height:1.7'>"
+      + Math.round((L.scene_p || 0) * 100) + "% confidence"
+      + "<br>MobileNetV2 / AIDER"
+      + "<br><span style='color:var(--muted)'>whole frame, 1 Hz</span></div>";
+  }
+
   function livePanel(L) {
     var box = document.getElementById("livebox");
     if (!box) return;
