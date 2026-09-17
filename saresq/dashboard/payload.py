@@ -36,6 +36,11 @@ import urllib.request
 #: merges genuine re-sightings without swallowing two people in one room.
 MERGE_RADIUS_M = 12.0
 
+#: How long a gap ends a run of captures that carry no position. Long enough to
+#: span the payload's own 6 s capture rate several times over, short enough that
+#: two separate sightings minutes apart do not become one target.
+UNLOCATED_GAP_NS = 90 * 1_000_000_000
+
 
 def _haversine_m(a_lat, a_lon, b_lat, b_lon) -> float:
     R = 6371000.0
@@ -68,26 +73,49 @@ class PayloadLink(threading.Thread):
 
     daemon = True
 
-    def __init__(self, host: str, store_factory, media_store=None,
+    def __init__(self, host: str, store_factory, media_root=None,
                  stats_hz: float = 1.0, events_s: float = 3.0):
         super().__init__(name="payload-link")
         self.host = host if ":" in host else f"{host}:8091"
         self._store_factory = store_factory
-        self._media = media_store
+        # A ROOT PATH, not a MediaStore. A MediaStore holds a Store, a Store
+        # holds an sqlite3 connection, and an sqlite3 connection may only be
+        # used on the thread that opened it -- so one built by the caller on
+        # the main thread throws the moment this thread touches it. The store
+        # is therefore constructed per batch, beside the one _ingest already
+        # opens, and the two share a connection.
+        self._media_root = media_root
         self._stats_period = 1.0 / max(stats_hz, 0.1)
         self._events_period = max(events_s, 1.0)
         self._lock = threading.Lock()
         self._state: dict = {"connected": False, "why": "not started"}
         self._seen: set[tuple[str, int]] = set()   # (session, event id) already stored
         self._origin: tuple[float, float] | None = None
+        self._origin_src = "manual"
+        self._origin_acc: float | None = None
         self._stop = threading.Event()
         self._ingested = 0
         self._last_ok = 0.0
 
-    # ---- operator-set datum -------------------------------------------------
-    def set_origin(self, lat: float, lon: float) -> None:
+    # ---- fallback datum -----------------------------------------------------
+    def set_origin(self, lat: float, lon: float, source: str = "manual",
+                   accuracy_m: float | None = None) -> None:
+        """Where to place captures that carry no GPS fix.
+
+        `source` is carried through to the UI because the two available
+        fallbacks are not equivalent and must not look it:
+
+          manual  - an operator pointed at the map. As good as their knowledge.
+          browser - the laptop's own Wi-Fi/IP geolocation. This is the GROUND
+                    STATION's position, not the aircraft's. On a bench where
+                    both sit in one room that is a fair stand-in; the moment
+                    the drone flies it is not, and the label has to keep saying
+                    so rather than quietly becoming wrong.
+        """
         with self._lock:
             self._origin = (float(lat), float(lon))
+            self._origin_src = source
+            self._origin_acc = accuracy_m
 
     @property
     def origin(self):
@@ -105,7 +133,10 @@ class PayloadLink(threading.Thread):
         s["ingested"] = self._ingested
         s["age_s"] = (time.time() - self._last_ok) if self._last_ok else None
         o = self.origin
-        s["origin"] = {"lat": o[0], "lon": o[1]} if o else None
+        with self._lock:
+            src, acc = self._origin_src, self._origin_acc
+        s["origin"] = ({"lat": o[0], "lon": o[1], "source": src, "accuracy_m": acc}
+                       if o else None)
         return s
 
     # ---- polling ------------------------------------------------------------
@@ -113,6 +144,13 @@ class PayloadLink(threading.Thread):
         url = f"http://{self.host}{path}"
         with urllib.request.urlopen(url, timeout=timeout) as r:
             return json.loads(r.read().decode())
+
+    def _blob(self, path: str, timeout: float = 6.0) -> bytes | None:
+        try:
+            with urllib.request.urlopen(f"http://{self.host}{path}", timeout=timeout) as r:
+                return r.read()
+        except (urllib.error.URLError, OSError, TimeoutError):
+            return None
 
     def run(self) -> None:
         next_events = 0.0
@@ -176,19 +214,23 @@ class PayloadLink(threading.Thread):
         store = self._store_factory()
         try:
             targets = store.all_targets()
+            media = None
+            if self._media_root:
+                from saresq.store.media import MediaStore
+                media = MediaStore(self._media_root, store)
             for ev in sorted(events, key=lambda e: e.get("id", 0)):
                 key = (str(ev.get("s", "")), int(ev.get("id", 0)))
                 if key in self._seen:
                     continue
                 self._seen.add(key)
-                self._store_event(store, ev, targets)
+                self._store_event(store, ev, targets, media)
         finally:
             try:
                 store.close()
             except Exception:                              # noqa: BLE001
                 pass
 
-    def _store_event(self, store, ev: dict, targets: list) -> None:
+    def _store_event(self, store, ev: dict, targets: list, media=None) -> None:
         lat, lon = ev.get("lat"), ev.get("lon")
         src = "gps"
         if lat is None or lon is None:
@@ -200,7 +242,9 @@ class PayloadLink(threading.Thread):
                 lat = lon = None
                 src = "none"
             else:
-                lat, lon, src = o[0], o[1], "manual"
+                with self._lock:
+                    src = self._origin_src
+                lat, lon = o[0], o[1]
 
         conf = float(ev.get("conf", 0.0) or 0.0)
         t_ns = int(time.time() * 1e9)
@@ -214,6 +258,26 @@ class PayloadLink(threading.Thread):
                 if _haversine_m(lat, lon, t["lat"], t["lon"]) <= MERGE_RADIUS_M:
                     tid = t["target_id"]
                     break
+        else:
+            # No position at all. These used to skip the merge entirely and so
+            # produced one target per capture -- a stationary person indoors
+            # became twenty-five "finds" in a couple of minutes, which is worse
+            # than useless because the count is what an operator triages on.
+            #
+            # Without coordinates the only evidence two captures are the same
+            # subject is that they are CONTINUOUS, so unlocated captures fold
+            # into the most recent unlocated target while sightings keep
+            # arriving. A real gap starts a new one, because after a quiet
+            # minute there is no longer any reason to think it is the same
+            # person.
+            recent = None
+            for t in targets:
+                if t.get("lat") is not None:
+                    continue
+                if recent is None or (t.get("last_seen_ns") or 0) > (recent.get("last_seen_ns") or 0):
+                    recent = t
+            if recent is not None and (t_ns - (recent.get("last_seen_ns") or 0)) <= UNLOCATED_GAP_NS:
+                tid = recent["target_id"]
 
         if tid is None:
             tid = store.insert_target(
@@ -221,7 +285,8 @@ class PayloadLink(threading.Thread):
                 pos_err_m=(2.5 if has_fix else 25.0),
                 p_final=conf, **{"class": _klass(conf)},
                 n_passes=1, decision=_decision(conf, has_fix), thumb_path=None)
-            targets.append({"target_id": tid, "lat": lat, "lon": lon})
+            targets.append({"target_id": tid, "lat": lat, "lon": lon,
+                            "last_seen_ns": t_ns})
         else:
             prev = store.get_target(tid) or {}
             n = int(prev.get("n_passes") or 0) + 1
@@ -229,12 +294,79 @@ class PayloadLink(threading.Thread):
             store.update_target(tid, last_seen_ns=t_ns, n_passes=n, p_final=p,
                                 **{"class": _klass(p)},
                                 decision=_decision(p, has_fix))
+            for t in targets:
+                if t["target_id"] == tid:
+                    t["last_seen_ns"] = t_ns
+                    break
 
-        store.insert_pass(
+        # Scene class, stored as the three hazard probabilities the fusion
+        # vector expects. The classifier is five-way and only ever reports its
+        # top class over the wire, so the winner takes its own confidence and
+        # the other two are zero -- which is what "the scene was classified as
+        # flooding at 0.94" actually means for those features.
+        scene = ev.get("scene")
+        sp = float(ev.get("scene_p") or 0.0)
+        p_flood = sp if scene == "flooded_areas" else 0.0
+        p_fire = sp if scene == "fire" else 0.0
+        p_collapse = sp if scene == "collapsed_building" else 0.0
+
+        pass_id = store.insert_pass(
             target_id=tid, t_start_ns=t_ns, t_end_ns=t_ns, alt_band=0,
             alt_m=None, speed_mps=None, p_pass=conf, lr=None, weight=1.0,
             p_rgb_max=conf, z_peak_max=float(ev.get("z", 0.0) or 0.0),
             iou_max=None, hits=int(ev.get("n", 0) or 0),
             t_bg=None, t_ambient=float(ev.get("tmax", 0.0) or 0.0), lum=None,
-            p_flood=None, p_fire=None, p_collapse=None)
+            p_flood=p_flood, p_fire=p_fire, p_collapse=p_collapse)
+
+        # A hazard row only when the classifier actually saw one. "normal" is a
+        # real answer and belongs in the pass features above, but it is not a
+        # hazard and must not put a pin on the map.
+        if scene and scene != "normal" and sp >= 0.5 and lat is not None:
+            store.insert_hazard(t_ns=t_ns, lat=lat, lon=lon,
+                                **{"class": scene}, p=sp)
+
+        self._fetch_media(media, ev, tid, pass_id, t_ns, conf)
         self._ingested += 1
+
+    def _fetch_media(self, media, ev: dict, tid: int, pass_id: int,
+                     t_ns: int, conf: float) -> None:
+        """Pull the frozen artefacts for one event into the media store.
+
+        Done here rather than on the aircraft because the payload keeps events
+        in a RAM ring of 24: they are already encoded and already frozen, and
+        the only thing missing was somebody fetching them before the ring wraps.
+
+        The crops are the evidence -- the 160 px regions the detector actually
+        judged. The detector frame is the context that makes a crop readable.
+        The thermal goes in as RAW centi-kelvin rather than the colour-mapped
+        picture, so a reviewer a week later has temperatures rather than a
+        screenshot of a palette.
+        """
+        if media is None:
+            return
+        eid = ev.get("id")
+        session = str(ev.get("s", ""))
+        try:
+            from saresq.store.media import (KIND_RGB_CROP, KIND_THERMAL_PATCH,
+                                            KIND_THUMB)
+
+            for i in range(int(ev.get("ncrops", 0) or 0)):
+                blob = self._blob(f"/event/{eid}/crop{i}")
+                if blob:
+                    media.put_bytes(blob, KIND_RGB_CROP, target_id=tid,
+                                          pass_id=pass_id, t_ns=t_ns, priority=conf)
+            det = self._blob(f"/event/{eid}/detect")
+            if det:
+                media.put_bytes(det, KIND_THUMB, target_id=tid,
+                                      pass_id=pass_id, t_ns=t_ns, priority=conf)
+            raw = self._blob(f"/event/{eid}/raw")
+            # 32x24 uint16 = 1536 bytes exactly; anything else is not a frame.
+            if raw and len(raw) == 32 * 24 * 2:
+                media.put_bytes(raw, KIND_THERMAL_PATCH, target_id=tid,
+                                      pass_id=pass_id, t_ns=t_ns, priority=conf,
+                                      width=32, height=24)
+        except Exception as e:                      # noqa: BLE001
+            # Evidence is valuable but never worth losing the detection over:
+            # the target and its pass are already committed at this point.
+            print(f"payload-link: media for event {eid}/{session} failed: "
+                  f"{type(e).__name__}: {e}", flush=True)

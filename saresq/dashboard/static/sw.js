@@ -13,13 +13,19 @@
  * of baked-in OSM geometry and SRTM terrain -- which is exactly the payload
  * that makes this thing work in a field tent with no internet.
  */
+/* VERSION is rewritten by the /sw.js route from a hash of every static .js and
+ * the stylesheet, so editing a renderer invalidates this cache on its own. The
+ * literal below is only what a direct read of the file would show. */
 const VERSION = "saresq-v3";
 const SHELL = [
-  "/", "/radar", "/map", "/evidence", "/review", "/analytics",
+  "/", "/feed", "/radar", "/map", "/evidence", "/review", "/analytics",
   "/static/console.css",
   "/static/basemap.js",
   "/static/mapcore.js",
   "/static/mapview.js",
+  "/static/tiles.js",
+  "/static/feed.js",
+  "/static/logo.svg",
   "/static/radar.js",
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png",

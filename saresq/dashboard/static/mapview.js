@@ -57,7 +57,8 @@
     var lat = L.lat, lon = L.lon, src = "gps";
     if (lat == null || lon == null) {
       if (!L.origin) return;                 // nothing to draw, and nothing invented
-      lat = L.origin.lat; lon = L.origin.lon; src = "manual";
+      lat = L.origin.lat; lon = L.origin.lon;
+      src = L.origin.source === "browser" ? "browser" : "manual";
     }
     var s = view.P(lat, lon);
     var stale = L.age_s != null && L.age_s > 5;
@@ -79,7 +80,11 @@
     // Position uncertainty, to scale. HDOP is unitless, so it is turned into
     // metres with the receiver's nominal ~2.5 m UERE; a manual datum gets a
     // deliberately large 25 m ring because that is honestly what it is worth.
-    var errM = src === "manual" ? 25 : Math.max(2.5, (L.hdop || 1) * 2.5);
+    // A browser fix reports its own accuracy, and Wi-Fi trilateration is
+    // usually tens of metres. Drawing the circle it actually claims is the
+    // honest thing; a fixed small ring would overstate it.
+    var errM = src === "gps" ? Math.max(2.5, (L.hdop || 1) * 2.5)
+             : (src === "browser" ? Math.max(15, (L.origin.accuracy_m || 40)) : 25);
     g.appendChild(sve("circle", { cx: s[0], cy: s[1], r: Math.max(6, errM / view.mpp()),
       fill: col, "fill-opacity": .07, stroke: col, "stroke-opacity": .5,
       "stroke-width": 1.1, "stroke-dasharray": src === "manual" ? "3 4" : null }));
@@ -99,9 +104,11 @@
     g.appendChild(label(s[0] + 18, s[1] - 2, "PAYLOAD",
       { "font-weight": 700, "font-size": 11, fill: col }));
     g.appendChild(label(s[0] + 18, s[1] + 10,
-      src === "manual" ? "MANUAL DATUM \u00b7 not a GPS fix"
-                       : (L.sats || 0) + " sats \u00b7 HDOP " + (L.hdop == null ? "\u2014" : L.hdop.toFixed(1)),
-      { "font-size": 9.5, fill: src === "manual" ? "#F3A83C" : "#6D838D" }));
+      src === "gps" ? (L.sats || 0) + " sats \u00b7 HDOP " + (L.hdop == null ? "\u2014" : L.hdop.toFixed(1))
+      : src === "browser" ? "DEVICE LOCATION \u00b7 ground station, \u00b1"
+                            + Math.round(L.origin.accuracy_m || 40) + " m"
+      : "MANUAL DATUM \u00b7 not a GPS fix",
+      { "font-size": 9.5, fill: src === "gps" ? "#6D838D" : "#F3A83C" }));
     ov.appendChild(g);
   }
 
@@ -275,6 +282,43 @@
       .catch(function () {});
   });
 
+  /* Browser geolocation as a third position source.
+     Chromium and Safari resolve this from surrounding Wi-Fi networks, which
+     indoors is typically good to tens of metres where a NEO-6M gets nothing at
+     all. It answers "roughly where is this operation happening" so a demo has
+     a real place on a real map -- but it is the LAPTOP's position, so it is
+     posted with source=browser and never allowed to render like a GPS fix. */
+  var geoAsked = false;
+  function useBrowserLocation(manual) {
+    if (!navigator.geolocation) return;
+    var btn = document.getElementById("geoBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "locating\u2026"; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      fetch("/api/origin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat: pos.coords.latitude, lon: pos.coords.longitude,
+          source: "browser", accuracy_m: pos.coords.accuracy
+        })
+      }).then(function () {
+        S.followed = false;                 // recentre on the new datum
+        pollLive();
+        if (btn) { btn.disabled = false; btn.textContent = "Use this device"; }
+      });
+    }, function (err) {
+      if (btn) {
+        btn.disabled = false;
+        // Permission is the usual cause, and over plain http on a LAN address
+        // the API is not offered at all -- say which rather than "failed".
+        btn.textContent = err.code === 1 ? "permission denied"
+                        : (window.isSecureContext ? "unavailable" : "needs https");
+      }
+      if (manual) console.warn("geolocation:", err.message);
+    }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+  }
+  var gb = document.getElementById("geoBtn");
+  if (gb) gb.addEventListener("click", function () { useBrowserLocation(true); });
+
   // ---- live payload ----
   function fmt(v, n, unit) {
     return v == null ? "\u2014" : v.toFixed(n) + (unit || "");
@@ -291,6 +335,12 @@
           if (S.trail.length > S.TRAIL_MAX) S.trail.shift();
         }
         if (!S.followed) { view.panTo(L.lat, L.lon); S.followed = true; }
+      }
+      // One automatic attempt, only when there is genuinely nothing else: a
+      // real GPS fix always wins, and an operator-set datum is not overridden.
+      if (!geoAsked && L.configured && L.connected && !L.fix && !L.origin) {
+        geoAsked = true;
+        useBrowserLocation(false);
       }
       livePanel(L); hazPanel(L);
       draw();
@@ -334,8 +384,13 @@
             : (L.verdict === "HEAT" ? "#F3A83C" : "#4FC489"));
     var pos = L.lat != null
       ? L.lat.toFixed(5) + "\u00b0N " + L.lon.toFixed(5) + "\u00b0E"
-      : (L.origin ? "<span style='color:#F3A83C'>manual datum \u00b7 no GPS fix</span>"
-                  : "<span style='color:#F46454'>no position \u2014 shift-click to set datum</span>");
+      : (L.origin
+          ? "<span style='color:#F3A83C'>"
+            + (L.origin.source === "browser"
+                ? "device location \u00b7 \u00b1" + Math.round(L.origin.accuracy_m || 40) + " m"
+                : "manual datum")
+            + " \u00b7 no GPS fix</span>"
+          : "<span style='color:#F46454'>no position \u2014 shift-click, or use this device</span>");
     box.innerHTML =
       "<div style='display:flex;align-items:center;gap:7px'>"
       + "<span style='width:8px;height:8px;border-radius:50%;background:" + dot + "'></span>"

@@ -91,8 +91,14 @@
         <span><i style="background:#F3A83C"></i>Medium</span>
         <span><i style="background:#6D838D"></i>Low</span>
       </div>
-      <div class="ps" style="margin-top:8px;padding-top:8px;border-top:1px dotted var(--rule-soft);color:var(--muted);line-height:1.5">
-        Shift-click to set a datum for captures with no GPS fix.
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dotted var(--rule-soft)">
+        <div class="ps" style="color:var(--muted);line-height:1.5;margin-bottom:6px">
+          No GPS fix? Shift-click the map, or:
+        </div>
+        <button class="tg" id="geoBtn" style="width:100%">Use this device</button>
+        <div class="ps" style="color:var(--muted);line-height:1.45;margin-top:5px">
+          Wi-Fi location of the <b>ground station</b> &mdash; drawn dashed, never as a fix.
+        </div>
       </div>
     </div>
   </div>

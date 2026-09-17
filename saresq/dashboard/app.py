@@ -226,8 +226,13 @@ def api_origin():
         return jsonify({"error": "lat and lon required"}), 400
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return jsonify({"error": "out of range"}), 400
-    LINK.set_origin(lat, lon)
-    return jsonify({"ok": True, "origin": {"lat": lat, "lon": lon}})
+    src = str(body.get("source") or "manual")
+    if src not in ("manual", "browser"):
+        src = "manual"
+    acc = body.get("accuracy_m")
+    LINK.set_origin(lat, lon, source=src,
+                    accuracy_m=float(acc) if isinstance(acc, (int, float)) else None)
+    return jsonify({"ok": True, "origin": {"lat": lat, "lon": lon, "source": src}})
 
 
 @app.route("/api/readiness")
@@ -441,9 +446,32 @@ def service_worker():
 
     A service worker can only control URLs at or below its own path, so one
     living at /static/sw.js could never cache the pages themselves.
+
+    A hand-maintained VERSION constant is a bug waiting to happen: the cache is
+    cache-first for static assets, so forgetting to bump it after editing a
+    renderer serves the old JavaScript forever while the HTML updates normally.
+    That failure is invisible from the server and looks to the user like the
+    new feature simply does not work. So the version is STAMPED HERE from the
+    content of the shell files, and editing any of them invalidates the cache
+    by itself.
     """
-    resp = send_from_directory(pathlib.Path(app.root_path) / "static", "sw.js",
-                               mimetype="application/javascript")
+    import hashlib
+
+    static = pathlib.Path(app.root_path) / "static"
+    src = (static / "sw.js").read_text()
+
+    h = hashlib.sha256()
+    for name in sorted(p.name for p in static.glob("*.js")):
+        h.update(name.encode())
+        h.update((static / name).read_bytes())
+    for name in ("console.css",):
+        f = static / name
+        if f.exists():
+            h.update(f.read_bytes())
+    src = src.replace('const VERSION = "saresq-v3";',
+                      f'const VERSION = "saresq-{h.hexdigest()[:12]}";')
+
+    resp = app.response_class(src, mimetype="application/javascript")
     # The worker script itself must not be cached, or a stale one keeps
     # serving a stale shell forever.
     resp.headers["Cache-Control"] = "no-cache"
@@ -524,7 +552,10 @@ def main():
 
     global LINK
     if args.payload:
-        LINK = PayloadLink(args.payload, store_factory=get_store)
+        # The media store was never passed, so every crop and thermal patch the
+        # payload froze was fetched by nobody and Evidence stayed empty.
+        LINK = PayloadLink(args.payload, store_factory=get_store,
+                           media_root=app.config["MEDIA_DIR"])
         if args.origin:
             try:
                 la, lo = (float(v) for v in args.origin.split(","))

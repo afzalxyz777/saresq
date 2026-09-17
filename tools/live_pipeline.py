@@ -1232,6 +1232,15 @@ class App:
         for i, c in enumerate(crops[:6]):
             ev["img"][f"crop{i}"] = enc(c, 88)
         ev["ncrops"] = min(len(crops), 6)
+        # The RAW thermal array, not the colour-mapped picture. uint16
+        # centi-kelvin little-endian is exactly what saresq/store/media.py
+        # stores: 1,536 bytes for a 32x24 frame, lossless to 0.01 K. The
+        # palette is a display choice and must not be what gets archived --
+        # an operator re-examining a find a week later needs the temperatures,
+        # not a screenshot of them.
+        ev["raw"] = (b"" if th is None else
+                     (np.clip(th + 273.15, 0, 655.35) * 100.0)
+                     .astype("<u2").tobytes())
         self.events.append(ev)          # deque append is atomic; no lock needed
 
     def _save(self, rgb, vis, th):
@@ -1352,19 +1361,21 @@ def make_handler(app: App):
                 self._send(200, "application/json", json.dumps([
                     {k: e[k] for k in
                      ("id", "t", "why", "n", "conf", "z", "tmax", "ncrops",
-                      "lat", "lon", "sats", "s")}
+                      "lat", "lon", "sats", "scene", "scene_p", "s")}
                     for e in reversed(evs)]).encode())
             elif p.startswith("/event/"):
                 try:
                     _, _, eid, kind = p.split("/", 3)
                     ev = next(e for e in app.events if e["id"] == int(eid))
-                    blob = ev["img"][kind]
+                    blob = ev["raw"] if kind == "raw" else ev["img"][kind]
                 except (ValueError, StopIteration, KeyError):
                     self._send(404, "text/plain", b"no such event")
                 else:
                     # An event is frozen the moment it is captured, so unlike
                     # every live endpoint here it is safe to cache hard.
-                    self._send(200, "image/jpeg", blob, "public, max-age=86400")
+                    self._send(200,
+                               "application/octet-stream" if kind == "raw" else "image/jpeg",
+                               blob, "public, max-age=86400")
             elif p == "/save":
                 with app.lock:
                     app.save_next = True

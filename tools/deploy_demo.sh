@@ -11,6 +11,20 @@ set -euo pipefail
 PI=${PI:-saresq}                      # ~/.ssh/config alias; override with PI=...
 REMOTE=/home/afzalamanullah/saresq
 
+# A bare IP carries no user and no key, and mDNS is exactly what is broken on
+# the day you need to override with one -- so fill both in rather than relying
+# on the ssh alias resolving.
+if [[ "$PI" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  SSH_EXTRA=(-o StrictHostKeyChecking=no
+             -o UserKnownHostsFile="$HOME/.ssh/known_hosts_saresq"
+             -i "$HOME/.ssh/saresq_pi")
+  PI="afzalamanullah@$PI"
+else
+  SSH_EXTRA=()
+fi
+ssh()  { command ssh  "${SSH_EXTRA[@]}" "$@"; }
+scp()  { command scp  "${SSH_EXTRA[@]}" "$@"; }
+
 echo "== reaching $PI =="
 ssh -o ConnectTimeout=8 "$PI" true || {
   echo "cannot reach $PI."
@@ -22,6 +36,21 @@ ssh -o ConnectTimeout=8 "$PI" true || {
 echo "== copying =="
 scp -q tools/live_pipeline.py "$PI:$REMOTE/tools/live_pipeline.py"
 scp -q configs/pipeline.yaml  "$PI:$REMOTE/configs/pipeline.yaml"
+
+# The thermal->RGB affine. Small, but the payload draws no heat contours
+# without it and every iou/d_c feature stays zero, so it ships on every deploy
+# rather than being remembered as a manual step.
+if [ -f saresq/calib/thermal_to_rgb.json ]; then
+  ssh "$PI" "mkdir -p $REMOTE/saresq/calib"
+  scp -q saresq/calib/thermal_to_rgb.json "$PI:$REMOTE/saresq/calib/thermal_to_rgb.json"
+  echo "   calibration pushed ($(python3 -c "import json;print(json.load(open('saresq/calib/thermal_to_rgb.json'))['residual_thermal_px'])" 2>/dev/null | cut -c1-5) thermal px)"
+else
+  echo "   NOTE: no calibration on this machine; the payload will draw no contours"
+fi
+
+# hazard.py is imported by live_pipeline at runtime; keep it in step with the
+# model rather than assuming the card's copy matches.
+scp -q saresq/detect/hazard.py "$PI:$REMOTE/saresq/detect/hazard.py"
 
 # The scene classifier is 2.7 MB and is NOT part of the fast path above, which
 # is deliberately two small files so a deploy finishes in a second over a phone
