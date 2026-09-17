@@ -13,6 +13,13 @@
   .mc-tr { top:12px; right:12px; display:flex; flex-direction:column; gap:6px; background:none; border:none; box-shadow:none; }
   .mc-live { top:12px; right:56px; width:250px; }
   .mc-live code { font-size:10px; }
+  /* A scenario layer must never be mistakeable for a measurement, and this got
+     much easier to mistake the moment real satellite imagery went underneath
+     it. The badge is the cheapest honest thing on the page. */
+  .sim { font-size:9px; font-weight:700; letter-spacing:.1em; padding:2px 6px;
+         border-radius:2px; color:#0B141A; background:#F3A83C; }
+  .obs { font-size:9px; font-weight:700; letter-spacing:.1em; padding:2px 6px;
+         border-radius:2px; color:#0B141A; background:#4FC489; }
   @media (max-width:760px){
     /* On a phone the live box goes full width under the header rather than
        overlapping the flood control, which owns the top-left corner. */
@@ -64,13 +71,21 @@
   <svg id="ov" xmlns="http://www.w3.org/2000/svg" aria-label="Live targets and hazards over the survey area"></svg>
 
   <div class="mc mc-tl">
-    <div class="mc-hd"><span class="lbl">Flood hazard layer</span><span class="ps" id="cutStat">—</span></div>
+    <div class="mc-hd">
+      <span class="lbl">Flood scenario</span>
+      <span class="sim">MODELLED</span>
+    </div>
     <div class="mc-bd">
-      <div class="lvl"><b><span id="lvlVal">12.0</span> m</b><span class="ps">SRTM datum</span></div>
+      <div class="lvl"><b><span id="lvlVal">12.0</span> m</b><span class="ps">assumed water surface</span></div>
       <input type="range" id="lvl" min="4" max="16" step="0.25" value="12"
-             aria-label="Modelled flood water surface level in metres">
+             aria-label="Assumed flood water surface level in metres">
+      <div class="ps" style="margin-top:6px;color:var(--muted);line-height:1.5">
+        Not an observation. SRTM terrain against a level <b>you choose</b> &mdash;
+        &ldquo;if water reached here, what is cut off?&rdquo;
+      </div>
+      <div class="ps" id="cutStat" style="margin-top:5px">&mdash;</div>
       <div class="tgs">
-        <button class="tg" data-layer="flood" aria-pressed="true">Flood</button>
+        <button class="tg" data-layer="flood" aria-pressed="false">Flood</button>
         <button class="tg" data-layer="roads" aria-pressed="true">Roads</button>
         <button class="tg" data-layer="bldg" aria-pressed="true">Buildings</button>
         <button class="tg" data-layer="d3" aria-pressed="false">3D</button>

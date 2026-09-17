@@ -12,7 +12,10 @@
   var S = {
     level: 12.0,
     profile: "emrg",
-    show: { flood: true, roads: true, bldg: true, d3: false },
+    // Flood starts OFF. It is a what-if, and a what-if that paints itself over
+    // the map before anyone asked for it is an assertion. Roads stay on because
+    // their colouring is neutral until a level is chosen.
+    show: { flood: false, roads: true, bldg: true, d3: false },
     targets: [], hazards: [], sel: null, fitted: false,
     // Tiles on by default: if the network is there the coordinator gets the
     // whole city, and mapcore falls back to the baked geometry by itself when
@@ -179,8 +182,12 @@
     lab.style.width = sc.px.toFixed(1) + "px";
     lab.textContent = sc.label;
     var R = M.classifyRoads(S.level, S.profile);
-    document.getElementById("cutStat").textContent =
-      Math.round(R.cutFrac * 100) + "% of " + (R.tot / 1000).toFixed(1) + " km cut";
+    // Phrased in the conditional it actually is. "100% of 30.9 km cut" states
+    // a fact about the world; "would be cut" states a consequence of the
+    // assumption the operator just dialled in.
+    document.getElementById("cutStat").innerHTML =
+      "<b>" + Math.round(R.cutFrac * 100) + "%</b> of " + (R.tot / 1000).toFixed(1)
+      + " km of road <b>would be</b> cut at this level";
   }
   function showInfo(t, depth) {
     document.getElementById("info").innerHTML =
@@ -235,10 +242,13 @@
                    pts.reduce(function (a, t) { return a + t.lon; }, 0) / pts.length);
         S.fitted = true;
       }
+      // An empty store is the correct state before a flight, and it must say so
+      // plainly. Shipping a database of invented targets so the map "looks
+      // populated" is how a demo starts asserting people who do not exist.
       document.getElementById("status").textContent = pts.length
-        ? pts.length + " target(s), " + S.hazards.length + " hazard(s) — "
+        ? pts.length + " target(s) reported by the payload \u00b7 "
           + new Date().toLocaleTimeString()
-        : "store is empty — run the pipeline or replay a recording";
+        : "no targets \u2014 nothing reported yet";
       draw();
     }).catch(function () {
       document.getElementById("status").textContent = "offline / no data";
@@ -343,8 +353,9 @@
       + "<br>thermal " + fmt(L.t_min, 1) + "\u2013" + fmt(L.t_max, 1) + "\u00b0C"
       + " \u00b7 peak +" + fmt(L.z_max, 1) + "\u03c3"
       + (L.blobs ? " \u00b7 " + L.blobs + " blob(s)" : "")
-      + (L.scene ? "<br>scene <b style='color:" + (L.scene === "normal" ? "#4FC489" : "#F3A83C")
-                   + "'>" + L.scene.replace(/_/g, " ") + "</b> "
+      + (L.scene ? "<br><span class='obs'>OBSERVED</span> scene <b style='color:"
+                   + (L.scene === "normal" ? "#4FC489" : "#F3A83C") + "'>"
+                   + L.scene.replace(/_/g, " ") + "</b> "
                    + Math.round((L.scene_p || 0) * 100) + "%" : "")
       + "<br>" + (L.ingested || 0) + " event(s) stored"
       + (L.age_s != null ? " \u00b7 " + L.age_s.toFixed(1) + "s ago" : "")

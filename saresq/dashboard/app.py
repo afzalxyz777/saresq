@@ -24,6 +24,7 @@ from saresq.store.media import MediaStore
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.config["DB_PATH"] = "saresq.db"
+app.config["SIMULATE"] = False
 app.config["THUMB_DIR"] = "results/thumbs"
 app.config["MEDIA_DIR"] = "results/media"
 app.config["RESULTS_DIR"] = "results"
@@ -106,13 +107,25 @@ def get_radar():
     with _radar_lock:
         if _radar is None:
             from saresq.surveillance.service import RadarService
-            _radar = RadarService(db_path=app.config["DB_PATH"])
+            _radar = RadarService(db_path=app.config["DB_PATH"],
+                                  allow_synthetic=bool(app.config.get("SIMULATE")))
         return _radar
 
 
 @app.route("/api/radar")
 def api_radar():
-    return jsonify(get_radar().snapshot())
+    """The surveillance picture, with the real aircraft in it when one is flying.
+
+    The fix is pushed here rather than in the link's own thread so the radar
+    stays a pure consumer: it never reaches out to the payload, and the whole
+    service still runs standalone against a recorded store.
+    """
+    r = get_radar()
+    if LINK is not None:
+        st = LINK.live()
+        if st.get("connected") and st.get("lat") is not None and st.get("fix"):
+            r.set_external_fix(st["lat"], st["lon"])
+    return jsonify(r.snapshot())
 
 
 @app.route("/api/radar/fault", methods=["POST"])
@@ -412,7 +425,15 @@ def certificate():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default="saresq.db")
+    ap.add_argument("--db", default=None,
+                    help="mission store. OMIT for an ephemeral one that is deleted "
+                         "when the dashboard stops -- nothing from a demo run is "
+                         "left behind to be mistaken for a later mission's data.")
+    ap.add_argument("--simulate", action="store_true",
+                    help="let the radar draw a rehearsal picture when the store is "
+                         "empty. Off by default: an empty scope is the correct "
+                         "picture before a flight. Simulated tracks carry the "
+                         "ASTERIX SIM bit.")
     ap.add_argument("--thumb-dir", default="results/thumbs")
     ap.add_argument("--media-dir", default="results/media")
     ap.add_argument("--results-dir", default="results")
@@ -430,7 +451,21 @@ def main():
                     help="lat,lon datum for captures with no GPS fix (indoor demos)")
     args = ap.parse_args()
 
-    app.config["DB_PATH"] = args.db
+    # Ephemeral by default. A dashboard left running through a demo accumulates
+    # real detections; if those are still in saresq.db next week they are
+    # indistinguishable from that day's mission. Persisting is a deliberate
+    # choice the operator makes with --db, never the default.
+    _tmpdb = None
+    if args.db:
+        app.config["DB_PATH"] = args.db
+    else:
+        import atexit
+        import tempfile
+        _tmpdb = pathlib.Path(tempfile.mkdtemp(prefix="saresq-mission-")) / "mission.db"
+        app.config["DB_PATH"] = str(_tmpdb)
+        atexit.register(lambda: __import__("shutil").rmtree(_tmpdb.parent, ignore_errors=True))
+        print(f"  ephemeral store {_tmpdb} (deleted on exit; pass --db to keep a mission)")
+    app.config["SIMULATE"] = bool(args.simulate)
     app.config["THUMB_DIR"] = str(pathlib.Path(args.thumb_dir).expanduser().resolve())
     app.config["MEDIA_DIR"] = str(pathlib.Path(args.media_dir).expanduser().resolve())
     app.config["RESULTS_DIR"] = str(pathlib.Path(args.results_dir).expanduser().resolve())

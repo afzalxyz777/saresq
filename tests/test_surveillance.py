@@ -283,6 +283,15 @@ def test_class_bands():
 # the service
 # ---------------------------------------------------------------------------
 def _svc(t, **kw):
+    """A service with a rehearsal picture on an empty store.
+
+    allow_synthetic is off in production precisely so an empty scope stays
+    empty -- see the RadarService docstring. These tests exercise the display,
+    the link budget and the wire format, all of which need *some* contact to
+    act on, so they ask for the simulated picture explicitly. Every track it
+    produces carries the ASTERIX SIM bit.
+    """
+    kw.setdefault("allow_synthetic", True)
     return RadarService(db_path="does-not-exist.db", clock=lambda: t[0], **kw)
 
 

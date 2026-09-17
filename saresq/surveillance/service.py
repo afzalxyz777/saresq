@@ -8,8 +8,10 @@ and which parts of the segment have actually been searched.
     svc.snapshot()     # advances to now, returns the display state
 
 Source of truth for contact positions is the store: if `targets` has rows, the
-radar rediscovers those. Only when the store is empty does it fall back to
-synthetic contacts, and every track it produces then carries the ASTERIX SIM
+radar rediscovers those. An empty store shows an EMPTY SCOPE -- that is the
+correct picture before a flight, and a scope that populates itself is a scope
+that reports people who do not exist. Synthetic contacts exist only behind an
+explicit allow_synthetic=True, and every track then carries the ASTERIX SIM
 bit -- the same bit a real system uses to mark a simulated track, so a screen
 grab can never be mistaken for a real sortie.
 """
@@ -123,11 +125,19 @@ class RadarService:
 
     def __init__(self, db_path: str = "saresq.db", *, plan: SurveyPlan | None = None,
                  scan_period_s: float = SCAN_PERIOD_S, sweep_width_m: float = SWEEP_WIDTH_M,
-                 clock=time.time):
+                 clock=time.time, allow_synthetic: bool = False):
         self.plan = plan or SurveyPlan()
         self.scan_period_s = scan_period_s
         self.sweep_width_m = sweep_width_m
         self.db_path = db_path
+        #: Off by default. See the module docstring: an empty scope is the
+        #: honest picture before a flight. Turned on only for rehearsing the
+        #: display itself, never for anything anyone will read as a result.
+        self.allow_synthetic = allow_synthetic
+        #: The real aircraft's last reported fix, pushed in by the payload link.
+        #: When this is present it IS the platform position; the planned route
+        #: is only ever a stand-in for an aircraft that is not reporting.
+        self._ext_fix: tuple[float, float, float] | None = None
         self._clock = clock
         self._lock = threading.RLock()
         self.frame = LocalFrame(*self.plan.box.centre)
@@ -181,11 +191,11 @@ class RadarService:
             self.contacts.append(Contact(key=f"T{r['target_id']}", lat=float(lat),
                                          lon=float(lon), target_id=r["target_id"],
                                          from_store=True))
-        if not self.contacts:
-            # Nothing in the store yet. Place synthetic casualties on a fixed
-            # lattice inside the segment so the picture is reproducible between
-            # runs and between machines -- a demo that moves is a demo you
-            # cannot talk over.
+        if not self.contacts and self.allow_synthetic:
+            # Rehearsal only, and never reachable unless someone asked for it.
+            # Fixed lattice so the picture is reproducible between runs and
+            # between machines -- a demo that moves is a demo you cannot talk
+            # over. Every track from these carries the ASTERIX SIM bit.
             b = self.plan.box
             for i, (fu, fv) in enumerate(((0.18, 0.22), (0.44, 0.71), (0.63, 0.35),
                                           (0.79, 0.83), (0.31, 0.52), (0.88, 0.14))):
@@ -195,6 +205,36 @@ class RadarService:
                     lon=b.lon0 + (b.lon1 - b.lon0) * fu,
                 ))
         self._contacts_loaded = True
+
+    def set_external_fix(self, lat: float, lon: float, t: float | None = None) -> None:
+        """Feed the live payload's own GPS in as the platform position.
+
+        Called by the dashboard on every payload poll. A real fix always wins
+        over the planned route: the scope should show where the aircraft IS,
+        and a planned position is a guess about where it was supposed to be.
+        """
+        self._ext_fix = (float(lat), float(lon), t if t is not None else self._clock())
+
+    def _platform_position(self, t: float):
+        """(lat, lon, course, is_real) for this scan.
+
+        Returns None when there is neither a live fix nor permission to
+        simulate -- an empty scope, which is the correct picture when no
+        aircraft is reporting. Drawing a planned route as though it were a
+        track is how a screen grab of nothing becomes a screen grab of a
+        sortie that never happened.
+        """
+        fx = self._ext_fix
+        if fx is not None and (t - fx[2]) <= 15.0:
+            # Course from the planned heading: a single GPS point carries no
+            # bearing, and the alternative is a needlessly jittery one derived
+            # from consecutive fixes metres apart.
+            _, _, course = self.plan.at((t - self.t0) * self.plan.speed_ms)
+            return fx[0], fx[1], course, True
+        if not self.allow_synthetic:
+            return None
+        lat, lon, course = self.plan.at((t - self.t0) * self.plan.speed_ms)
+        return lat, lon, course, False
 
     # -- fault injection --------------------------------------------------
     def _fault_active(self, name: str, t: float) -> bool:
@@ -262,8 +302,13 @@ class RadarService:
     # -- the scan ---------------------------------------------------------
     def _scan_once(self, t: float) -> None:
         self.scan += 1
-        s = (t - self.t0) * self.plan.speed_ms
-        lat, lon, course = self.plan.at(s)
+        pos = self._platform_position(t)
+        if pos is None:
+            # Nothing flying and nothing to pretend with. Advance the scan
+            # counter so the display stays alive, and leave the scope empty.
+            self.platform.update(t, [])
+            return
+        lat, lon, course, real = pos
         rssi, detail = self.link.rssi_dbm(lat, lon, SURVEY_ALT_M)
         state = self.link.state(rssi)
         injected = self._fault_active("link", t)
@@ -296,10 +341,15 @@ class RadarService:
         if state != "DOWN" and not gps_denied:
             j = (_det_roll("gps", self.scan) - 0.5) * 2.0
             k = (_det_roll("gps2", self.scan) - 0.5) * 2.0
+            # A real fix is plotted as reported. Only the simulated platform
+            # gets measurement noise added, because only the simulated one
+            # needs any inventing at all.
             plots.append(Plot(
-                lat=lat + j * 2.1 / 110574.0, lon=lon + k * 2.1 / 102796.0,
-                alt_m=SURVEY_ALT_M + j * 0.4, sigma_m=2.1, ident="SQ-01",
-                payload={"label": "SQ-01", "role": "platform"},
+                lat=lat if real else lat + j * 2.1 / 110574.0,
+                lon=lon if real else lon + k * 2.1 / 102796.0,
+                alt_m=SURVEY_ALT_M + (0.0 if real else j * 0.4),
+                sigma_m=2.1, ident="SQ-01",
+                payload={"label": "SQ-01", "role": "platform", "real": real},
             ))
         # Snapshot coasts as well as state: apply_plot resets the counter, so
         # reading it afterwards always reports a zero-second coast.
