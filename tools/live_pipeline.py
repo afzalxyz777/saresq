@@ -922,11 +922,20 @@ def colorize(thermal: np.ndarray, size=(512, 384), span_min: float = 6.0
         # and leaves a person nowhere brighter to go.
         hi = lo + span_min
     norm = np.clip((disp - lo) / max(hi - lo, 1e-6), 0, 1)
+    # Lanczos rather than cubic: a 20x upscale from 32x24 is an extreme ratio,
+    # and the wider sinc kernel holds edges that cubic rounds off. This is a
+    # DISPLAY choice only -- the gate never sees an interpolated frame, because
+    # resampling correlates neighbouring pixels and the robust-z test depends on
+    # them being independent samples. Nothing here adds information; for that
+    # see saresq.thermal.drizzle, which needs real sub-pixel motion to work.
     img = cv2.applyColorMap(
         cv2.resize((norm * 255).astype(np.uint8), size,
-                   interpolation=cv2.INTER_CUBIC), cv2.COLORMAP_INFERNO)
+                   interpolation=cv2.INTER_LANCZOS4), cv2.COLORMAP_INFERNO)
     hy, hx = np.unravel_index(int(disp.argmax()), disp.shape)
-    sx, sy = size[0] / 32, size[1] / 24
+    # From the frame's own shape, not a hardcoded 32x24: a drizzled field is
+    # finer than the sensor grid, and the hot-spot marker has to land on the
+    # target in both cases.
+    sx, sy = size[0] / disp.shape[1], size[1] / disp.shape[0]
     cv2.circle(img, (int((hx + .5) * sx), int((hy + .5) * sy)), 12,
                (255, 255, 255), 1, cv2.LINE_AA)
     cv2.putText(img, f"{float(disp.max()):.1f}C", (8, 22),
@@ -1016,6 +1025,24 @@ class App:
         # Scene class, filled by hazard_loop. Starts "not ok" with a reason, so
         # the page says WHY there is no scene rather than showing a blank strip.
         self.hazard = {"ok": False, "why": "starting\u2026"}
+        # Multi-frame super-resolution, OFF unless --drizzle. It is an
+        # enrichment of the VIEW only: the gate keeps reading raw frames,
+        # because resampling correlates neighbouring pixels and the robust-z
+        # test needs them independent. Opt-in because a demo should not gain
+        # new failure modes on the morning it matters.
+        self.drizzle = None
+        self.drizzle_stats = {"on": False}
+        if getattr(args, "drizzle", 0):
+            try:
+                from saresq.thermal.drizzle import Drizzle
+                self.drizzle = Drizzle((24, 32), scale=int(args.drizzle),
+                                       pixfrac=args.drizzle_pixfrac,
+                                       max_frames=args.drizzle_frames)
+                self.drizzle_ref: np.ndarray | None = None
+                self.drizzle_field: np.ndarray | None = None
+                self.drizzle_stats = {"on": True, "scale": int(args.drizzle)}
+            except Exception as exc:                      # never fatal
+                self.drizzle_stats = {"on": False, "why": str(exc)}
         self.seq = 0
         self.save_next = False
         # Captured events live in RAM, not on the card. A ring buffer of ~24
@@ -1055,7 +1082,11 @@ class App:
             if rgb is None:
                 time.sleep(0.3)
                 continue
+            # The gate reads the RAW frame, always. Drizzle runs beside it on
+            # the same frame and feeds only the view.
             g = gate_stats(th, self.cfg) if th is not None else self.gate
+            if th is not None and self.drizzle is not None:
+                accumulate_drizzle(self, th)
 
             t0 = time.time()
             dets = det.detect(rgb)
@@ -1256,9 +1287,63 @@ class App:
         print(f"saved frame set {s}", flush=True)
 
 
+def accumulate_drizzle(app: App, th: np.ndarray) -> None:
+    """Fold one thermal frame into the super-resolution stack.
+
+    Shifts come from phase correlation on the frames themselves rather than
+    from GNSS/IMU, because that path works on a bench with no fix -- pan the
+    payload slowly by hand and the dither is real. In flight
+    saresq.track.egomotion.predict_transform would supply them directly and
+    more cheaply; this is the fallback that makes the feature demonstrable.
+
+    Every failure is swallowed into drizzle_stats. Nothing here may interrupt
+    the thermal loop: a broken enrichment must cost the picture, never the gate.
+    """
+    if app.drizzle is None:
+        return
+    try:
+        from saresq.thermal.drizzle import estimate_shift
+        t0 = time.time()
+        if app.drizzle_ref is None or app.drizzle.n_frames == 0:
+            app.drizzle_ref = th.copy()
+            shift = (0.0, 0.0)
+        else:
+            shift = estimate_shift(app.drizzle_ref, th)
+            # A large shift means the scene has left the reference frame, so
+            # the stack is combining different ground. Restart rather than
+            # smear -- a wrong picture is worse than a coarse one.
+            if abs(shift[0]) > 6.0 or abs(shift[1]) > 6.0:
+                app.drizzle.reset()
+                app.drizzle_ref = th.copy()
+                shift = (0.0, 0.0)
+        app.drizzle.add(th, shift)
+        r = app.drizzle.result()
+        with app.lock:
+            app.drizzle_field = r.field if r.trustworthy else None
+            app.drizzle_stats = {
+                "on": True, "scale": r.scale, "frames": r.n_frames,
+                "diversity": round(r.diversity, 3),
+                "coverage": round(r.coverage, 3),
+                "usable": bool(r.trustworthy),
+                "ms": round((time.time() - t0) * 1e3, 1),
+            }
+    except Exception as exc:
+        with app.lock:
+            app.drizzle_stats = {"on": True, "usable": False, "why": str(exc)}
+
+
 def _frame_thermal(app: App):
     t, _ = app.thermal.read()
-    return None if t is None else colorize(t)
+    if t is None:
+        return None
+    # Show the drizzled field when it has earned the label, the raw frame
+    # otherwise. Never silently: /stats carries `usable` and the UI says which
+    # of the two is on screen.
+    with app.lock:
+        field = app.drizzle_field
+    if field is not None:
+        return colorize(field.astype(np.float32))
+    return colorize(t)
 
 
 def _frame_rgb(app: App):
@@ -1399,6 +1484,7 @@ def make_handler(app: App):
                 self._send(200, "application/json", json.dumps({
                     "thermal": t, "gate": g, "detect": info, "crops": meta,
                     "gps": app.gps.read(), "hazard": hz,
+                    "drizzle": dict(app.drizzle_stats),
                     "seq": seq, "rotated": bool(app.args.rotate),
                     "rgb_w": app.args.width, "rgb_h": app.args.height,
                     "rgb_age": max(0.0, time.time() - stamp) if stamp else 0.0,
@@ -1439,6 +1525,15 @@ def main() -> int:
     ap.add_argument("--classes", default="0",
                     help="comma-separated class ids to keep; 0 is person in "
                          "COCO. Empty string keeps every class.")
+    ap.add_argument("--drizzle", type=int, default=0, metavar="SCALE",
+                    help="multi-frame super-resolution on the thermal VIEW at "
+                         "this scale (2 is sensible, 0 = off). Needs real "
+                         "sub-pixel motion; /stats reports whether it got it")
+    ap.add_argument("--drizzle-pixfrac", type=float, default=0.65,
+                    help="input pixel shrink before dropping (Fruchter & Hook)")
+    ap.add_argument("--drizzle-frames", type=int, default=8,
+                    help="frames per stack; short, because the static-scene "
+                         "assumption decays with time")
     ap.add_argument("--no-contours", action="store_true",
                     help="do not outline the thermal field on the detector view")
     ap.add_argument("--hazard-model",
