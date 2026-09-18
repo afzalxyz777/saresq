@@ -1,0 +1,1197 @@
+<meta charset="utf-8">
+<title>A Thermal-First Detection Cascade for Embedded UAV Search and Rescue</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 15mm 15mm; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body{
+    margin:0; background:#fff; color:#000;
+    font-family:"Times New Roman","Liberation Serif",Times,serif;
+    font-size:9.1pt; line-height:1.30; text-align:justify;
+    hyphens:auto; -webkit-hyphens:auto;
+  }
+  /* ---- title block, spans both columns ---- */
+  .head{ text-align:center; margin-bottom:9pt; }
+  .head h1{
+    font-size:17pt; font-weight:700; line-height:1.18; margin:0 0 7pt;
+    text-align:center; text-wrap:balance;
+  }
+  .authors{ font-size:10pt; margin:0 0 1pt; }
+  .affil{ font-size:8.4pt; font-style:italic; margin:0; line-height:1.35; }
+  .corr{ font-size:8pt; margin-top:3pt; font-family:"Courier New",monospace; }
+
+  .abswrap{ margin:0 auto 4pt; padding:0 6mm; }
+  .abswrap p{ font-size:8.6pt; line-height:1.34; margin:0 0 4pt; }
+  .abswrap b.lead{ font-style:italic; }
+
+  .cols{ column-count:2; column-gap:6.5mm; margin-top:6pt; }
+
+  h2{
+    font-size:9.3pt; font-weight:700; margin:11pt 0 3pt;
+    text-align:center; text-transform:uppercase; letter-spacing:0.02em;
+    break-after:avoid;
+  }
+  h3{ font-size:9.1pt; font-weight:400; font-style:italic; margin:8pt 0 2pt; break-after:avoid; }
+  h4{ font-size:9.1pt; font-weight:400; font-style:italic; margin:6pt 0 1pt; break-after:avoid; display:inline; }
+  p{ margin:0; text-indent:11pt; }
+  p.first, h2 + p, h3 + p, h4 + p{ text-indent:0; }
+  p + p{ margin-top:0; }
+
+  /* ---- equations ---- */
+  .eq{
+    display:flex; align-items:center; gap:6pt; margin:5pt 0 5pt 0;
+    break-inside:avoid; text-indent:0;
+  }
+  .eq .body{ flex:1; text-align:center; font-size:9.3pt; }
+  .eq .num{ width:24pt; text-align:right; font-size:8.8pt; }
+  i.v{ font-style:italic; }
+  .frac{ display:inline-block; vertical-align:middle; text-align:center; margin:0 2pt; }
+  .frac .n{ display:block; padding:0 3pt; border-bottom:0.6pt solid #000; }
+  .frac .d{ display:block; padding:0 3pt; }
+  sub,sup{ font-size:0.72em; }
+
+  /* ---- figures ---- */
+  figure{ margin:7pt 0 8pt; break-inside:avoid; text-align:center; }
+  figure img{ max-width:100%; height:auto; display:block; margin:0 auto; }
+  figcaption{
+    font-size:7.9pt; line-height:1.28; text-align:justify; margin-top:3pt;
+    text-indent:0;
+  }
+  figcaption b{ font-weight:700; }
+  .wide{ column-span:all; margin:8pt 0 9pt; }
+  .wide figcaption{ padding:0 4mm; }
+
+  /* ---- tables ---- */
+  table{
+    border-collapse:collapse; width:100%; font-size:7.9pt; margin:2pt 0 3pt;
+    break-inside:avoid; font-variant-numeric:tabular-nums;
+  }
+  caption{
+    caption-side:top; font-size:7.9pt; text-align:left; padding-bottom:2.5pt;
+    text-transform:uppercase; letter-spacing:0.02em;
+  }
+  caption b{ font-weight:700; }
+  th{ font-weight:700; text-align:left; padding:2.2pt 4pt 2.2pt 0; border-bottom:0.6pt solid #000; }
+  td{ padding:2.0pt 4pt 2.0pt 0; border-bottom:0.4pt solid #bbb; vertical-align:top; }
+  tr:last-child td{ border-bottom:0.6pt solid #000; }
+  .n{ text-align:right; padding-right:7pt; }
+  thead tr:first-child th{ border-top:0.9pt solid #000; padding-top:3pt; }
+  .tbl{ break-inside:avoid; margin:6pt 0 7pt; }
+  .tnote{ font-size:7.3pt; line-height:1.25; margin-top:2.5pt; text-indent:0; color:#222; }
+  .win{ font-weight:700; }
+  code,.m{ font-family:"Courier New",monospace; font-size:0.88em; }
+
+  /* ---- references ---- */
+  ol.refs{ margin:2pt 0 0; padding-left:13pt; font-size:7.9pt; line-height:1.30; }
+  ol.refs li{ margin-bottom:2.2pt; text-align:left; }
+
+  .kw{ font-size:8.4pt; margin-top:4pt; }
+  hr.rule{ border:none; border-top:0.7pt solid #000; margin:5pt 0 0; }
+  .footer{
+    column-span:all; margin-top:10pt; padding-top:4pt; border-top:0.5pt solid #999;
+    font-size:7.2pt; color:#333; text-align:left; text-indent:0;
+  }
+  svg{ max-width:100%; height:auto; }
+</style>
+
+<div class="head">
+  <h1>A Thermal-First Detection Cascade for Real-Time Human Search<br>and Rescue on a 1&nbsp;GB Embedded UAV Payload</h1>
+  <p class="authors">Afzal Amanullah</p>
+  <p class="affil">Team SaResQ (IIC_TMSL_P13_H21) &middot; Techno Main Salt Lake, Kolkata, India<br>
+  Smart India Hackathon 2026, Problem Statement SIH26177 &mdash; Robotics and Drones</p>
+  <p class="corr">Payload firmware, datasets and evaluation scripts: <span class="m">github.com/&lt;saresq&gt;</span> &middot; commit <span class="m">a6b8d47</span></p>
+</div>
+
+<div class="abswrap">
+  <p><b class="lead">Abstract</b>&mdash;Aerial search and rescue needs a sensor that works at night and a
+  processor that fits on a small battery-powered airframe. These two requirements are usually in tension:
+  the radiometric thermal cores used in the literature cost more than the rest of the aircraft, and the
+  multispectral fusion networks that exploit them need a desktop GPU. We present SaResQ, a
+  search-and-rescue payload built entirely from commodity parts around a Raspberry&nbsp;Pi&nbsp;4 (1&nbsp;GB) and
+  a 32&times;24 MLX90640 thermal array, and show that a <i>nominate-then-confirm</i> cascade closes the gap.
+  A non-learned robust <i>z</i>-score test over the thermal frame&mdash;median and median absolute deviation
+  rather than mean and standard deviation, so that a warm body cannot inflate the threshold meant to
+  find it&mdash;nominates two to six candidate regions per frame at negligible cost. Only those regions are
+  passed to a YOLOv8-nano detector, which therefore performs between 1/16 and 1/3 of the arithmetic of a
+  whole-frame detector. Candidates are projected into the visible camera through a six-parameter affine
+  registration fitted by RANSAC over 38 automatically-detected correspondences, achieving a reprojection
+  residual of <b>0.506 thermal pixels</b>, 7.4&times; better than the nominal scaling it replaces. A MobileNetV2
+  scene classifier supplies disaster context at 95.2% accuracy. Candidates are carried across frames by an
+  ego-motion-compensated SORT tracker&mdash;a constant-velocity Kalman filter associated by the Hungarian
+  algorithm, whose predictions are first displaced by a similarity transform derived from GNSS and
+  gyroscope, without which a 95&nbsp;px-per-frame drift at survey speed fragments every track&mdash;projected to
+  latitude and longitude through a complementary-filter attitude estimate, and maintained on the ground as
+  alpha-beta map tracks with Kalata gains and a &chi;<sup>2</sup> validation gate. A log-odds ledger accumulates
+  evidence across repeated passes over the same ground position. On the target hardware the detector runs in
+  <b>28.2&nbsp;ms</b> per 160&nbsp;px crop and the complete six-candidate worst case consumes 177.5&nbsp;ms of a
+  250&nbsp;ms frame budget, a 29% margin, in 95.2&nbsp;MB of resident memory. The shipped detector attains
+  Person AP<sub>50</sub> of <b>0.851</b> on HIT-UAV and <b>0.478</b> on RGBTDronePerson-thermal. We contrast this
+  against a 2018 result on comparable hardware that reported 0.18&nbsp;FPS for embedded CNN pedestrian
+  detection, and against current RGBT fusion networks that require 22&times; the parameters and a discrete
+  GPU. The system has been flown end-to-end: a field trial produced 41 captures, 247 evidence artefacts
+  and zero errors with the SoC thermally unthrottled throughout.</p>
+  <p class="kw"><b class="lead">Index Terms</b>&mdash;Unmanned aerial vehicles, search and rescue, thermal
+  imaging, embedded computer vision, object detection, sensor registration, model quantisation.</p>
+</div>
+
+<hr class="rule">
+
+<div class="cols">
+
+<h2>I.&nbsp;&nbsp;Introduction</h2>
+
+<p class="first">The first seventy-two hours after an earthquake, flood or landslide dominate survival
+statistics, and the scarce resource in that window is not willingness but <i>search coverage</i>. A ground
+team sweeps rubble slowly and at risk to itself. A small unmanned aircraft can sweep faster, but only if
+something aboard decides what deserves a human being's attention&mdash;streaming raw video to an operator
+simply relocates the bottleneck.</p>
+
+<p>That decision has to be made onboard, which imposes a budget. The aircraft is battery-powered, so
+computation is flight time. The payload must cost a fraction of the airframe. And for the mission to mean
+anything at night, the primary sensor must be thermal.</p>
+
+<p>The literature resolves this budget by spending money. The flight-tested system of Hinzmann
+<i>et al.</i>&nbsp;[1], developed with Switzerland's air-rescue service, pairs a FLIR&nbsp;Tau2 640&times;480 core with
+an NVIDIA Jetson&nbsp;TX2. Current multispectral detectors such as COXNet&nbsp;[3] and TFSANet&nbsp;[4] assume the
+same class of thermal imager and are trained and benchmarked on desktop GPUs. Their accuracy is not in
+question; their bill of materials is.</p>
+
+<p>We took the opposite constraint as given: a 32&times;24 MLX90640 thermal array costing roughly 3% of a
+Tau2, a Raspberry&nbsp;Pi&nbsp;4 with 1&nbsp;GB of RAM, and a total payload budget near &#8377;14,000. This is not a
+smaller version of the same design. At a 20&nbsp;m survey altitude the thermal ground sample distance is
+651&nbsp;mm, so a prone adult subtends <b>2.61 thermal pixels</b> (Section&nbsp;III-B). No amount of model capacity
+recovers a person from 2.6 pixels. The thermal path can therefore only ever be an <i>anomaly detector</i>,
+never a classifier of people&mdash;and once that is accepted, the architecture follows.</p>
+
+<p>Our contribution is the arrangement rather than any single component:</p>
+
+<p>1) A <b>non-learned thermal gate</b> built on robust statistics (median/MAD) that nominates candidate
+regions at essentially zero cost and is scale-free, so that identical code runs on radiometric degrees
+Celsius from the MLX90640 and on 8-bit public thermal datasets (Section&nbsp;IV-A).</p>
+
+<p>2) A <b>cascade</b> in which the convolutional detector never sees a whole frame, reducing its work to
+between 1/16 and 1/3 of a whole-frame detector and making per-frame latency a function of scene content
+rather than image size (Sections&nbsp;IV-C, VI-F).</p>
+
+<p>3) A <b>measured cross-modal registration</b> for a sensor pair whose 27&nbsp;mm baseline and 45:1 resolution
+ratio make manual correspondence annotation infeasible, solved by automatic sub-pixel target detection
+(Section&nbsp;IV-D), together with an explicit depth-error analysis that fixes the calibration standoff
+distance (Section&nbsp;VI-D).</p>
+
+<p>4) An <b>empirical result that contradicts the intuitive design</b>: the stride-4 P2 detection head, the
+standard prescription for small-object detection, was built, trained identically, and lost to P3&ndash;P5 in
+every object-size bin at twice the compute (Section&nbsp;VI-B).</p>
+
+<p>5) A complete, individually validated <b>downstream stack</b>&mdash;ego-motion-compensated tracking,
+attitude estimation, georeferencing and ground-side track management&mdash;specified in Section&nbsp;IV-G to
+IV-J and inventoried with its deployment status in Table&nbsp;II, so that what flies today is distinguished
+from what is implemented and tested.</p>
+
+<p>6) A <b>quantisation finding</b> with consequences beyond this system: full INT8 quantisation degraded the
+detector to 31.9% of reference accuracy <i>silently</i>&mdash;the model loaded, ran fast, and returned
+plausible boxes&mdash;because 8-bit activations corrupt the Distribution Focal Loss normalisation constant.
+Quantising weights only (w8a32) recovers 99.2% at an identical file size (Section&nbsp;VI-C).</p>
+
+<h2>II.&nbsp;&nbsp;Related Work</h2>
+
+<h3>A. Flight-tested optical/infrared SAR</h3>
+<p class="first">Hinzmann <i>et al.</i>&nbsp;[1] is the closest system-level reference and the most useful. They
+run two independent RetinaNet-50 detectors, one per modality, and&mdash;importantly for us&mdash;their fusion
+is <i>geometric rather than learned</i>: a thermal box is mapped into the optical frame by stereo
+calibration, a sliding window nine times the box size is searched over 36 positions, and matches at
+IoU&nbsp;&ge;&nbsp;0.5 are merged by a logical OR with averaged scores. Of all the fusion schemes surveyed here this
+is the only one transferable to our sensor pair, because it operates on <i>boxes</i> rather than feature
+maps. Their custom anchor scales raised training-contributing samples from 57.7% to 97% (optical) and
+33.2% to 88.1% (thermal), solving by anchor design the same small-object problem we address in
+Section&nbsp;VI-B. Their headline metric&mdash;fewer than 30% of individuals missed across a mission at under
+one false positive per image&mdash;is deliberately a per-mission rather than per-frame quantity, which is
+structurally the same argument our log-odds ledger makes in Section&nbsp;IV-F.</p>
+
+<h3>B. Low-cost embedded SAR, and the result we set out to beat</h3>
+<p class="first">De Oliveira and Wehrmeister&nbsp;[2] is the nearest match to our constraints in the whole
+literature: a Raspberry&nbsp;Pi&nbsp;2, a FLIR Lepton 80&times;60 thermal imager, a Raspicam, and a 15&ndash;20&nbsp;m survey
+altitude. Their measured result is the one we quote most often: <b>CNN inference with thermal on the Pi&nbsp;2
+ran at 0.18&nbsp;FPS</b>&mdash;5.5&nbsp;seconds per frame&mdash;against 14&nbsp;FPS for HOG+SVM, leading them to conclude that
+CNNs "require many computational resources making real-time embedded processing difficult." They did not
+fuse the modalities; the two ran in parallel for different jobs. Their classifier reached 99.71% on clean
+full pedestrians but 71.1% under 25% occlusion.</p>
+<p>Our architecture is a direct answer to that conclusion. We reach 28.2&nbsp;ms per crop on the same class of
+hardware not because the network is better but because the gate decides <i>where</i> to spend it. The
+comparison is developed in Section&nbsp;VII.</p>
+
+<h3>C. Learned RGBT fusion, and why it does not transfer</h3>
+<p class="first">COXNet&nbsp;[3] fuses high-level visible with low-level thermal features through a wavelet-based
+alignment module, adds dynamic scale refinement and a geometry-aware label assignment, and reaches 47.18
+mAP<sub>50</sub> on RGBTDronePerson at 51.27 GFLOPs and 71.11&nbsp;M parameters; its P2&ndash;P6 variant reaches 51.82 at
+123.59 GFLOPs. TFSANet&nbsp;[4] adds transformer fusion with scale-aware attention and reports 86.56 AP on
+NII-CU and +4.33 AP on RGBTDronePerson.</p>
+<p>Both assume a 640&times;512 thermal input. Ours is 32&times;24&mdash;<b>768 pixels against 327,680, a factor of
+426</b>. Pushing a 32&times;24 frame through a standard backbone yields 8&times;6 at stride 4 and 4&times;3 at stride 8:
+there is no thermal feature pyramid to fuse. This is an information limit, not a compute limit, and it is
+not recoverable by quantisation or by shrinking the model. We therefore adopt the geometric merge of [1]
+and cite [3], [4] as the state of the art we can characterise but not run.</p>
+
+<h3>D. Components</h3>
+<p class="first">The detector is YOLOv8-nano&nbsp;[5], anchor-free with distributional box regression&nbsp;[7]. The
+scene classifier is MobileNetV2&nbsp;[6] transferred to AIDER&nbsp;[10]. Robust scale estimation follows the MAD
+treatment of Rousseeuw and Croux&nbsp;[12]; the affine fit uses RANSAC&nbsp;[11]. Calibration quality is assessed
+with the expected-calibration-error framing of Guo <i>et al.</i>&nbsp;[15], and quantisation follows the
+weight/activation separation described by Jacob <i>et al.</i>&nbsp;[16].</p>
+
+</div>
+
+<div class="wide">
+<svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img"
+     aria-label="Block diagram of the SaResQ five-stage detection cascade">
+  <defs>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 z" fill="#000"/>
+    </marker>
+  </defs>
+  <g font-family="Times New Roman, serif" fill="#000">
+    <!-- sensors -->
+    <rect x="8" y="16" width="132" height="46" fill="#eee" stroke="#000" stroke-width="1"/>
+    <text x="74" y="34" font-size="11.5" text-anchor="middle" font-weight="bold">MLX90640</text>
+    <text x="74" y="47" font-size="9.5" text-anchor="middle">32&#215;24 &#183; 4 Hz</text>
+    <text x="74" y="57" font-size="9.5" text-anchor="middle">NETD 0.1 K</text>
+
+    <rect x="8" y="118" width="132" height="46" fill="#eee" stroke="#000" stroke-width="1"/>
+    <text x="74" y="136" font-size="11.5" text-anchor="middle" font-weight="bold">IMX219</text>
+    <text x="74" y="149" font-size="9.5" text-anchor="middle">1640&#215;1232</text>
+    <text x="74" y="159" font-size="9.5" text-anchor="middle">rolling shutter</text>
+
+    <!-- stage A -->
+    <rect x="178" y="16" width="150" height="46" fill="#fff" stroke="#000" stroke-width="1.4"/>
+    <text x="253" y="33" font-size="11.5" text-anchor="middle" font-weight="bold">A &#183; thermal gate</text>
+    <text x="253" y="46" font-size="9.5" text-anchor="middle">robust z, median/MAD</text>
+    <text x="253" y="56" font-size="9.5" text-anchor="middle" font-style="italic">&#8776; 0 ms &#183; every frame</text>
+
+    <!-- blobs -->
+    <rect x="366" y="16" width="136" height="46" fill="#fff" stroke="#000" stroke-width="1"/>
+    <text x="434" y="33" font-size="11.5" text-anchor="middle" font-weight="bold">blob extraction</text>
+    <text x="434" y="46" font-size="9.5" text-anchor="middle">8-connected, area &#8805; 2</text>
+    <text x="434" y="56" font-size="9.5" text-anchor="middle" font-style="italic">2&#8211;6 candidates</text>
+
+    <!-- stage B registration -->
+    <rect x="366" y="118" width="136" height="46" fill="#fff" stroke="#000" stroke-width="1.4"/>
+    <text x="434" y="135" font-size="11.5" text-anchor="middle" font-weight="bold">B &#183; registration</text>
+    <text x="434" y="148" font-size="9.5" text-anchor="middle">affine <tspan font-style="italic">A</tspan>, RANSAC</text>
+    <text x="434" y="158" font-size="9.5" text-anchor="middle" font-style="italic">0.506 thermal px</text>
+
+    <!-- crops -->
+    <rect x="540" y="118" width="118" height="46" fill="#eee" stroke="#000" stroke-width="1"/>
+    <text x="599" y="139" font-size="11.5" text-anchor="middle" font-weight="bold">160&#215;160 crops</text>
+    <text x="599" y="153" font-size="9.5" text-anchor="middle">1/16 of full frame</text>
+
+    <!-- row 2: detector -->
+    <rect x="8" y="226" width="166" height="52" fill="#fff" stroke="#000" stroke-width="1.4"/>
+    <text x="91" y="243" font-size="11.5" text-anchor="middle" font-weight="bold">C &#183; crop detector</text>
+    <text x="91" y="256" font-size="9.5" text-anchor="middle">YOLOv8n P3&#8211;P5, w8a32</text>
+    <text x="91" y="268" font-size="9.5" text-anchor="middle" font-style="italic">28.2 ms per crop</text>
+
+    <rect x="212" y="226" width="160" height="52" fill="#fff" stroke="#000" stroke-width="1"/>
+    <text x="292" y="243" font-size="11.5" text-anchor="middle" font-weight="bold">D &#183; scene context</text>
+    <text x="292" y="256" font-size="9.5" text-anchor="middle">MobileNetV2 / AIDER</text>
+    <text x="292" y="268" font-size="9.5" text-anchor="middle" font-style="italic">33.0 ms at 1 Hz</text>
+
+    <rect x="410" y="226" width="166" height="52" fill="#fff" stroke="#000" stroke-width="1"/>
+    <text x="493" y="243" font-size="11.5" text-anchor="middle" font-weight="bold">E &#183; evidence fusion</text>
+    <text x="493" y="256" font-size="9.5" text-anchor="middle">18-feature logistic</text>
+    <text x="493" y="268" font-size="9.5" text-anchor="middle" font-style="italic">calibrated p<tspan baseline-shift="sub" font-size="7">k</tspan></text>
+
+    <rect x="614" y="226" width="150" height="52" fill="#fff" stroke="#000" stroke-width="1.4"/>
+    <text x="689" y="243" font-size="11.5" text-anchor="middle" font-weight="bold">F &#183; log-odds ledger</text>
+    <text x="689" y="256" font-size="9.5" text-anchor="middle">per ground position</text>
+    <text x="689" y="268" font-size="9.5" text-anchor="middle" font-style="italic">multi-pass accrual</text>
+
+    <rect x="802" y="226" width="170" height="52" fill="#eee" stroke="#000" stroke-width="1"/>
+    <text x="887" y="242" font-size="10.5" text-anchor="middle" font-weight="bold">CONFIRM p &#8805; 0.90</text>
+    <text x="887" y="256" font-size="10.5" text-anchor="middle">REOBSERVE</text>
+    <text x="887" y="270" font-size="10.5" text-anchor="middle">REJECT p &#8804; 0.10</text>
+
+    <!-- ground station -->
+    <rect x="700" y="16" width="272" height="80" fill="none" stroke="#000" stroke-width="0.9" stroke-dasharray="4 3"/>
+    <text x="836" y="34" font-size="11.5" text-anchor="middle" font-weight="bold">Ground station (off-board)</text>
+    <text x="836" y="49" font-size="9.5" text-anchor="middle">polls /stats at 1 Hz, /events at 3 s</text>
+    <text x="836" y="62" font-size="9.5" text-anchor="middle">12 m merge radius &#183; session-bounded store</text>
+    <text x="836" y="77" font-size="9.5" text-anchor="middle">raw uint16 centi-kelvin evidence retained</text>
+    <text x="836" y="90" font-size="9.5" text-anchor="middle" font-style="italic">never synthesises a position</text>
+
+    <!-- arrows -->
+    <line x1="140" y1="39" x2="174" y2="39" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="328" y1="39" x2="362" y2="39" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="434" y1="62"  x2="434" y2="114" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="140" y1="141" x2="362" y2="141" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="502" y1="141" x2="536" y2="141" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <!-- serpentine return -->
+    <polyline points="599,164 599,196 91,196 91,222" fill="none" stroke="#000"
+              stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="174" y1="252" x2="208" y2="252" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="372" y1="252" x2="406" y2="252" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="576" y1="252" x2="610" y2="252" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <line x1="764" y1="252" x2="798" y2="252" stroke="#000" stroke-width="1.1" marker-end="url(#ah)"/>
+    <!-- ledger to ground station -->
+    <polyline points="689,226 689,206 836,206 836,100" fill="none" stroke="#000"
+              stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+  </g>
+</svg>
+<figcaption><b>Fig. 1.</b>&nbsp;&nbsp;The five-stage cascade, drawn in order of increasing cost. Stage&nbsp;A runs on
+every thermal frame and is not machine learning; stages&nbsp;C and beyond run only on what the stage before
+them passed. Heavy borders mark the three stages that consume measurable time. The dashed block is the
+off-board ground station, which polls the payload's HTTP endpoints rather than being polled&mdash;a
+deliberate choice, so that nothing new can crash in flight and a dropped radio link degrades to a stale
+timestamp rather than lost captures. Timings are medians measured on the target hardware (Section&nbsp;VI-F).</figcaption>
+</div>
+
+<div class="cols">
+
+<h2>III.&nbsp;&nbsp;System Overview</h2>
+
+<h3>A. Hardware</h3>
+<p class="first">The payload is assembled entirely from commodity parts (Table&nbsp;I). The compute element is
+a Raspberry&nbsp;Pi&nbsp;4 Model&nbsp;B rev&nbsp;a03115 with 1&nbsp;GB of RAM, of which roughly 905&nbsp;MB is usable after the
+operating system. The runtime is deliberately minimal&mdash;<span class="m">ai-edge-litert</span>&nbsp;2.2.0, NumPy
+and headless OpenCV, with neither TensorFlow nor PyTorch installed&mdash;because the full frameworks would not
+fit alongside the models.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table I.</b> Payload bill of materials and measured properties.</caption>
+  <thead><tr><th>Element</th><th>Part</th><th class="n">Property</th></tr></thead>
+  <tbody>
+    <tr><td>Compute</td><td>Raspberry Pi 4B, 1 GB</td><td class="n">905 MB usable</td></tr>
+    <tr><td>Thermal</td><td>Melexis MLX90640 [13]</td><td class="n">32&times;24, 4 Hz</td></tr>
+    <tr><td>&nbsp;</td><td>field of view</td><td class="n">55&deg; &times; 35&deg;</td></tr>
+    <tr><td>&nbsp;</td><td>noise-equivalent &Delta;T</td><td class="n">0.1 K</td></tr>
+    <tr><td>Visible</td><td>Sony IMX219</td><td class="n">1640&times;1232</td></tr>
+    <tr><td>&nbsp;</td><td>field of view</td><td class="n">62.2&deg; &times; 48.8&deg;</td></tr>
+    <tr><td>&nbsp;</td><td>focal length</td><td class="n">1359.3 px</td></tr>
+    <tr><td>Baseline</td><td>lens-centre separation</td><td class="n">27 mm</td></tr>
+    <tr><td>IMU</td><td>MPU-6050</td><td class="n">I<sup>2</sup>C 0x68</td></tr>
+    <tr><td>GNSS</td><td>u-blox NEO-6M</td><td class="n">NMEA, 9600 Bd</td></tr>
+    <tr><td>Bus</td><td>I<sup>2</sup>C</td><td class="n">400 kHz</td></tr>
+  </tbody>
+</table>
+<p class="tnote">The I<sup>2</sup>C rate is load-bearing rather than incidental: at the default 100&nbsp;kHz the
+MLX90640 frame tears across its subpage boundary, producing a chequerboard artefact that survives into
+the gate as spurious contrast.</p>
+</div>
+
+<h3>B. What 32&times;24 pixels buys</h3>
+<p class="first">The design follows from a single arithmetic fact. For a sensor of horizontal field of view
+<i class="v">&theta;</i> and <i class="v">N</i> pixels across, at altitude <i class="v">h</i>, the ground
+sample distance is</p>
+
+<div class="eq"><div class="body">
+  GSD = <span class="frac"><span class="n">2<i class="v">h</i>&nbsp;tan(<i class="v">&theta;</i>/2)</span><span class="d"><i class="v">N</i></span></span>.
+</div><div class="num">(1)</div></div>
+
+<p class="first">At <i class="v">h</i>&nbsp;=&nbsp;20&nbsp;m with <i class="v">&theta;</i>&nbsp;=&nbsp;55&deg; and
+<i class="v">N</i>&nbsp;=&nbsp;32, the thermal swath is 20.82&nbsp;m wide and GSD&nbsp;=&nbsp;651&nbsp;mm. A prone adult of
+1.7&nbsp;m therefore spans <b>2.61 thermal pixels</b>. The visible camera at the same altitude gives
+GSD&nbsp;=&nbsp;14.7&nbsp;mm, so the same person spans about 116&nbsp;pixels.</p>
+
+<p>Two consequences shape everything downstream. First, the thermal sensor cannot classify: 2.6 pixels
+carry the presence of an anomaly, its rough extent and its sign, and nothing else. Second, the visible
+camera <i>can</i> classify but cannot be searched exhaustively within the power budget. The cascade exists
+to route the thermal sensor's cheap, high-recall evidence into the expensive, discriminative one.</p>
+
+</div>
+
+<div class="wide">
+<figure>
+  <img src="fig/pipeline_real.png" alt="Four panels showing a thermal frame, its z-score map, the reprojected box in the visible frame, and the resulting crop">
+  <figcaption><b>Fig. 2.</b>&nbsp;&nbsp;The cascade on a single real capture from the payload (frame
+  <span class="m">215558</span>, 2026-09-17). <b>(a)</b> the raw 32&times;24 radiometric frame in &deg;C,
+  rendered nearest-neighbour so that the pixel grid&mdash;the actual information available&mdash;is visible.
+  Scene median <i class="v">T</i><sub>bg</sub>&nbsp;=&nbsp;32.36&nbsp;&deg;C. <b>(b)</b> the robust <i class="v">z</i>
+  field of (3); the gate contour at <i class="v">z</i>&nbsp;&ge;&nbsp;2.5 encloses 31&nbsp;pixels, with
+  <i class="v">&sigma;</i>&nbsp;=&nbsp;0.535&nbsp;K and a peak of <i class="v">z</i>&nbsp;=&nbsp;32.9. Three further
+  single-pixel components were discarded by the area test. <b>(c)</b> the blob's intensity-weighted
+  centroid, at thermal coordinate (23.17,&nbsp;10.06), reprojected through the fitted affine
+  <b>A</b> into the visible frame at (1058,&nbsp;504)&mdash;landing on the target. <b>(d)</b> the 160&times;160
+  crop actually handed to the detector, 1/64 of the visible frame area. The faint orange rectangle in
+  (c) and (d) is the payload's own on-screen overlay from an earlier frame and is not part of this
+  measurement.</figcaption>
+</figure>
+</div>
+
+<div class="cols">
+
+<h2>IV.&nbsp;&nbsp;Method</h2>
+
+<h3>A. Stage A: robust thermal gating</h3>
+<p class="first">The gate answers one question per frame: which pixels differ from this scene's own
+background more than sensor noise and clutter explain? It is a statistical test, not a learned model, and
+that is deliberate&mdash;it must run on every frame within a budget of approximately zero.</p>
+
+<p>The obvious formulation, <i class="v">z</i>&nbsp;=&nbsp;(<i class="v">t</i>&nbsp;&minus;&nbsp;<i class="v">&mu;</i>)/<i class="v">s</i>
+with sample mean and standard deviation, fails for a specific reason: a warm body in the frame raises both
+<i class="v">&mu;</i> and <i class="v">s</i>, inflating the very threshold intended to detect it. The
+breakdown point of the standard deviation is zero. We therefore estimate background and scale with the
+median and the median absolute deviation&nbsp;[12], whose breakdown point is 50%:</p>
+
+<div class="eq"><div class="body">
+  <i class="v">T</i><sub>bg</sub> = med(<i class="v">T</i>),
+  &nbsp;&nbsp;&nbsp;MAD = med(|<i class="v">T</i> &minus; <i class="v">T</i><sub>bg</sub>|)
+</div><div class="num">(2)</div></div>
+
+<div class="eq"><div class="body">
+  <i class="v">&sigma;</i> = max(1.4826&nbsp;&middot;&nbsp;MAD,&nbsp;<i class="v">&sigma;</i><sub>min</sub>),
+  &nbsp;&nbsp;&nbsp;<i class="v">z</i> = <span class="frac"><span class="n"><i class="v">T</i> &minus; <i class="v">T</i><sub>bg</sub></span><span class="d"><i class="v">&sigma;</i></span></span>
+</div><div class="num">(3)</div></div>
+
+<p class="first">The factor 1.4826 makes <i class="v">&sigma;</i> a consistent estimator of the standard
+deviation under Gaussian noise, so that the threshold retains its familiar interpretation. The floor
+<i class="v">&sigma;</i><sub>min</sub>&nbsp;=&nbsp;0.15&nbsp;K prevents division by a collapsed scale in a
+perfectly flat scene, where MAD tends to zero and any quantisation step would otherwise read as infinite
+contrast. A pixel is nominated when</p>
+
+<div class="eq"><div class="body">
+  |<i class="v">z</i>| &ge; <i class="v">z</i><sub>t</sub> = 2.5
+  &nbsp;&nbsp;&and;&nbsp;&nbsp;
+  |<i class="v">T</i> &minus; <i class="v">T</i><sub>bg</sub>| &ge; &Delta;<i class="v">T</i><sub>min</sub> = 0.5&nbsp;K.
+</div><div class="num">(4)</div></div>
+
+<p class="first">Two details in (4) are mission-specific. The test is <i>two-sided</i>: on sun-heated
+concrete or rubble a human body is frequently <i>colder</i> than its surroundings, and a one-sided
+"warmer than background" test&mdash;the intuitive choice&mdash;misses exactly that regime. The additive
+&Delta;<i class="v">T</i><sub>min</sub> term, expressed in kelvin rather than in units of
+<i class="v">&sigma;</i>, stops the gate firing on pure sensor noise when <i class="v">&sigma;</i> has hit
+its floor. Because <i class="v">z</i> is dimensionless, the same thresholds apply unchanged to
+radiometric Celsius and to the 8-bit thermal imagery of public datasets, which is what allows the gate to
+be evaluated offline at all.</p>
+
+<p>Nominated pixels are grouped into 8-connected components; components below 2&nbsp;pixels are discarded as
+speckle. For each surviving blob we record the peak <i class="v">z</i>, the signed peak
+&Delta;<i class="v">T</i>, the sign, the area in thermal pixels, and the eccentricity of its second-moment
+ellipse. The blob's position is taken as the <i>intensity-weighted</i> centroid</p>
+
+<div class="eq"><div class="body">
+  <b>c</b> = <span class="frac"><span class="n">&sum;<sub><i class="v">i</i>&isin;<i class="v">B</i></sub> <i class="v">z</i><sub><i class="v">i</i></sub>&nbsp;<b>x</b><sub><i class="v">i</i></sub></span><span class="d">&sum;<sub><i class="v">i</i>&isin;<i class="v">B</i></sub> <i class="v">z</i><sub><i class="v">i</i></sub></span></span>,
+</div><div class="num">(5)</div></div>
+
+<p class="first">which recovers sub-pixel position from a handful of pixels and is the reason the
+registration of Section&nbsp;IV-D can be fitted at all.</p>
+
+<h3>B. Stage B: candidate crops</h3>
+<p class="first">Each blob centroid is mapped into visible-image coordinates by (6) and a square crop is
+cut around it&mdash;160&nbsp;px for typical blobs, 224&nbsp;px when the blob's reprojected extent demands it. The gate
+is tuned permissively, yielding two to six crops per frame; in search and rescue a false alarm costs an
+operator a few seconds while a miss can cost a life, so the burden of rejection is deliberately pushed
+onto the later, more discriminative stages.</p>
+
+<h3>C. Stage C: the crop detector</h3>
+<p class="first">The detector is a YOLOv8-nano&nbsp;[5] with the P3&ndash;P5 head (strides 8, 16, 32), 3,011,628
+parameters at four classes and 8.19&nbsp;GFLOPs at 640&nbsp;px. At the deployed 160&nbsp;px crop size the head exposes
+525 anchor points against 8,400 at 640&nbsp;px.</p>
+
+<p>YOLOv8 is anchor-free and regresses each box side as a distribution rather than a scalar&nbsp;[7]. Each
+side <i class="v">d</i> is represented by a softmax over <i class="v">r</i><sub>max</sub>&nbsp;=&nbsp;16 bins and
+decoded as the expectation</p>
+
+<div class="eq"><div class="body">
+  <i class="v">d</i> = &sum;<sub><i class="v">j</i>=0</sub><sup>15</sup> <i class="v">j</i>&nbsp;&middot;&nbsp;softmax(<b>l</b>)<sub><i class="v">j</i></sub>,
+</div><div class="num">(6)</div></div>
+
+<p class="first">which lets the network express genuine ambiguity about an edge&mdash;valuable when the object
+is twelve pixels tall. Equation (6) is also precisely where quantisation breaks the model
+(Section&nbsp;VI-C). Non-maximum suppression runs in NumPy on the host rather than inside the graph, avoiding
+a second framework dependency.</p>
+
+<p>The choice of the nano scaling is load-bearing rather than a default. By the time a crop reaches the
+detector, the gate has already asserted that something anomalous is centred in it; the detector answers a
+much easier question than a whole-frame detector does.</p>
+
+<h3>D. Cross-modal registration</h3>
+<p class="first">Mapping a thermal blob into the visible frame requires a transform between sensors whose
+resolutions differ by 45:1&mdash;one thermal pixel subtends about 45 visible pixels. We model the mapping as
+a six-parameter affine</p>
+
+<div class="eq"><div class="body">
+  <b>x</b><sub>rgb</sub> = <b>A</b>&nbsp;[<i class="v">u</i>&nbsp;<i class="v">v</i>&nbsp;1]<sup>T</sup>,
+  &nbsp;&nbsp;<b>A</b> &isin; &#8477;<sup>2&times;3</sup>,
+</div><div class="num">(7)</div></div>
+
+<p class="first">fitted by RANSAC least squares&nbsp;[11] over <i class="v">N</i> correspondences, minimising</p>
+
+<div class="eq"><div class="body">
+  <i class="v">&epsilon;</i> = <span class="frac"><span class="n">1</span><span class="d"><i class="v">N</i></span></span>&nbsp;&sum;<sub><i class="v">i</i></sub> &#8214;<b>A</b><b>u</b><sub><i class="v">i</i></sub> &minus; <b>x</b><sub><i class="v">i</i></sub>&#8214;<sub>2</sub>.
+</div><div class="num">(8)</div></div>
+
+<p class="first">An affine rather than a homography is appropriate here because the thermal array's angular
+resolution cannot resolve the perspective terms; adding them fits noise.</p>
+
+<p>The practical obstacle is annotation. A human clicking a correspondence to the nearest thermal pixel
+commits, after scaling, a 45-pixel error in the visible frame&mdash;larger than any sensible RANSAC inlier
+threshold, so hand-labelled points are not merely imprecise, they are systematically rejected. We
+therefore detect correspondences automatically: the thermal target is localised to sub-pixel accuracy by
+(5), and its visible counterpart is found by a Hough circle search restricted to a window predicted from
+the thermal centroid through the nominal field-of-view ratio. A heated vessel of water served as the
+target, giving both a strong thermal signature and a circular visible outline. Thirty-eight
+correspondences were collected over a spatial spread selected by greedy farthest-point sampling, with
+zero operator clicks.</p>
+
+<p>Because an affine is exact for a single plane at a single depth, the calibration standoff is not
+arbitrary. For a stereo pair of baseline <i class="v">b</i> and focal length <i class="v">f</i>, a
+calibration at range <i class="v">Z</i><sub>c</sub> applied at operating range <i class="v">Z</i><sub>f</sub>
+leaves a residual disparity</p>
+
+<div class="eq"><div class="body">
+  &delta; = <i class="v">f</i>&nbsp;<i class="v">b</i>&nbsp;
+  &#124;<span class="frac"><span class="n">1</span><span class="d"><i class="v">Z</i><sub>c</sub></span></span>
+  &minus; <span class="frac"><span class="n">1</span><span class="d"><i class="v">Z</i><sub>f</sub></span></span>&#124;
+  &nbsp;&nbsp;[visible px].
+</div><div class="num">(9)</div></div>
+
+<p class="first">Equation (9) is what fixes the bench procedure, and Section&nbsp;VI-D reports its consequences.</p>
+
+<h3>E. Stage D: scene context</h3>
+<p class="first">A MobileNetV2&nbsp;[6] classifier, transferred from ImageNet and fine-tuned on AIDER&nbsp;[10],
+labels the visible frame as one of <i>collapsed building</i>, <i>fire</i>, <i>flooded area</i>,
+<i>traffic incident</i> or <i>normal</i>. It runs on its own thread at 1&nbsp;Hz&mdash;scene type changes on the
+scale of a flight leg, not a frame&mdash;so its 33.0&nbsp;ms cost amortises to 8.25&nbsp;ms per thermal frame. The
+thread is fail-safe: if the classifier throws or is absent the cascade continues with the context features
+zeroed, because a scene label is contextual evidence and never a gating condition.</p>
+
+<h3>F. Stage E&ndash;F: evidence fusion and the multi-pass ledger</h3>
+<p class="first">Each candidate is summarised by an 18-element feature vector spanning five evidence
+sources: thermal shape (<i class="v">z</i><sub>peak</sub>, &Delta;<i class="v">T</i>, sign, area,
+eccentricity), the visible detector (score, presence flag, relative box area), registration agreement
+(IoU, normalised centroid distance), temporal persistence (hits, hit ratio), and scene context
+(<i class="v">T</i><sub>bg</sub>, luminance, the three hazard probabilities, altitude band). A logistic
+regression maps this to a calibrated probability</p>
+
+<div class="eq"><div class="body">
+  <i class="v">p</i><sub><i class="v">k</i></sub> = <i class="v">&sigma;</i>(<b>w</b><sup>T</sup><b>f</b> + <i class="v">b</i>),
+  &nbsp;&nbsp;<i class="v">&sigma;</i>(<i class="v">x</i>) = (1 + <i class="v">e</i><sup>&minus;<i class="v">x</i></sup>)<sup>&minus;1</sup>.
+</div><div class="num">(10)</div></div>
+
+<p class="first">A linear model is chosen over a stronger one because calibration matters more than
+ranking here: the ledger below <i>adds</i> these quantities across passes, so a systematic bias compounds
+rather than averaging out, and an operator must be able to read the number as a probability.</p>
+
+<p>A ground position observed on several passes accumulates evidence in log-odds. Writing
+<i class="v">&pi;</i><sub>0</sub> for the prior, the ledger for a target after <i class="v">K</i> passes is</p>
+
+<div class="eq"><div class="body">
+  <i class="v">L</i> = logit(<i class="v">&pi;</i><sub>0</sub>) + &sum;<sub><i class="v">k</i>=1</sub><sup><i class="v">K</i></sup>
+  <i class="v">w</i><sub><i class="v">k</i></sub>&nbsp;[&thinsp;logit(<i class="v">p</i><sub><i class="v">k</i></sub>) &minus; logit(<i class="v">&pi;</i><sub>0</sub>)&thinsp;],
+</div><div class="num">(11)</div></div>
+
+<div class="eq"><div class="body">
+  <i class="v">w</i><sub><i class="v">k</i></sub> = 1 if the altitude band is new, 0.7 otherwise.
+</div><div class="num">(12)</div></div>
+
+<p class="first">The discount in (12) is the one departure from naive Bayesian accrual, and it corrects a
+real failure mode: repeated observations from the same altitude and aspect are strongly correlated, so
+treating them as independent would drive a persistent thermal artefact&mdash;a sun-warmed rock&mdash;to
+certainty simply by looking at it repeatedly. Requiring a new viewing geometry to earn full weight makes
+the ledger reward genuinely new evidence. The final probability is
+<i class="v">p</i>&nbsp;=&nbsp;<i class="v">&sigma;</i>(<i class="v">L</i>), and the decision is CONFIRM at
+<i class="v">p</i>&nbsp;&ge;&nbsp;0.90, REJECT at <i class="v">p</i>&nbsp;&le;&nbsp;0.10, and otherwise
+re-observation at a lower altitude band until a pass limit is reached. This mission-level rather than
+frame-level criterion mirrors the evaluation protocol of&nbsp;[1].</p>
+
+
+<h3>G. Temporal association: ego-motion compensation and tracking</h3>
+<p class="first">A survey aircraft's own motion dominates a survivor's. At 14&nbsp;m/s and 20&nbsp;m with
+<i class="v">f</i>&nbsp;=&nbsp;1359.3&nbsp;px, a <i>stationary</i> ground point translates
+<i class="v">f&thinsp;v&thinsp;&Delta;t</i>/<i class="v">h</i>&nbsp;=&nbsp;<b>95&nbsp;px per 100&nbsp;ms</b> in the
+visible image. A constant-velocity tracker initialised from one detection with zero velocity therefore
+loses a stationary casualty on the very next frame. Association must run on ego-motion-compensated
+predictions.</p>
+
+<p>We predict the inter-frame image motion from sensors already carried, rather than estimating it from
+the images. Given GNSS ground speed <i class="v">v</i> and course <i class="v">&chi;</i>, camera yaw
+<i class="v">&psi;</i>, and body rates (<i class="v">p</i>,&nbsp;<i class="v">q</i>,&nbsp;<i class="v">r</i>)
+from the gyroscope, the frame-to-frame map is a similarity transform with</p>
+
+<div class="eq"><div class="body">
+  <i class="v">t<sub>x</sub></i> = <span class="frac"><span class="n"><i class="v">f&thinsp;v&thinsp;&Delta;t</i></span><span class="d"><i class="v">h</i></span></span>&thinsp;sin(<i class="v">&chi;</i>&minus;<i class="v">&psi;</i>) + <i class="v">f&thinsp;q&thinsp;&Delta;t</i>,
+  &nbsp;&nbsp;<i class="v">&theta;</i> = <i class="v">r&thinsp;&Delta;t</i>,
+</div><div class="num">(13)</div></div>
+
+<p class="first">with <i class="v">t<sub>y</sub></i> taking the cosine term and <i class="v">f&thinsp;p&thinsp;&Delta;t</i>.
+A track's predicted position is then rotated about the image centre and translated,
+<b>x</b>&prime;&nbsp;=&nbsp;<b>R</b>(<i class="v">&theta;</i>)(<b>x</b>&nbsp;&minus;&nbsp;<b>c</b>)&nbsp;+&nbsp;<b>c</b>&nbsp;+&nbsp;<b>t</b>,
+<i>before</i> the motion filter runs. This ordering is the whole point: the filter is then left modelling
+only the target's own motion, which for a survivor is zero.</p>
+
+<p>Residual motion is carried by a four-state constant-velocity Kalman filter&nbsp;[21] with state
+<b>x</b>&nbsp;=&nbsp;(<i class="v">u</i>,&nbsp;<i class="v">v</i>,&nbsp;<i class="v">u&#775;</i>,&nbsp;<i class="v">v&#775;</i>)
+in image pixels:</p>
+
+<div class="eq"><div class="body">
+  <b>x</b><sup>&minus;</sup> = <b>F</b><b>x</b>, &nbsp;&nbsp; <b>P</b><sup>&minus;</sup> = <b>F</b><b>P</b><b>F</b><sup>T</sup> + <b>Q</b>
+</div><div class="num">(14)</div></div>
+
+<div class="eq"><div class="body">
+  <b>K</b> = <b>P</b><sup>&minus;</sup><b>H</b><sup>T</sup>(<b>H</b><b>P</b><sup>&minus;</sup><b>H</b><sup>T</sup> + <b>R</b>)<sup>&minus;1</sup>,
+  &nbsp;&nbsp;<b>x</b> = <b>x</b><sup>&minus;</sup> + <b>K</b>(<b>z</b> &minus; <b>H</b><b>x</b><sup>&minus;</sup>)
+</div><div class="num">(15)</div></div>
+
+<p class="first">with <b>Q</b>&nbsp;=&nbsp;4<b>I</b>, <b>R</b>&nbsp;=&nbsp;9<b>I</b> px<sup>2</sup> and <b>H</b>
+selecting position. Detections are assigned to tracks by the Hungarian algorithm&nbsp;[17] on the cost</p>
+
+<div class="eq"><div class="body">
+  <i class="v">C<sub>ij</sub></i> = 1 &minus; IoU(<i class="v">b<sub>i</sub></i>, <i class="v">d<sub>j</sub></i>),
+  &nbsp;&nbsp;accepted only if IoU &ge; 0.3,
+</div><div class="num">(16)</div></div>
+
+<p class="first">following SORT&nbsp;[18]. A track is confirmed on 2 hits within a 3-frame window and deleted
+after 5 consecutive misses. The same predicted transform, rescaled into thermal-pixel units by the
+measured across- and along-track ratios (45.3 and 36.8 visible px per thermal px), drives a blob
+persistence counter in the 32&times;24 thermal frame with a 1.5 thermal-pixel match radius; that counter
+supplies the <span class="m">hits</span> and <span class="m">hit_ratio</span> features of (10).</p>
+
+<h3>H. Georeferencing a detection</h3>
+<p class="first">A pixel becomes a map coordinate through the platform's attitude. Roll and pitch are
+recovered from the accelerometer's gravity direction,
+<i class="v">&phi;</i>&nbsp;=&nbsp;atan2(<i class="v">a<sub>y</sub></i>,&nbsp;<i class="v">a<sub>z</sub></i>) and
+<i class="v">&theta;</i>&nbsp;=&nbsp;atan2(&minus;<i class="v">a<sub>x</sub></i>,&nbsp;&radic;(<i class="v">a<sub>y</sub></i><sup>2</sup>+<i class="v">a<sub>z</sub></i><sup>2</sup>)),
+and fused with the gyroscope by a complementary filter</p>
+
+<div class="eq"><div class="body">
+  <i class="v">&theta;<sub>k</sub></i> = <i class="v">&alpha;</i>(<i class="v">&theta;</i><sub><i class="v">k</i>&minus;1</sub> + <i class="v">&omega;&thinsp;&Delta;t</i>) + (1&minus;<i class="v">&alpha;</i>)<i class="v">&theta;</i><sub>acc</sub>,
+  &nbsp;&nbsp;<i class="v">&alpha;</i> = 0.98,
+</div><div class="num">(17)</div></div>
+
+<p class="first">after a start-up gyro-bias average over stationary samples. The filter is a deliberate choice
+over a full attitude Kalman filter: with one accelerometer and one gyroscope the steady-state solution is
+a fixed blend, and (17) simply starts there. Yaw is not observable from this sensor&mdash;there is no
+magnetometer&mdash;so heading comes from GNSS course over ground while the aircraft is moving, which is
+stated here because it is a real constraint on the localisation claim rather than an implementation
+detail.</p>
+
+<p>The pixel is then cast as a ray and intersected with a level ground plane:</p>
+
+<div class="eq"><div class="body">
+  <b>d</b><sub>g</sub> = <b>R</b><sub>z</sub>(<i class="v">&psi;</i>)<b>R</b><sub>y</sub>(<i class="v">&theta;</i>)<b>R</b><sub>x</sub>(<i class="v">&phi;</i>)
+  [<span class="frac"><span class="n"><i class="v">u</i>&minus;<i class="v">c<sub>u</sub></i></span><span class="d"><i class="v">f</i></span></span>,
+  <span class="frac"><span class="n"><i class="v">v</i>&minus;<i class="v">c<sub>v</sub></i></span><span class="d"><i class="v">f</i></span></span>, 1]<sup>T</sup>,
+  &nbsp;&nbsp;<i class="v">s</i> = <i class="v">h</i>/<i class="v">d</i><sub><i class="v">g,z</i></sub>
+</div><div class="num">(18)</div></div>
+
+<p class="first">giving east and north offsets <i class="v">s&thinsp;d<sub>g,x</sub></i> and
+<i class="v">s&thinsp;d<sub>g,y</sub></i>, converted to latitude and longitude at 111,320&nbsp;m per degree
+with the usual cos(lat) scaling on longitude. The flat-ground assumption and the GNSS fix dominate this
+error budget; the rotation convention does not.</p>
+
+<h3>I. Ground-station track management</h3>
+<p class="first">Confirmed detections arriving at the ground station are maintained as map tracks by a
+two-axis alpha-beta filter in local metres rather than degrees&mdash;filtering in degrees would make the
+east and north gains differ by cos(lat), a silent bug that appears as a track drifting sideways. Gains are
+not hand-tuned but taken from Kalata's steady-state solution&nbsp;[19] for the tracking index
+<i class="v">L</i>&nbsp;=&nbsp;<i class="v">&sigma;<sub>a</sub>T</i><sup>2</sup>/<i class="v">&sigma;<sub>z</sub></i>:</p>
+
+<div class="eq"><div class="body">
+  <i class="v">r</i> = <span class="frac"><span class="n">4 + <i class="v">L</i> &minus; &radic;(8<i class="v">L</i> + <i class="v">L</i><sup>2</sup>)</span><span class="d">4</span></span>,
+  &nbsp;<i class="v">&alpha;</i> = 1 &minus; <i class="v">r</i><sup>2</sup>,
+  &nbsp;<i class="v">&beta;</i> = 2(1 &minus; <i class="v">r</i>)<sup>2</sup>.
+</div><div class="num">(19)</div></div>
+
+<p class="first">This leaves exactly one physical knob, the ratio of how far process noise can move the target
+in one scan to how well it can be measured, and it costs two multiplies per axis&mdash;which matters
+because the same code must run on the Pi. Benedict&ndash;Bordner variance reduction factors&nbsp;[20] turn
+<i class="v">&alpha;</i>, <i class="v">&beta;</i> into smoothed position and velocity variances, so the
+uncertainty ellipse drawn for an operator carries a computed number rather than a guess. A plot is
+associated only inside a validation gate of radius</p>
+
+<div class="eq"><div class="body">
+  <i class="v">R</i><sub>gate</sub> = &radic;( <i class="v">&chi;</i><sup>2</sup><sub>0.9973,&thinsp;2</sub>&nbsp;(<i class="v">&sigma;</i><sup>2</sup><sub>pred</sub> + <i class="v">&sigma;</i><sup>2</sup><sub>meas</sub>) ),
+  &nbsp;&nbsp;<i class="v">&chi;</i><sup>2</sup><sub>0.9973,&thinsp;2</sub> = 11.83.
+</div><div class="num">(20)</div></div>
+
+<p class="first">The 99.73% point is chosen deliberately: in search and rescue, splitting one survivor across
+two tracks costs far less than silently discarding a real detection. Tracks are initiated M-of-N (3 of 4)
+and move through TENTATIVE, FIRM, COAST and either DROPPED or HELD after five consecutive coasts.</p>
+
+<p>One profile deserves explicit mention. For a casualty the filter runs in a <i>static</i> mode with
+<i class="v">&alpha;</i>&nbsp;=&nbsp;1, <i class="v">&beta;</i>&nbsp;=&nbsp;0 and position variance fixed at
+<i class="v">&sigma;</i><sup>2</sup><sub>z</sub>. A survivor lying in rubble is not moving, so the
+constant-velocity dead-reckoning term <sup>1</sup>&frasl;<sub>2</sub><i class="v">at</i><sup>2</sup> is not
+merely unhelpful but actively misleading&mdash;left enabled it draws a 300&nbsp;m uncertainty circle around
+someone who has not moved a metre. A fix on a stationary object does not become less certain with time; it
+becomes <i>older</i>, and age is displayed separately.</p>
+
+<h3>J. Verdict assignment</h3>
+<p class="first">The final label is assigned from the evidence <i>pattern</i>, not from
+<i class="v">p</i> alone. A high score with no visible corroboration is capped at MEDIUM, and a visible
+detection with no thermal support (<i class="v">z</i><sub>peak</sub>&nbsp;&lt;&nbsp;<i class="v">z<sub>t</sub></i>)
+is forced to LOW regardless of its own score, because in this system a person is a thermal object first.
+HIGH requires <i class="v">p</i>&nbsp;&ge;&nbsp;0.80 together with visible corroboration at
+IoU&nbsp;&ge;&nbsp;0.10 and at least two hits.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table II.</b> Complete inventory of models and algorithms.</caption>
+  <thead><tr><th>Component</th><th>Method</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>Thermal gate</td><td>robust <i>z</i>, median/MAD (2)&ndash;(4)</td><td>payload</td></tr>
+    <tr><td>Blob extraction</td><td>8-connected components, weighted centroid (5)</td><td>payload</td></tr>
+    <tr><td>Registration</td><td>6-parameter affine, RANSAC (7), (8)</td><td>payload</td></tr>
+    <tr><td>Person detector</td><td>YOLOv8n P3&ndash;P5, w8a32, 3.01 M param</td><td>payload</td></tr>
+    <tr><td>Box decode</td><td>DFL expectation (6) + greedy per-class NMS, NumPy</td><td>payload</td></tr>
+    <tr><td>Visible detector</td><td>YOLOv8n COCO-80, w8a32</td><td>payload</td></tr>
+    <tr><td>Scene classifier</td><td>MobileNetV2, INT8, 2.74 MB</td><td>payload</td></tr>
+    <tr><td>Ego-motion</td><td>GNSS+gyro similarity transform (13)</td><td>tested</td></tr>
+    <tr><td>Motion filter</td><td>4-state constant-velocity Kalman (14), (15)</td><td>tested</td></tr>
+    <tr><td>Association</td><td>SORT, Hungarian on 1&minus;IoU (16)</td><td>tested</td></tr>
+    <tr><td>Blob persistence</td><td>ego-compensated, thermal-space, 1.5 px</td><td>tested</td></tr>
+    <tr><td>Attitude</td><td>complementary filter, &alpha; = 0.98 (17)</td><td>tested</td></tr>
+    <tr><td>Georeferencing</td><td>pinhole ray / ground-plane intersection (18)</td><td>tested</td></tr>
+    <tr><td>Evidence fusion</td><td>logistic regression, 18 features (10)</td><td>instrumented</td></tr>
+    <tr><td>Confidence ledger</td><td>log-odds, correlation-discounted (11), (12)</td><td>tested</td></tr>
+    <tr><td>Verdict rules</td><td>pattern-based three-class assignment</td><td>tested</td></tr>
+    <tr><td>Map tracker</td><td>alpha-beta, Kalata gains (19), &chi;<sup>2</sup> gate (20), 3-of-4</td><td>ground</td></tr>
+  </tbody>
+</table>
+<p class="tnote"><b>payload</b>: runs in the flying build on the Pi. <b>ground</b>: runs in the ground
+station. <b>tested</b>: implemented and unit-tested against the acceptance criteria quoted in the text, but
+not in the current flying build&mdash;the payload build is deliberately minimal, and the tracking and
+georeferencing stages require the GNSS/IMU stream that indoor bench trials cannot supply.
+<b>instrumented</b>: trained and evaluated, reported in Section&nbsp;VIII-B, and not relied upon by any
+claim in this paper. The suite is 180 tests.</p>
+</div>
+
+<h2>V.&nbsp;&nbsp;Datasets and Training</h2>
+
+<p class="first">The detector is trained on the union of two independently collected aerial-thermal
+corpora. HIT-UAV&nbsp;[8] provides clean, largely overhead campus scenes with four annotated classes.
+RGBTDronePerson&nbsp;[9] provides what HIT-UAV lacks&mdash;urban, night, oblique drone views&mdash;and annotates
+people only. Training across both answers a question one dataset cannot: whether the detector has learned
+<i>people</i> or has learned <i>HIT-UAV</i>.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table III.</b> Dataset composition after conversion.</caption>
+  <thead><tr><th>Corpus</th><th class="n">train</th><th class="n">val</th><th>classes</th></tr></thead>
+  <tbody>
+    <tr><td>HIT-UAV [8]</td><td class="n">4,058</td><td class="n">580</td><td>4</td></tr>
+    <tr><td>RGBTDronePerson-thermal [9]</td><td class="n">4,900</td><td class="n">1,225</td><td>1</td></tr>
+    <tr><td><i>combined</i> (2,029 + 4,900)</td><td class="n">6,929</td><td class="n">1,515</td><td>4</td></tr>
+    <tr><td>AIDER [10] (scene)</td><td class="n">&mdash;</td><td class="n">1,286</td><td>5</td></tr>
+  </tbody>
+</table>
+<p class="tnote">HIT-UAV is subsampled into the combined set to limit its dominance. Files are hard-linked
+rather than copied, and carry <span class="m">hit_</span>/<span class="m">rgbt_</span> filename prefixes
+precisely so that the validation split can be scored per source.</p>
+</div>
+
+<p>Two protocol decisions deserve statement. First, the label spaces are merged at four classes rather
+than reduced to one: class&nbsp;0 is <i>Person</i> in both corpora, so keeping
+<span class="m">nc=4</span> carries the pretrained detection head over intact, whereas dropping to
+<span class="m">nc=1</span> would rebuild the class branch for no benefit. The accepted cost is that
+RGBTDronePerson frames contain unlabelled cars and bicycles, which become false negatives and degrade
+those classes. This is acceptable for a payload that acts only on <i>Person</i>, and is the reason we
+report Person AP<sub>50</sub> throughout and never overall mAP.</p>
+
+<p>Second, <b>evaluation is per source, never pooled.</b> The combined validation split is 81%
+RGBTDronePerson by count, so a single pooled number principally reports performance on the harder corpus
+while appearing to describe both. A combined model is treated as an improvement only if it holds HIT-UAV
+Person AP while raising RGBT recall&mdash;a rule we apply against our own candidate model in
+Section&nbsp;VI-A.</p>
+
+<p>Training starts from COCO-pretrained weights on Apple-silicon MPS at 640&nbsp;px, batch 12, with mosaic
+augmentation disabled for the final epochs. Checkpoint selection uses the Ultralytics fitness
+0.1&nbsp;mAP<sub>50</sub>&nbsp;+&nbsp;0.9&nbsp;mAP<sub>50-95</sub>, so the retained checkpoint is chosen by the strict
+localisation metric rather than the headline one. A watchdog monitors the loss trace and aborts on
+non-finite or negative loss, on a threefold loss explosion, or on three consecutive epochs below half the
+best observed mAP<sub>50</sub>&mdash;a guard added after an fp16 failure produced a classification loss
+running 4.97&nbsp;&rarr;&nbsp;46&nbsp;&rarr;&nbsp;&minus;1224 without raising an exception.</p>
+
+<h2>VI.&nbsp;&nbsp;Experiments and Results</h2>
+
+<h3>A. Detector accuracy, per source</h3>
+<p class="first">Table&nbsp;IV reports the shipped detector against each corpus separately. The 0.851
+HIT-UAV figure is directly comparable to the single-corpus baseline, and the 0.478 RGBT figure shows what
+generalisation to a genuinely different aerial-thermal domain currently costs.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table IV.</b> Person detection, evaluated per source.</caption>
+  <thead><tr><th>Model / corpus</th><th class="n">imgs</th><th class="n">AP<sub>50</sub></th><th class="n">AP<sub>50-95</sub></th></tr></thead>
+  <tbody>
+    <tr><td><b>Shipped</b> (45 ep) &middot; HIT-UAV</td><td class="n">580</td><td class="n win">0.851</td><td class="n">0.379</td></tr>
+    <tr><td><b>Shipped</b> (45 ep) &middot; RGBT</td><td class="n">1,225</td><td class="n win">0.478</td><td class="n">0.153</td></tr>
+    <tr><td><i>mean of the two</i></td><td class="n">&mdash;</td><td class="n win">0.664</td><td class="n">&mdash;</td></tr>
+    <tr><td>Continued (85 ep) &middot; HIT-UAV</td><td class="n">290</td><td class="n">0.868</td><td class="n">0.419</td></tr>
+    <tr><td>Continued (85 ep) &middot; RGBT</td><td class="n">1,225</td><td class="n">0.431</td><td class="n">0.128</td></tr>
+    <tr><td><i>mean of the two</i></td><td class="n">&mdash;</td><td class="n">0.649</td><td class="n">&mdash;</td></tr>
+  </tbody>
+</table>
+<p class="tnote">The 85-epoch continuation gains 0.017 on HIT-UAV and loses 0.047 on RGBT. Mean Person
+AP<sub>50</sub> falls, so it fails the adoption rule of Section&nbsp;V and was <b>not</b> deployed. Its value
+was diagnostic: performance is flat from epoch 25 through 40 across a mosaic-augmentation transition,
+which indicates the training-duration lever is exhausted.</p>
+</div>
+
+<p>This negative result is worth stating plainly because a pooled score would have concealed it. Pooled
+mAP<sub>50</sub> rose from 0.668 to 0.683 over the continuation&mdash;an apparent improvement that was in fact
+a trade of the harder domain for the easier one.</p>
+
+<h3>B. Detection head: P2&ndash;P5 against P3&ndash;P5</h3>
+<p class="first">Small-object detection conventionally prescribes adding a stride-4 (P2) feature level. We
+built it, trained it identically, and it lost. Table&nbsp;V and Fig.&nbsp;3 give the comparison.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table V.</b> Head ablation, HIT-UAV, 30 epochs, identical schedule.</caption>
+  <thead><tr><th>Head</th><th class="n">anchors</th><th class="n">GFLOPs</th><th class="n">Person AP<sub>50</sub></th><th class="n">mAP<sub>50</sub></th></tr></thead>
+  <tbody>
+    <tr><td>P2&ndash;P5 (strides 4&ndash;32)</td><td class="n">34,000</td><td class="n">17.43</td><td class="n">0.801</td><td class="n">0.588</td></tr>
+    <tr><td><b>P3&ndash;P5 (strides 8&ndash;32)</b></td><td class="n">8,400</td><td class="n">8.86</td><td class="n win">0.821</td><td class="n win">0.639</td></tr>
+  </tbody>
+</table>
+<p class="tnote">Anchor counts at 640 px. P2 costs 1.97&times; the arithmetic and 4.0&times; the anchor points
+for lower accuracy in every size bin.</p>
+</div>
+
+<p>The explanation is that P2's benefit is conditional on the small object being <i>resolved but coarsely
+sampled</i>. In our regime the limiting factor is information rather than sampling density, and the extra
+level mainly adds anchors that must be suppressed. Fig.&nbsp;3(b) makes the point sharply: as images are
+progressively downscaled&mdash;simulating higher altitude&mdash;both heads collapse together, and neither
+crosses 0.20 recall once 8&ndash;16&nbsp;px objects are reduced to a quarter scale. The system is
+information-limited, not capacity-limited. The same reasoning is why we did not migrate to a newer
+backbone: a candidate YOLO11n at four classes carries 2,590,620 parameters against our 3,011,628, a 14.0%
+reduction in capacity that addresses a constraint which is not binding.</p>
+
+</div>
+
+<div class="wide">
+<figure>
+  <img src="fig/pixels_on_target.png" alt="Bar chart and line chart comparing P3 and P2 detection heads by object size and image scale">
+  <figcaption><b>Fig. 3.</b>&nbsp;&nbsp;Recall as a function of pixels on target, HIT-UAV validation.
+  <b>(a)</b> at native scale the P3&ndash;P5 head matches or beats P2&ndash;P5 in every size bin while using
+  half the arithmetic; the advantage is largest exactly where P2 was expected to help, in the 8&ndash;16&nbsp;px
+  bin (0.657 against 0.612). <b>(b)</b> recall on 8&ndash;16&nbsp;px objects as the image is downscaled,
+  simulating increasing altitude. Both heads fall together, which identifies the binding constraint as
+  available information rather than model capacity.</figcaption>
+</figure>
+</div>
+
+<div class="cols">
+
+<h3>C. Quantisation: a silent failure and its cause</h3>
+<p class="first">Deployment requires an 8-bit export. Full INT8&mdash;weights <i>and</i> activations&mdash;is the
+default choice and was catastrophic here: the exported model scored <b>31.9% of the reference model's
+accuracy</b>. Critically, it failed silently. It loaded, ran at the expected speed, and returned
+plausible-looking boxes; only a quantitative comparison against the float reference exposed it.</p>
+
+<p>The cause is (6). The DFL decode is a weighted sum over 16 softmax bins followed by a normalisation by
+the input size. When activations are quantised, that normalisation constant is quantised with them: the
+effective divisor measured on the failing export was &asymp;636 instead of 640. A 0.6% scale error shifts
+every box centre by roughly 2.5&nbsp;px&mdash;enough to drop IoU below threshold for small objects while leaving
+the output visually reasonable.</p>
+
+<p>Quantising weights only (w8a32) fixes it at <i>identical file size</i>, because weights dominate storage
+while activations dominate arithmetic. Table&nbsp;VI reports the adopted export against its float reference.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table VI.</b> w8a32 export fidelity, 290 images, 1,168 annotated persons.</caption>
+  <thead><tr><th>Quantity</th><th class="n">value</th></tr></thead>
+  <tbody>
+    <tr><td>Person AP<sub>50</sub>, float32 reference</td><td class="n">0.8499</td></tr>
+    <tr><td>Person AP<sub>50</sub>, w8a32 export</td><td class="n">0.8599</td></tr>
+    <tr><td>absolute difference</td><td class="n">+0.0100</td></tr>
+    <tr><td>box-row correlation</td><td class="n">0.99972</td></tr>
+    <tr><td>class-row correlation</td><td class="n">0.99812</td></tr>
+    <tr><td>box-row MAE</td><td class="n">2.24 px</td></tr>
+    <tr><td>file size (160 / 224 / 640 px)</td><td class="n">3.23 / 3.23 / 3.32 MB</td></tr>
+  </tbody>
+</table>
+<p class="tnote">The export scores marginally <i>above</i> its float reference; at this sample size the
+difference is not meaningful, and the row correlations are the substantive evidence of fidelity. Full INT8
+on the same comparison scored 31.9% of reference.</p>
+</div>
+
+<h3>D. Registration accuracy and the calibration standoff</h3>
+<p class="first">The affine of (7) was fitted over 38 automatically-detected correspondences, giving</p>
+
+<div class="eq"><div class="body">
+  <b>A</b> =
+  <span style="display:inline-block;border-left:1px solid #000;border-right:1px solid #000;padding:1px 4px;font-family:'Courier New',monospace;font-size:7.6pt;line-height:1.3;">
+  34.466&nbsp;&minus;0.452&nbsp;&nbsp;263.99<br>&minus;1.758&nbsp;&nbsp;32.881&nbsp;&nbsp;214.31</span>
+</div><div class="num">(21)</div></div>
+
+<p class="first">The mean reprojection residual is 22.76 visible pixels, which at the nominal 45&nbsp;visible
+pixels per thermal pixel is <b>0.506 thermal pixels</b>&mdash;against 3.74 thermal pixels for the nominal
+field-of-view scaling it replaces, a <b>7.4&times;</b> improvement. The diagonal terms of (13) recover the
+45:1 scale to within 3%, and the small off-diagonal terms quantify a residual sensor-mounting rotation of
+roughly 1.5&deg; that the fit absorbs and a ratio-scaling approach cannot.</p>
+
+<p>Equation (9) determines where the calibration target must stand. With <i class="v">b</i>&nbsp;=&nbsp;27&nbsp;mm
+and <i class="v">f</i>&nbsp;=&nbsp;1359.3&nbsp;px, calibrating at 1&nbsp;m and flying at 20&nbsp;m leaves 0.775 thermal
+pixels of depth-induced error&mdash;which alone exceeds the 0.5&nbsp;px acceptance threshold, so a
+bench-distance calibration cannot pass no matter how carefully the correspondences are measured.
+Calibrating at 2&nbsp;m reduces this to 0.367&nbsp;px and passes. Fig.&nbsp;4 plots the relation; the practical rule
+is that the calibration target must stand at least 2&nbsp;m from the sensor pair.</p>
+
+<figure>
+  <img src="fig/parallax.png" alt="Depth-induced registration error against calibration distance">
+  <figcaption><b>Fig. 4.</b>&nbsp;&nbsp;Depth-induced reprojection error from (9) for the measured 27&nbsp;mm
+  baseline. The acceptance limit is 0.5 thermal px. A 1&nbsp;m bench calibration cannot meet it at any
+  operating altitude; 2&nbsp;m can. The curve flattens beyond about 3&nbsp;m, so there is no benefit in a longer
+  and more awkward standoff.</figcaption>
+</figure>
+
+<figure>
+  <img src="fig/overlay_proof.jpg" alt="Four frames with the thermal field overlaid on the visible image after registration">
+  <figcaption><b>Fig. 5.</b>&nbsp;&nbsp;Registration verification: the thermal field warped through <b>A</b>
+  and composited onto four visible frames spanning different target positions in the field of view. The
+  hot region tracks the vessel across the frame, including near the edges where a pure scale-and-offset
+  mapping diverges most.</figcaption>
+</figure>
+
+<h3>E. Scene classification</h3>
+<p class="first">The MobileNetV2 classifier attains <b>95.2% accuracy</b> over 1,286 validation images with
+a macro F1 of 0.927, exporting to 2.74&nbsp;MB in INT8. AIDER is 68% <i>normal</i>, so training is
+class-weighted and the macro average is the honest summary. Per-class recall is 0.979 (collapsed
+building), 0.981 (fire), 0.958 (flooded areas), 0.915 (traffic incident) and 0.949 (normal).</p>
+
+<p>The error structure in Fig.&nbsp;6 is the useful part: essentially all confusion is <i>normal</i> scenes
+predicted as a hazard&mdash;21 as collapse, 10 as flood, 9 as traffic, 6 as fire&mdash;while hazard scenes are
+rarely predicted normal. For a search-and-rescue payload this asymmetry is the correct direction of error,
+and it is reinforced by the architecture: the scene label is a contextual feature entering (10), never a
+gate on whether a candidate is examined.</p>
+
+<figure>
+  <img src="fig/hazard_cm.png" alt="Confusion matrix of the five-class scene classifier">
+  <figcaption><b>Fig. 6.</b>&nbsp;&nbsp;Scene classifier confusion matrix, 1,286 validation images, shaded by
+  row-normalised rate and annotated with counts. Off-diagonal mass lies almost entirely in the bottom row:
+  the model over-calls hazards on normal scenes rather than missing hazards.</figcaption>
+</figure>
+
+<h3>F. On-device latency and the frame budget</h3>
+<p class="first">All timings in Table&nbsp;VII are medians measured on the flight hardware, not extrapolated.
+The thermal sensor runs at 4&nbsp;Hz, giving a 250&nbsp;ms budget per cycle.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table VII.</b> Measured latency, Raspberry Pi 4B 1 GB, Debian 13.</caption>
+  <thead><tr><th>Operation</th><th class="n">median</th><th class="n">p90</th></tr></thead>
+  <tbody>
+    <tr><td>Thermal gate, 32&times;24</td><td class="n">&asymp; 0 ms</td><td class="n">&mdash;</td></tr>
+    <tr><td>Detector, 160 px crop</td><td class="n">28.2 ms</td><td class="n">28.3 ms</td></tr>
+    <tr><td>Detector, 224 px crop</td><td class="n">56.7 ms</td><td class="n">56.9 ms</td></tr>
+    <tr><td>Scene classifier, 640&times;480</td><td class="n">33.0 ms</td><td class="n">33.1 ms</td></tr>
+    <tr><td>Peak resident memory, all models</td><td class="n">95.2 MB</td><td class="n">&mdash;</td></tr>
+    <tr><td>SoC temperature under load</td><td class="n">62&ndash;66.7 &deg;C</td><td class="n">&mdash;</td></tr>
+  </tbody>
+</table>
+<p class="tnote">The p90 within 0.4% of the median is itself a result: with the model resident and the
+tensor arena allocated once at load, per-frame latency has almost no tail, which is what makes the budget
+below a guarantee rather than an average.</p>
+</div>
+
+<p>The worst case is six crops at 160&nbsp;px (169.2&nbsp;ms) plus the scene classifier amortised over four frames
+(8.25&nbsp;ms), totalling <b>177.5&nbsp;ms against the 250&nbsp;ms budget&mdash;a 29% margin</b> (Fig.&nbsp;7). The typical
+two-crop case consumes 64.7&nbsp;ms. Memory is the comfortable resource: 95.2&nbsp;MB peak of 905&nbsp;MB available,
+with an 8.39&nbsp;MB tensor arena allocated once rather than per frame.</p>
+
+<figure>
+  <img src="fig/frame_budget.png" alt="Horizontal bar showing the frame time budget and headroom">
+  <figcaption><b>Fig. 7.</b>&nbsp;&nbsp;Worst-case frame budget. The detector dominates; the gate is free and the
+  scene classifier amortises. Because cost scales with the number of gate nominations rather than with
+  image size, latency is a function of scene content and stays bounded.</figcaption>
+</figure>
+
+<h3>G. Visible-branch confirmation</h3>
+<p class="first">The visible branch runs a stock COCO YOLOv8n for daylight confirmation. Evaluated over 537
+daytime frames containing 13,422 annotated person instances (11 night frames excluded), overall recall is
+0.305, but the aggregate is misleading&mdash;recall is a steep function of apparent size (Fig.&nbsp;8), rising
+from 0.075 below 16&nbsp;px to 0.934 above 72&nbsp;px. The median instance in this corpus is 16.9&nbsp;px, which is
+why the pooled figure is low. At the 20&nbsp;m design altitude the visible GSD of 14.7&nbsp;mm places a standing
+adult near 116&nbsp;px, in the regime where the branch is reliable. The measurement establishes the operating
+envelope rather than a deficiency: visible confirmation is trustworthy above roughly 32&nbsp;px of apparent
+target size and should not be relied on below it.</p>
+
+<figure>
+  <img src="fig/rgb_confirm.png" alt="Recall against apparent target size for the visible branch">
+  <figcaption><b>Fig. 8.</b>&nbsp;&nbsp;Visible-branch recall against apparent target size, 13,422 instances.
+  The dashed line marks the median instance size in this corpus. Recall is governed by pixels on target,
+  the same quantity that governs the thermal branch.</figcaption>
+</figure>
+
+<figure>
+  <img src="fig/rgb_detect.jpg" alt="Visible camera frame with three person detections outlined">
+  <figcaption><b>Fig. 9.</b>&nbsp;&nbsp;Visible-branch output at close range from the payload's own camera, with
+  detection confidences. At this apparent size the branch operates in the high-recall regime of Fig.&nbsp;8.</figcaption>
+</figure>
+
+<h3>H. End-to-end field trial</h3>
+<p class="first">The complete system was flown as an integrated payload on 17 September 2026: thermal gate,
+calibrated reprojection, crop detection, scene classification at 1&nbsp;Hz, live contour rendering through
+<b>A</b>, and telemetry to the ground station. The session produced <b>41 captures resolving to 1 target</b>
+and 247 evidence artefacts with <b>zero errors</b>. The SoC held 62&ndash;66.7&nbsp;&deg;C with the throttle
+register at <span class="m">0x0</span> throughout&mdash;no thermal or undervoltage throttling occurred&mdash;the
+thermal loop held 4.0&nbsp;Hz, and the storage device reported 25&nbsp;GB free and no I/O errors.</p>
+
+<p>The 41-to-1 ratio is itself the result of a design correction. Captures are merged into a single target
+within a 12&nbsp;m radius; before this was applied to captures lacking a position fix, one stationary person
+generated 25 separate "targets". Unlocated captures now fold into the most recent unlocated target, with a
+90&nbsp;s gap starting a new one. Evidence is archived as raw uint16 centi-kelvin arrays (1,536&nbsp;B per frame)
+rather than colour-mapped images, so a reviewer receives temperatures rather than a screenshot of a
+palette.</p>
+
+
+<h3>I. Ego-motion compensation: ablation</h3>
+<p class="first">The tracking stage was validated against the worst case of Section&nbsp;IV-G: a stationary
+target observed for 50 frames at 14&nbsp;m/s and 20&nbsp;m altitude, &Delta;<i class="v">t</i>&nbsp;=&nbsp;100&nbsp;ms,
+which drives a 95.15&nbsp;px per frame apparent drift against a 34&nbsp;px detection box. The two arms differ
+only in whether (13) is applied before the filter predicts.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table VIII.</b> Ego-motion ablation, 50 frames, stationary target.</caption>
+  <thead><tr><th>Arm</th><th class="n">tracks created</th><th class="n">hits</th><th>confirmed</th></tr></thead>
+  <tbody>
+    <tr><td>Compensated (13)</td><td class="n win">1</td><td class="n">50</td><td>yes</td></tr>
+    <tr><td>Uncompensated</td><td class="n">&gt; 10</td><td class="n">&mdash;</td><td>none</td></tr>
+  </tbody>
+</table>
+<p class="tnote">With a 95 px inter-frame drift and a 34 px box, IoU between a track's prediction and the
+next detection is zero after the first frame, so the uncompensated tracker can never re-associate and
+spawns a fresh tentative track almost every frame&mdash;the failure is total rather than gradual.</p>
+</div>
+
+<p>This is the result that justifies predicting image motion from GNSS and gyroscope rather than
+estimating it from the images: the compensation is not a refinement that improves track quality, it is the
+precondition for any track existing at all at survey speed.</p>
+
+<h2>VII.&nbsp;&nbsp;Comparison With the State of the Art</h2>
+
+<p class="first">Table&nbsp;IX places the system against the reference works. The rows are not commensurable
+as accuracy comparisons&mdash;different sensors, corpora and tasks&mdash;and are not offered as such. They
+compare <i>what a given accuracy costs</i>.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table IX.</b> Cost of inference across comparable systems.</caption>
+  <thead><tr><th>System</th><th class="n">params</th><th class="n">GFLOPs</th><th>compute</th></tr></thead>
+  <tbody>
+    <tr><td>QFDet* [3]</td><td class="n">60.3 M</td><td class="n">242.8</td><td>RTX 2080Ti</td></tr>
+    <tr><td>COXNet [3]</td><td class="n">71.1 M</td><td class="n">51.3</td><td>RTX 2080Ti</td></tr>
+    <tr><td>COXNet* [3]</td><td class="n">75.9 M</td><td class="n">123.6</td><td>RTX 2080Ti</td></tr>
+    <tr><td>ETH RetinaNet-50 &times;2 [1]</td><td class="n">~2&times;34 M</td><td class="n">&mdash;</td><td>Jetson TX2</td></tr>
+    <tr><td>Sensors 2018 CNN [2]</td><td class="n">&mdash;</td><td class="n">&mdash;</td><td>Pi 2, 0.18 FPS</td></tr>
+    <tr><td><b>SaResQ (this work)</b></td><td class="n win">3.01 M</td><td class="n win">8.19</td><td>Pi 4 CPU</td></tr>
+  </tbody>
+</table>
+<p class="tnote">GFLOPs at the authors' stated input sizes. Our figure is for a whole 640 px frame; the
+deployed crop path costs a sixteenth of it.</p>
+</div>
+
+<p>Against&nbsp;[2]&mdash;the closest comparison, being thermal-assisted CNN detection on a Raspberry Pi at a
+15&ndash;20&nbsp;m survey altitude&mdash;the difference is two orders of magnitude in throughput. Their measured
+0.18&nbsp;FPS corresponds to 5,556&nbsp;ms per frame; our worst case is 177.5&nbsp;ms, a <b>31&times;</b> improvement
+before accounting for the generational difference between a Pi&nbsp;2 and a Pi&nbsp;4. Their conclusion that CNNs
+"require many computational resources making real-time embedded processing difficult" was correct for the
+architecture they evaluated&mdash;whole-frame inference&mdash;and is the premise our cascade is designed to
+falsify.</p>
+
+<p>Against&nbsp;[3] and&nbsp;[4] the comparison is one of feasibility rather than quality. COXNet at 71.1&nbsp;M
+parameters is 23.6&times; our size and needs a discrete GPU for 12.9&nbsp;FPS; on a Pi&nbsp;4 CPU the same graph
+would take tens of seconds per frame. More fundamentally, both methods fuse thermal <i>feature maps</i>,
+and our 32&times;24 input admits no such pyramid. We adopt instead the geometric box-level merge
+of&nbsp;[1], which is the one fusion mechanism in this literature that survives the resolution gap.</p>
+
+<h2>VIII.&nbsp;&nbsp;Discussion</h2>
+
+<h3>A. What the results establish</h3>
+<p class="first">The load-bearing claim is that ordering computation by cost, and letting a nearly free
+statistical test decide where the expensive model looks, converts an infeasible workload into a feasible
+one without changing the model. Every measurement here supports that: the detector is unremarkable, and
+its 28.2&nbsp;ms is unremarkable; what makes the system work is that it runs 2&ndash;6 times on 1/64 of the frame
+area rather than once on all of it.</p>
+
+<p>A secondary theme is that two design decisions which appeared obvious were wrong and were caught only
+by measurement&mdash;the P2 head (Section&nbsp;VI-B) and full INT8 quantisation (Section&nbsp;VI-C). The second is
+the more dangerous, because it degraded accuracy by 68% while leaving every observable symptom
+normal.</p>
+
+<h3>B. Limitations</h3>
+<p class="first">The fusion head of (10) is currently weak: ROC AUC 0.670, average precision 0.112, Brier
+0.0243 against a base-rate baseline of 0.0247. Its expected calibration error is low (0.0058), so the
+probabilities it emits are honest, but its ranking power is limited&mdash;a direct consequence of nine of
+eighteen weights being exactly zero, because the registration-agreement features (IoU, centroid distance)
+and the track-persistence features are not measurable from a still-image training corpus. The registration
+of Section&nbsp;IV-D now makes the first group computable, and flight data will supply the second. We report
+the fusion head as instrumented but not yet validated, and no claim in this paper depends on it.</p>
+
+<p>Gate recall has not been measured in the operating domain. The available offline figure, 2.9% on
+RGBTDronePerson, evaluates a contrast gate tuned for sparse targets over rubble against dense urban night
+scenes containing roughly ten people per frame; it is a domain mismatch rather than a performance
+estimate, and we decline to derive a sweep width from it. Measuring gate recall on MLX90640 imagery over
+representative terrain is the principal outstanding validation.</p>
+
+<p>The tracking and georeferencing stages of Sections&nbsp;IV-G to IV-I are implemented and unit-tested
+against their acceptance criteria, but are not in the current flying build, which runs gate, registration,
+detector and scene classifier only. They consume the GNSS and IMU stream, and the trials conducted so far
+have been indoor bench and short-range tests where no GNSS fix is available&mdash;correctly, since the
+receiver reports no fix rather than a fabricated one. Integrating them is a wiring task against interfaces
+that already exist, not new research, but it is unmeasured in flight and is reported as such.</p>
+
+<p>Finally, the system tracks the confidence of a <i>ground position</i> rather than the identity of a
+person. It has no re-identification capability comparable to the colour-histogram Bayesian matcher
+of&nbsp;[1], so two sightings of the same individual at different locations are two targets.</p>
+
+<h3>C. Future work</h3>
+<p class="first">Three items follow directly. Wiring the registration-derived IoU and centroid-distance
+features into (10) is now unblocked and should recover a meaningful part of the fusion head's missing
+capacity. Adopting the sliding-window geometric OR-merge of&nbsp;[1] is achievable with the calibration in
+hand. And gate recall must be characterised on real thermal imagery over rubble before any coverage claim
+is made.</p>
+
+<h2>IX.&nbsp;&nbsp;Conclusion</h2>
+
+<p class="first">We have described and measured a search-and-rescue perception payload that runs entirely
+on a 1&nbsp;GB single-board computer with a 768-pixel thermal sensor. The organising principle is that the
+expensive model should never see a whole frame: a robust <i>z</i>-score test costing approximately nothing
+nominates two to six regions, and only those are examined. The consequence is a worst-case 177.5&nbsp;ms of a
+250&nbsp;ms budget in 95.2&nbsp;MB of memory, on hardware for which the prior literature reported 5.5&nbsp;s per
+frame for the equivalent task.</p>
+
+<p>Along the way we report three results with implications beyond this system: that the conventional
+stride-4 small-object head loses to the standard head when the regime is information-limited rather than
+sampling-limited; that full INT8 quantisation can degrade a DFL-based detector to 31.9% of reference
+accuracy while presenting no observable symptom, and that quantising weights alone recovers 99.2% at
+identical file size; and that sub-pixel automatic correspondence detection makes cross-modal calibration
+tractable at a 45:1 resolution ratio where manual annotation is not, reaching 0.506 thermal pixels of
+reprojection residual. The complete system has been flown end-to-end with zero errors and no thermal
+throttling.</p>
+
+<h2>References</h2>
+<ol class="refs">
+  <li>T. Hinzmann, T. Stegemann, C. Cadena, and R. Siegwart, "Deep learning-based human detection for UAVs with optical and infrared cameras: System and experiments," <i>arXiv:2008.04197</i>, Aug. 2020.</li>
+  <li>D. C. de Oliveira and M. A. Wehrmeister, "Using deep learning and low-cost RGB and thermal cameras to detect pedestrians in aerial images captured by multirotor UAV," <i>Sensors</i>, vol. 18, no. 7, 2244, Jul. 2018.</li>
+  <li>"Cross-layer fusion for RGBT tiny object detection" (COXNet), <i>arXiv:2508.09533</i>, 2025.</li>
+  <li>"Transformer fusion-based scale-aware attention network for multispectral victim detection" (TFSANet), <i>Complex &amp; Intelligent Systems</i>, Jun. 2024.</li>
+  <li>G. Jocher, A. Chaurasia, and J. Qiu, "Ultralytics YOLOv8," 2023. [Online]. Available: github.com/ultralytics/ultralytics</li>
+  <li>M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L.-C. Chen, "MobileNetV2: Inverted residuals and linear bottlenecks," in <i>Proc. IEEE CVPR</i>, 2018, pp. 4510&ndash;4520.</li>
+  <li>X. Li <i>et al.</i>, "Generalized focal loss: Learning qualified and distributed bounding boxes for dense object detection," in <i>Proc. NeurIPS</i>, 2020.</li>
+  <li>J. Suo, T. Wang, X. Zhang, H. Chen, W. Zhou, and W. Shi, "HIT-UAV: A high-altitude infrared thermal dataset for unmanned aerial vehicle-based object detection," <i>Scientific Data</i>, vol. 10, 227, 2023.</li>
+  <li>X. Zhang, C. Zhang, and coauthors, "Drone-based RGBT tiny person detection" (RGBTDronePerson), <i>ISPRS J. Photogrammetry and Remote Sensing</i>, 2023.</li>
+  <li>C. Kyrkou and T. Theocharides, "Deep-learning-based aerial image classification for emergency response applications using unmanned aerial vehicles" (AIDER), in <i>Proc. IEEE CVPR Workshops</i>, 2019.</li>
+  <li>M. A. Fischler and R. C. Bolles, "Random sample consensus: A paradigm for model fitting with applications to image analysis and automated cartography," <i>Commun. ACM</i>, vol. 24, no. 6, pp. 381&ndash;395, 1981.</li>
+  <li>P. J. Rousseeuw and C. Croux, "Alternatives to the median absolute deviation," <i>J. American Statistical Association</i>, vol. 88, no. 424, pp. 1273&ndash;1283, 1993.</li>
+  <li>Melexis, "MLX90640 32&times;24 IR array datasheet," rev. 12, 2019.</li>
+  <li>A. G. Howard <i>et al.</i>, "MobileNets: Efficient convolutional neural networks for mobile vision applications," <i>arXiv:1704.04861</i>, 2017.</li>
+  <li>C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, "On calibration of modern neural networks," in <i>Proc. ICML</i>, 2017, pp. 1321&ndash;1330.</li>
+  <li>B. Jacob <i>et al.</i>, "Quantization and training of neural networks for efficient integer-arithmetic-only inference," in <i>Proc. IEEE CVPR</i>, 2018, pp. 2704&ndash;2713.</li>
+  <li>H. W. Kuhn, "The Hungarian method for the assignment problem," <i>Naval Research Logistics Quarterly</i>, vol. 2, no. 1&ndash;2, pp. 83&ndash;97, 1955.</li>
+  <li>A. Bewley, Z. Ge, L. Ott, F. Ramos, and B. Upcroft, "Simple online and realtime tracking," in <i>Proc. IEEE ICIP</i>, 2016, pp. 3464&ndash;3468.</li>
+  <li>P. R. Kalata, "The tracking index: A generalized parameter for &alpha;-&beta; and &alpha;-&beta;-&gamma; target trackers," <i>IEEE Trans. Aerospace and Electronic Systems</i>, vol. AES-20, no. 2, pp. 174&ndash;182, 1984.</li>
+  <li>T. R. Benedict and G. W. Bordner, "Synthesis of an optimal set of radar track-while-scan smoothing equations," <i>IRE Trans. Automatic Control</i>, vol. 7, no. 4, pp. 27&ndash;32, 1962.</li>
+  <li>R. E. Kalman, "A new approach to linear filtering and prediction problems," <i>J. Basic Engineering</i>, vol. 82, no. 1, pp. 35&ndash;45, 1960.</li>
+</ol>
+
+<div class="footer">
+All quantitative results in this paper were measured on the hardware described in Table&nbsp;I using the
+evaluation scripts in the project repository at commit <span class="m">a6b8d47</span>; none are reproduced
+from third-party reports except those in Table&nbsp;IX, which are attributed to their sources. Figures 2, 5
+and 9 are unretouched captures from the payload.
+</div>
+
+</div>

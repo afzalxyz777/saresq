@@ -226,6 +226,15 @@ class PayloadLink(threading.Thread):
             "t_spread": th.get("spread"), "t_fps": th.get("fps"),
             "scene": hz.get("top") if hz.get("ok") else None,
             "scene_p": hz.get("p") if hz.get("ok") else None,
+            # The full five-way distribution, not just the winner. The Hazards
+            # page needs it to show that fire/flood/collapse were evaluated and
+            # came back near zero -- "normal at 0.99" is a measurement, whereas
+            # a page showing nothing is indistinguishable from a page that is
+            # broken. The payload has always sent this; only the winner was
+            # being kept.
+            "scene_probs": hz.get("probs") if hz.get("ok") else None,
+            "scene_ms": hz.get("ms") if hz.get("ok") else None,
+            "scene_why": None if hz.get("ok") else hz.get("why"),
             "lat": gps.get("lat"), "lon": gps.get("lon"),
             "sats": gps.get("sats"), "in_view": gps.get("in_view"),
             "fix": bool(gps.get("quality")), "gps_state": gps.get("state"),

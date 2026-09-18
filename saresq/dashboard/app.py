@@ -40,6 +40,12 @@ VALID_VERDICTS = {"SURVIVOR", "NOT_SURVIVOR", "UNSURE", "DISPATCHED"}
 #: which the UI shows as a state of its own rather than as a link failure --
 #: the dashboard is fully usable against a recorded database with no payload.
 LINK: PayloadLink | None = None
+
+#: The ground station's second-opinion detector. None until --rescore-model
+#: loads, and None for good on a machine without torch -- every read of it is
+#: guarded, because re-scoring is an enhancement and must never be able to stop
+#: the console from running a mission.
+RESCORE = None
 _MIME = {"jpg": "image/jpeg", "mp4": "video/mp4", "bin": "application/octet-stream"}
 
 
@@ -134,6 +140,29 @@ def page_review():
 @app.route("/analytics")
 def page_analytics():
     return render_template("analytics.html", page="/analytics")
+
+
+@app.route("/hazards")
+def page_hazards():
+    return render_template("hazards.html", page="/hazards")
+
+
+@app.route("/api/rescore")
+def api_rescore():
+    """Second-opinion status, plus what it has been worth so far.
+
+    `delta_mean` is the average of (ground score - payload score) over every
+    crop scored by both. It is reported whatever its sign: if the larger model
+    is not helping, that is the number that says so.
+    """
+    with get_store() as store:
+        stats = store.rescore_stats()
+    if RESCORE is None:
+        stats.update({"available": False, "why": "not enabled (--rescore-model)",
+                      "running": False})
+        return jsonify(stats)
+    stats.update(RESCORE.state())
+    return jsonify(stats)
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +327,19 @@ def api_media():
 @app.route("/api/targets")
 def api_targets():
     with get_store() as store:
-        return jsonify(store.all_targets())
+        out = []
+        for t in store.all_targets():
+            t = dict(t)
+            # The ground station's best second opinion on this target, attached
+            # alongside the aircraft's own number rather than replacing it. The
+            # UI shows both; a reviewer should always be able to see where a
+            # confidence came from.
+            best = store.best_rescore(t["target_id"])
+            t["rescore"] = ({"p": best["p"], "n": best["n"], "model": best["model"],
+                             "imgsz": best["imgsz"], "p_payload": best["p_payload"]}
+                            if best else None)
+            out.append(t)
+        return jsonify(out)
 
 
 @app.route("/api/targets/<int:target_id>/passes")
@@ -325,6 +366,10 @@ def api_review_queue():
             t = dict(t)
             t["media"] = store.media_for_target(t["target_id"])
             t["passes"] = store.get_passes_for_target(t["target_id"])
+            best = store.best_rescore(t["target_id"])
+            t["rescore"] = ({"p": best["p"], "n": best["n"], "model": best["model"],
+                             "imgsz": best["imgsz"], "p_payload": best["p_payload"]}
+                            if best else None)
             out.append(t)
         return jsonify(out)
 
@@ -520,6 +565,15 @@ def main():
                          "the app or use it offline from a phone: a service worker requires "
                          "a secure context, and http://<lan-ip> is not one.")
     ap.add_argument("--cert-dir", default=".certs")
+    ap.add_argument("--rescore-model", default="yolov8m.pt",
+                    help="second-opinion detector run on uploaded crops "
+                         "(default yolov8m.pt; skipped silently if absent)")
+    ap.add_argument("--rescore-imgsz", type=int, default=640,
+                    help="input size for the second opinion; the crop is 160 px, "
+                         "and upscaling moves the target up the recall curve")
+    ap.add_argument("--rescore-batch", type=int, default=8)
+    ap.add_argument("--no-rescore", action="store_true",
+                    help="disable ground-station re-scoring entirely")
     ap.add_argument("--payload", default=None,
                     help="live payload as host or host:port, e.g. 192.168.1.2 "
                          "(port defaults to 8091). Omit to review a recorded database.")
@@ -565,6 +619,33 @@ def main():
                 print(f"  ignoring --origin {args.origin!r}: expected 'lat,lon'")
         LINK.start()
         print(f"  payload link -> http://{LINK.host}")
+
+    # Re-scoring starts in its own thread and loads the model there, so a cold
+    # MPS warmup (several seconds) never delays the console coming up. If the
+    # weights or torch are missing it reports why on /api/rescore and the rest
+    # of the station is unaffected.
+    global RESCORE
+    if not args.no_rescore:
+        def _spin_up():
+            global RESCORE
+            from saresq.rescore import Rescorer, RescoreWorker
+            from saresq.store.media import MediaStore
+            engine = Rescorer(args.rescore_model, imgsz=args.rescore_imgsz)
+            if not engine.available:
+                print(f"  re-scoring off: {engine.why}")
+                RESCORE = RescoreWorker(get_store,
+                                        lambda s: MediaStore(app.config["MEDIA_DIR"], s),
+                                        engine, batch=args.rescore_batch)
+                return
+            worker = RescoreWorker(
+                get_store,
+                lambda s: MediaStore(app.config["MEDIA_DIR"], s),
+                engine, batch=args.rescore_batch)
+            worker.start()
+            RESCORE = worker
+            print(f"  re-scoring crops with {args.rescore_model} "
+                  f"({engine.params/1e6:.1f} M params) at {args.rescore_imgsz} px on {engine.device}")
+        threading.Thread(target=_spin_up, name="rescore-init", daemon=True).start()
 
     ssl_ctx = None
     if args.https:

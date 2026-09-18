@@ -37,7 +37,10 @@ class Store:
         at passes, passes and alerts and verdicts point at targets.
         """
         counts: dict[str, int] = {}
-        for table in ("media", "pass_features", "alerts", "verdicts",
+        # rescores point at media, so they go first or the delete trips the
+        # foreign key and silently leaves the new mission unable to store
+        # evidence -- the exact failure mode that cost an evening already.
+        for table in ("rescores", "media", "pass_features", "alerts", "verdicts",
                       "passes", "frames", "hazards", "targets"):
             try:
                 cur = self.conn.execute(f"DELETE FROM {table}")
@@ -150,6 +153,67 @@ class Store:
             "UPDATE media SET synced_ns = ?, sent_bytes = bytes WHERE media_id = ?", (t_ns, media_id)
         )
         self.conn.commit()
+
+    # ------------------------------------------------------------------
+    # rescores (the ground station's second opinion)
+    # ------------------------------------------------------------------
+    def unscored_crops(self, limit: int = 16) -> list[dict]:
+        """RGB crops that no rescore row references yet, newest first.
+
+        Newest first on purpose: during a live mission the operator is looking
+        at what just came in, so that is what should gain a second opinion
+        first. A backlog from earlier in the flight is still worth scoring, but
+        it is never what someone is waiting on.
+        """
+        rows = self.conn.execute(
+            "SELECT m.* FROM media m "
+            "LEFT JOIN rescores r ON r.media_id = m.media_id "
+            "WHERE m.kind = 'rgb_crop' AND r.media_id IS NULL "
+            "ORDER BY m.media_id DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def insert_rescore(self, **fields) -> int:
+        """Idempotent by construction: UNIQUE(media_id) makes a second attempt
+        a no-op rather than a duplicate, so a restart mid-batch is harmless."""
+        cols = ", ".join(fields)
+        marks = ", ".join("?" for _ in fields)
+        cur = self.conn.execute(
+            f"INSERT OR IGNORE INTO rescores ({cols}) VALUES ({marks})",
+            tuple(fields.values()),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid or 0)
+
+    def rescores_for_target(self, target_id: int) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM rescores WHERE target_id = ? ORDER BY p DESC", (target_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def best_rescore(self, target_id: int) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM rescores WHERE target_id = ? ORDER BY p DESC LIMIT 1",
+            (target_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def rescore_stats(self) -> dict:
+        """Counts and the mean payload-vs-ground delta, for the status badge."""
+        row = self.conn.execute(
+            "SELECT COUNT(*) AS n, AVG(ms) AS ms, AVG(p - p_payload) AS d_mean, "
+            "SUM(CASE WHEN p > p_payload THEN 1 ELSE 0 END) AS n_up "
+            "FROM rescores WHERE p_payload IS NOT NULL"
+        ).fetchone()
+        pend = self.conn.execute(
+            "SELECT COUNT(*) AS n FROM media m "
+            "LEFT JOIN rescores r ON r.media_id = m.media_id "
+            "WHERE m.kind = 'rgb_crop' AND r.media_id IS NULL"
+        ).fetchone()
+        return {"scored": int(row["n"] or 0), "pending": int(pend["n"] or 0),
+                "mean_ms": row["ms"], "delta_mean": row["d_mean"],
+                "n_improved": int(row["n_up"] or 0)}
 
     # ------------------------------------------------------------------
     # alerts (Tier-1 telemetry-radio traffic)

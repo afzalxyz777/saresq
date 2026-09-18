@@ -117,6 +117,15 @@
       + '<span class="machine">machine says <b>' + esc(t.decision || "—") + "</b> · class <b>"
       + esc(t.class || "—") + "</b> · P <b>" + n(t.p_final) + "</b> · " + (t.n_passes || 0) + " pass(es)</span>"
       + '<span class="machine">' + n(t.lat,5) + "°N " + n(t.lon,5) + "°E · CEP <b>" + n(t.pos_err_m,1) + " m</b></span>"
+      // The ground station's second opinion, shown beside the aircraft's number
+      // and never instead of it. An operator must always be able to see which
+      // machine said what, and on what size of input.
+      + (t.rescore
+          ? '<span class="machine">ground re-score <b>' + n(t.rescore.p)
+            + "</b> (" + esc(t.rescore.model) + " @ " + t.rescore.imgsz + " px"
+            + (t.rescore.p_payload != null
+                ? ", aircraft said " + n(t.rescore.p_payload) : "") + ")</span>"
+          : "")
       + '<span class="machine" style="margin-left:auto">operator <input class="op" id="op" value="'
       + esc(operator) + '" placeholder="callsign"></span></div>'
       + (figs ? '<div class="evidence">' + figs + "</div>"

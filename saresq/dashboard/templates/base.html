@@ -20,7 +20,8 @@
   <h1 class="brand"><b>&#9670;</b> SaResQ <span>Ground Station</span></h1>
   <nav class="main">
     {% for href, label in [('/', 'Overview'), ('/feed', 'Feed'), ('/radar', 'Radar'),
-                           ('/map', 'Map'), ('/evidence', 'Evidence'),
+                           ('/map', 'Map'), ('/hazards', 'Hazards'),
+                           ('/evidence', 'Evidence'),
                            ('/review', 'Review'), ('/analytics', 'Analytics')] %}
       <a href="{{ href }}"{% if page == href %} aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}

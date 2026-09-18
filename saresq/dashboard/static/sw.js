@@ -18,8 +18,9 @@
  * literal below is only what a direct read of the file would show. */
 const VERSION = "saresq-v3";
 const SHELL = [
-  "/", "/feed", "/radar", "/map", "/evidence", "/review", "/analytics",
+  "/", "/feed", "/radar", "/map", "/hazards", "/evidence", "/review", "/analytics",
   "/static/console.css",
+  "/static/hazards.js",
   "/static/basemap.js",
   "/static/mapcore.js",
   "/static/mapview.js",

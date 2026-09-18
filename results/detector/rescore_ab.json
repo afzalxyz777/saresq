@@ -1,0 +1,31 @@
+{
+  "n_pos": 150,
+  "n_neg": 150,
+  "conf": 0.25,
+  "arms": {
+    "payload  yolov8n @160": {
+      "detection_rate": 0.02,
+      "false_positive_rate": 0.02,
+      "mean_p_on_person": 0.0454,
+      "params": 3157200
+    },
+    "         yolov8n @640": {
+      "detection_rate": 0.6333,
+      "false_positive_rate": 0.04,
+      "mean_p_on_person": 0.3156,
+      "params": 3157200
+    },
+    "         yolov8m @160": {
+      "detection_rate": 0.1867,
+      "false_positive_rate": 0.0267,
+      "mean_p_on_person": 0.1328,
+      "params": 25902640
+    },
+    "ground   yolov8m @640": {
+      "detection_rate": 0.56,
+      "false_positive_rate": 0.0133,
+      "mean_p_on_person": 0.3237,
+      "params": 25902640
+    }
+  }
+}

@@ -84,3 +84,37 @@ CREATE TABLE IF NOT EXISTS verdicts (
   features_json       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_verdicts_target ON verdicts(target_id);
+
+-- ---------------------------------------------------------------------------
+-- rescores: the ground station's second opinion on an evidence crop.
+--
+-- The payload must fit a 3 MB nano detector into 1 GB and answers in 28 ms on
+-- a 160 px crop. The ground station has no such budget, so once a crop has
+-- been uploaded it is scored again by a far larger model at a far larger input
+-- size. This is the same cascade principle the payload runs internally --
+-- spend the expensive stage only on what the cheap one already nominated --
+-- extended one hop across the radio link.
+--
+-- Like verdicts, a rescore NEVER overwrites the payload's own number. Both are
+-- kept so the two can be compared: that comparison is the measurement of what
+-- the second opinion is worth, and without it "bigger model, better answer" is
+-- an assertion rather than a result.
+--
+-- UNIQUE(media_id) is what makes the worker idempotent. Re-running it, or
+-- restarting the ground station mid-mission, can never double-score a crop or
+-- leave a partial pass behind, because the database refuses the duplicate
+-- rather than the worker having to remember what it has already done.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS rescores (
+  rescore_id INTEGER PRIMARY KEY,
+  media_id   INTEGER NOT NULL UNIQUE REFERENCES media(media_id),
+  target_id  INTEGER REFERENCES targets(target_id),
+  t_ns       INTEGER NOT NULL,
+  p          REAL    NOT NULL,     -- best person confidence in the crop
+  n          INTEGER NOT NULL,     -- person boxes above threshold
+  p_payload  REAL,                 -- what the aircraft said, frozen for comparison
+  model      TEXT    NOT NULL,
+  imgsz      INTEGER NOT NULL,
+  ms         REAL
+);
+CREATE INDEX IF NOT EXISTS idx_rescores_target ON rescores(target_id);
