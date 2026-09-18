@@ -95,6 +95,28 @@
         <span><i style="background:#F3A83C"></i>Medium</span>
         <span><i style="background:#6D838D"></i>Low</span>
       </div>
+      <!-- Every circle on this map means something specific, and until this
+           key existed an operator had no way to tell a position uncertainty
+           from a range locus -- they are drawn in the same colour because
+           that colour tracks the verdict, which made it worse. -->
+      <div class="key" id="ringKey">
+        <span><svg width="15" height="15" aria-hidden="true">
+          <circle cx="7.5" cy="7.5" r="6" fill="#3FCDEC" fill-opacity=".14"
+                  stroke="#3FCDEC" stroke-opacity=".6"/></svg>
+          <span id="keyFix">where the drone is</span></span>
+        <span><svg width="15" height="15" aria-hidden="true">
+          <circle cx="7.5" cy="7.5" r="6" fill="none" stroke="#3FCDEC"
+                  stroke-opacity=".5" stroke-dasharray="3 4"/></svg>
+          how far a contact is</span>
+        <span><svg width="15" height="15" aria-hidden="true">
+          <circle cx="7.5" cy="7.5" r="3" fill="#3FCDEC" fill-opacity=".14"
+                  stroke="#3FCDEC" stroke-opacity=".55" stroke-dasharray="2 2"/>
+          </svg>how sure it is</span>
+      </div>
+      <div class="ps" style="color:var(--muted);line-height:1.45;margin-top:5px">
+        Circles take the <b>colour of the verdict</b>, so they change as the
+        payload changes its mind.
+      </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px dotted var(--rule-soft)">
         <div class="ps" style="color:var(--muted);line-height:1.5;margin-bottom:6px">
           No GPS fix? Shift-click the map, or:

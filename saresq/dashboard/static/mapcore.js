@@ -227,7 +227,7 @@ window.MapCore = (function () {
 
     // ---- interaction ------------------------------------------------------
     var onChange = opts.onChange || function () {};
-    var drag = null;
+    var drag = null, dragEndedAt = 0;
     function zoom(nz, ax, ay) {
       nz = Math.max(minZ, Math.min(maxZ, nz));
       if (ax == null) { ax = vp.w / 2; ay = vp.h / 2; }
@@ -255,12 +255,16 @@ window.MapCore = (function () {
     }
 
     if (opts.interactive !== false) {
-      cv.addEventListener("pointerdown", function (e) {
-        cv.setPointerCapture(e.pointerId);
+      /* PAN. Registered on the overlay too, for the same reason the wheel is:
+         a target pin is pointer-events:auto so it can be clicked, which means
+         a press that lands on one never reaches the canvas and the map will
+         not drag from there. */
+      function onDown(e) {
+        e.currentTarget.setPointerCapture(e.pointerId);
         drag = { x: e.clientX, y: e.clientY, lat: cam.lat, lon: cam.lon, moved: false };
         cv.style.cursor = "grabbing";
-      });
-      cv.addEventListener("pointermove", function (e) {
+      }
+      function onMove(e) {
         if (drag) {
           drag.moved = drag.moved || Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 3;
           cam.lat = latAt(wy(drag.lat, cam.z) - (e.clientY - drag.y), cam.z);
@@ -271,21 +275,63 @@ window.MapCore = (function () {
           var r = cv.getBoundingClientRect();
           opts.onHover(unP(e.clientX - r.left, e.clientY - r.top));
         }
+      }
+      function endDrag() {
+        // Remember that a real drag just finished. `click` fires AFTER
+        // pointerup, by which point `drag` is already null, so a caller
+        // asking dragged() from a click handler would be told "no" and would
+        // select whatever the pan happened to finish on top of.
+        if (drag && drag.moved) dragEndedAt = Date.now();
+        drag = null;
+        cv.style.cursor = "grab";
+      }
+      [cv, ov].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener("pointerdown", onDown);
+        el.addEventListener("pointermove", onMove);
+        el.addEventListener("pointerup", endDrag);
+        el.addEventListener("pointercancel", endDrag);
       });
-      function endDrag() { drag = null; cv.style.cursor = "grab"; }
-      cv.addEventListener("pointerup", endDrag);
-      cv.addEventListener("pointercancel", endDrag);
-      cv.addEventListener("wheel", function (e) {
+      /* WHEEL ZOOM.
+       *
+       * Two things here, both of which made zooming work only SOMETIMES.
+       *
+       * 1. The listener has to sit on the OVERLAY as well as the canvas. The
+       *    SVG is pointer-events:none so events fall through to the canvas --
+       *    except over a target pin, which sets pointer-events:auto so it can
+       *    be clicked. A wheel over a pin therefore bubbles up the SVG and
+       *    never reaches the canvas at all, and the map simply ignores it.
+       *    Pins are small, so this reads as random.
+       *
+       * 2. deltaY is not comparable across devices. A mouse wheel reports
+       *    pixels (~100 per notch); Firefox reports LINES (deltaMode 1, ~3 per
+       *    notch) and some setups report PAGES. Multiplying all three by the
+       *    same constant makes a wheel work and a trackpad do nothing
+       *    perceptible. Normalise to pixels first.
+       */
+      function onWheel(e) {
         e.preventDefault();
         var r = cv.getBoundingClientRect();
-        zoom(cam.z - e.deltaY * 0.0022, e.clientX - r.left, e.clientY - r.top);
-      }, { passive: false });
+        var dy = e.deltaY;
+        if (e.deltaMode === 1) dy *= 16;           // lines  -> px
+        else if (e.deltaMode === 2) dy *= vp.h;    // pages  -> px
+        // A trackpad pinch arrives as a wheel with ctrlKey set, and its deltas
+        // are far smaller than a scroll's. Without this a pinch on a laptop
+        // barely moves the zoom.
+        var k = e.ctrlKey ? 0.012 : 0.0022;
+        // One gesture should never teleport the camera: a momentum flick can
+        // deliver a single event of several hundred pixels.
+        var dz = Math.max(-1.5, Math.min(1.5, -dy * k));
+        zoom(cam.z + dz, e.clientX - r.left, e.clientY - r.top);
+      }
+      cv.addEventListener("wheel", onWheel, { passive: false });
+      if (ov) ov.addEventListener("wheel", onWheel, { passive: false });
 
       // Pinch to zoom. Without this the page is unusable on the phone it is
       // about to be installed on.
       var pts = new Map(), pinch = null;
-      cv.addEventListener("pointerdown", function (e) { pts.set(e.pointerId, e); });
-      cv.addEventListener("pointermove", function (e) {
+      function pinchDown(e) { pts.set(e.pointerId, e); }
+      function pinchMove(e) {
         if (!pts.has(e.pointerId)) return;
         pts.set(e.pointerId, e);
         if (pts.size !== 2) return;
@@ -297,10 +343,18 @@ window.MapCore = (function () {
         var my = (it[0].clientY + it[1].clientY) / 2 - r.top;
         if (pinch) zoom(cam.z + Math.log2(Math.max(d, 1) / Math.max(pinch, 1)), mx, my);
         pinch = d;
-      });
+      }
       function drop(e) { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; }
-      cv.addEventListener("pointerup", drop);
-      cv.addEventListener("pointercancel", drop);
+      // Overlay too, or a pinch that starts with a finger on a pin is lost --
+      // and on a phone, where the pins are the thing you are reaching for,
+      // that is most of them.
+      [cv, ov].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener("pointerdown", pinchDown);
+        el.addEventListener("pointermove", pinchMove);
+        el.addEventListener("pointerup", drop);
+        el.addEventListener("pointercancel", drop);
+      });
     }
 
     var view = {
@@ -308,7 +362,12 @@ window.MapCore = (function () {
       P: P, unP: unP, mpp: mpp, size: size, drawBase: drawBase,
       tileInfo: function () { return lastTiles; },
       zoom: zoom, panTo: panTo, fitBounds: fitBounds,
-      dragged: function () { return !!(drag && drag.moved); }
+      // True during a drag that has actually moved, and for a moment after it
+      // ends -- see endDrag. Callers use this to tell a click from the end of
+      // a pan.
+      dragged: function () {
+        return !!(drag && drag.moved) || (Date.now() - dragEndedAt) < 250;
+      }
     };
     size();
     if (window.ResizeObserver) {

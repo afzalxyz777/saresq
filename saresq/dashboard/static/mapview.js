@@ -181,9 +181,12 @@
       // something to click and read, but the circle is what carries the claim.
       if (brgGuess) {
         var lr = (c.range_m || 0) / view.mpp();
+        // Faint and thin on purpose. Every contact shares the aircraft as its
+        // centre, so four contacts draw four concentric rings; at full weight
+        // that reads as a bullseye graphic rather than as four measurements.
         if (lr > 3) g.appendChild(sve("circle", { cx: a[0], cy: a[1], r: lr,
-          fill: "none", stroke: col, "stroke-opacity": .30,
-          "stroke-width": 1.1, "stroke-dasharray": "5 6" }));
+          fill: "none", stroke: col, "stroke-opacity": .16,
+          "stroke-width": 1, "stroke-dasharray": "4 7" }));
       }
 
       // range spoke
@@ -263,17 +266,21 @@
      view's -- the radar scope has its own. These listeners run after
      mapcore's, so drag.moved is already set by the time dragged() is read. */
   (function () {
-    var cvEl = document.getElementById("cv");
-    if (!cvEl) return;
     function release() {
       if (!S.follow) return;
       S.follow = false;
       syncFollowBtn();
     }
-    cvEl.addEventListener("pointermove", function () {
-      if (view.dragged()) release();
+    // Both surfaces, matching mapcore: a gesture over a target pin is handled
+    // by the overlay, and if only the canvas were listened to here, zooming
+    // over a pin would work while following kept yanking the camera back.
+    [document.getElementById("cv"), ov].forEach(function (el) {
+      if (!el) return;
+      el.addEventListener("pointermove", function () {
+        if (view.dragged()) release();
+      });
+      el.addEventListener("wheel", release, { passive: true });
     });
-    cvEl.addEventListener("wheel", release, { passive: true });
   })();
 
   function syncFollowBtn() {
@@ -648,6 +655,19 @@
   }
 
   function livePanel(L) {
+    // Put the real number on the key. "where the drone is" is a shape; "where
+    // the drone is +/- 25 m" is why that shape swallows the screen on a bench,
+    // and answers the question before it is asked.
+    var kf = document.getElementById("keyFix");
+    if (kf) {
+      var ke = !L || !L.configured ? null
+             : (L.lat != null ? Math.max(2.5, (L.hdop || 1) * 2.5)
+             : (L.origin ? (L.origin.source === "browser"
+                             ? Math.max(15, L.origin.accuracy_m || 40) : 25)
+                         : null));
+      kf.textContent = ke == null ? "where the drone is"
+                                  : "where the drone is \u00b1" + Math.round(ke) + " m";
+    }
     var box = document.getElementById("livebox");
     if (!box) return;
     if (!L || !L.configured) {
