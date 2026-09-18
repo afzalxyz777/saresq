@@ -286,6 +286,11 @@
   function syncFollowBtn() {
     if (!fitBtn) return;
     fitBtn.setAttribute("aria-pressed", String(!!S.follow));
+    // The label states the MODE, not the action, because the map moving on
+    // its own is the surprising part -- an operator needs to see that it is
+    // deliberate and that dragging takes it back.
+    fitBtn.innerHTML = S.follow ? "\u25ce Following payload"
+                                : "\u25ce Centre on payload";
     fitBtn.title = S.follow
       ? "Following the payload \u2014 drag the map to take over"
       : "Recentre on the payload and follow it";

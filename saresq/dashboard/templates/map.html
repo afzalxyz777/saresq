@@ -151,17 +151,15 @@
   <div class="mc-tr">
     <button class="zb" id="zin" aria-label="Zoom in">+</button>
     <button class="zb" id="zout" aria-label="Zoom out">&minus;</button>
-    <!-- Frames the aircraft and whatever the gate is looking at right now.
-         Disabled when there is nothing to frame, rather than silently doing
-         nothing. -->
-    <button class="zb" id="fitBtn" title="Following the payload"
-            aria-label="Centre on the payload and follow it"
-            aria-pressed="true" disabled>&#9678;</button>
   </div>
 
   <div class="mc mc-live">
     <div class="mc-hd"><span class="lbl">Live payload</span><span class="ps" id="baseStat">&mdash;</span></div>
     <div class="mc-bd" id="livebox"><div class="ps">connecting&hellip;</div></div>
+    <div class="mc-bd" style="padding-top:0">
+      <button class="tg" id="fitBtn" style="width:100%" aria-pressed="true"
+              disabled>&#9678; Centre on payload</button>
+    </div>
   </div>
 
   <div class="mc mc-bl">
