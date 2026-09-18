@@ -399,7 +399,7 @@ refresh; Section&nbsp;VI-M measures what survives.</p>
 
 <p class="first">The mechanical design is reported here because two of its parameters appear directly in
 the measurements that follow, and because the airframe constrains the perception problem more than is
-usually acknowledged. The structure is three printed parts, shown in plan in Fig.&nbsp;2: a tray, a sensor-mount fit check and a
+usually acknowledged. The structure is three printed parts, rendered from CAD in Fig.&nbsp;2: a tray, a sensor-mount fit check and a
 GNSS mast, generated from a single parametric script instead of drawn, so that every dimension has a derivation and
 a change propagates.</p>
 
@@ -443,8 +443,21 @@ free-floating sticks; the vent length is now derived from the notch position ins
 pocket by 0.45&ndash;0.60&nbsp;mm, leaving a board seated over a notch with no shoulder inboard of its bolt. None of these produced an invalid mesh, which is
 precisely why a geometric audit is not redundant with a mesh check.</p>
 
-<figure>
-<svg viewBox="0 0 560 268" width="100%" xmlns="http://www.w3.org/2000/svg"
+<div class="wide">
+<figure style="margin:7pt 0 4pt">
+  <div style="display:flex; gap:10pt; align-items:flex-start; justify-content:center; flex-wrap:wrap">
+    <div style="flex:1 1 205pt; max-width:225pt; text-align:center">
+      <img src="fig/payload_3d_assembled.png" alt="Assembled 3D render of the printed tray with all boards fitted"
+           style="width:100%; max-width:225pt; display:block; margin:0 auto; border:0.6pt solid #000">
+      <div style="font-size:7.6pt; margin-top:2pt; color:#333">(a) assembled</div>
+    </div>
+    <div style="flex:1 1 205pt; max-width:225pt; text-align:center">
+      <img src="fig/payload_3d_exploded.png" alt="Exploded 3D render lifting the stack off the tray to show the vent slots and standoffs"
+           style="width:100%; max-width:225pt; display:block; margin:0 auto; border:0.6pt solid #000">
+      <div style="font-size:7.6pt; margin-top:2pt; color:#333">(b) exploded 55&nbsp;mm</div>
+    </div>
+    <div style="flex:1 1 250pt; max-width:270pt; text-align:center">
+      <svg viewBox="0 0 560 268" width="100%" style="max-width:270pt" xmlns="http://www.w3.org/2000/svg"
      font-family="Times New Roman, serif" font-size="8.2">
   <defs>
     <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -549,15 +562,23 @@ precisely why a geometric audit is not redundant with a mesh check.</p>
   <text x="471" y="204" text-anchor="middle" font-size="6.4">5 V, USB-A to USB-C</text>
   <path d="M 471 182 V 150" stroke="#000" fill="none" marker-end="url(#a3)"/>
 </svg>
-<figcaption><b>Fig. 2.</b>&nbsp;&nbsp;Physical integration. (a) The 145&nbsp;&times;&nbsp;135&nbsp;mm printed
-tray in plan, sensors forward. Both sensors are located by pockets cut to their PCB outlines rather than by
-their mounting holes, at an optical baseline <i class="v">b</i>&nbsp;=&nbsp;28&nbsp;mm; the vent slots under
-the Pi are 56&nbsp;mm, a length derived from the microSD notch position rather than chosen. The GNSS patch
-antenna stands off the plate on a 51&nbsp;mm mast, away from the SoC. (b) The interconnect. The thermal
-array and the IMU share one 400&nbsp;kHz I<sup>2</sup>C bus at distinct addresses, the GNSS receiver has the
-hardware UART to itself, and the visible camera is on CSI-2, so no two sensors contend for a
-bus.</figcaption>
+      <div style="font-size:7.6pt; margin-top:2pt; color:#333">(c) interconnect</div>
+    </div>
+  </div>
+  <figcaption style="padding:0 6mm">
+    <b>Fig. 2.</b>&nbsp;&nbsp;Physical integration, rendered from the same parametric CAD the parts are cut
+    from &mdash; not a photograph, but real geometry: the pocket depths, the vent slots, the aperture
+    diameters and the 28&nbsp;mm optical baseline are the values in Section&nbsp;III-B, not an illustration
+    of them. (a) Assembled: the 145&nbsp;&times;&nbsp;135&nbsp;mm tray with the Raspberry&nbsp;Pi (green), the
+    breadboard-and-power-bank stack (amber) and the CSI header visible at the top edge. (b) The same
+    assembly exploded 55&nbsp;mm off the tray, exposing the vent slots and standoff posts underneath the
+    stack &mdash; the geometry that the fit-check coupon of Section&nbsp;III-B exists to verify before the
+    145&nbsp;mm plate is committed to a multi-hour print. (c) The interconnect: the thermal array and the
+    IMU share one 400&nbsp;kHz I<sup>2</sup>C bus at distinct addresses, the GNSS receiver has the hardware
+    UART to itself, and the visible camera is on CSI-2, so no two sensors contend for a bus.
+  </figcaption>
 </figure>
+</div>
 
 <h3>C. What 32&times;24 pixels buys</h3>
 <p class="first">The design follows from a single arithmetic fact. For a sensor of horizontal field of view
