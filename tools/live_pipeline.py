@@ -572,6 +572,16 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 """
 
 
+#: MLX90640 subpage masks: the sensor interleaves its two read halves as a
+#: chessboard, so (row + col) parity selects one or the other.
+_yy, _xx = np.mgrid[0:24, 0:32]
+_SUB_A = ((_yy + _xx) % 2 == 0)
+_SUB_B = ~_SUB_A
+#: Largest subpage mean difference a genuine frame shows. Measured at 0.130 K
+#: on this payload; anything far above it is a torn read, not a scene.
+_SUBPAGE_MAX_K = 0.60
+
+
 class Thermal(threading.Thread):
     daemon = True
 
@@ -581,6 +591,7 @@ class Thermal(threading.Thread):
         self.frame: np.ndarray | None = None
         self.fps = 0.0
         self.hz = hz
+        self.torn = 0
         self.mode = mode
 
     def run(self) -> None:
@@ -602,6 +613,25 @@ class Thermal(threading.Thread):
                 continue
             a = np.array(buf, dtype=np.float32).reshape(24, 32)
             if not np.isfinite(a).all():
+                continue
+
+            # REJECT TORN FRAMES.
+            # The MLX90640 reads its 768 pixels as two interleaved subpages in
+            # a chessboard. When a read straddles a refresh the two halves come
+            # from different moments and the frame arrives as a chessboard --
+            # which is not merely ugly. It desynchronises neighbouring pixels,
+            # so the gate's robust-z sees contrast that is not in the room: the
+            # blob count was observed swinging between 1 and 15 on a still
+            # scene, and every one of those is a crop the detector then spends
+            # 28 ms on.
+            #
+            # The two subpages sample the SAME scene, so for any real frame
+            # their means agree closely -- measured at 0.130 K on this payload.
+            # A large gap is therefore definitionally an artefact, not a view,
+            # and the frame is dropped rather than propagated.
+            sub = float(abs(a[_SUB_A].mean() - a[_SUB_B].mean()))
+            if sub > _SUBPAGE_MAX_K:
+                self.torn += 1
                 continue
             now = time.time()
             dt = now - last
@@ -896,6 +926,14 @@ def gate_stats(thermal: np.ndarray, cfg: dict) -> dict:
             "n_blobs": len(blobs), "blobs": blobs[:6]}
 
 
+#: Smoothed display scale per frame shape, so the thermal palette does not
+#: shift with sensor noise between frames. Display state only -- nothing the
+#: gate, the detector or /stats reports is derived from it.
+_SCALE: dict = {}
+_SCALE_ALPHA = 0.15          # how fast the scale follows a real scene change
+_SCALE_DEADBAND_K = 0.35     # jitter below this is ignored entirely
+
+
 def colorize(thermal: np.ndarray, size=(512, 384), span_min: float = 6.0
              ) -> np.ndarray:
     """Render the 32x24 array for the screen.
@@ -921,6 +959,25 @@ def colorize(thermal: np.ndarray, size=(512, 384), span_min: float = 6.0
         # it; centring the span instead washes an empty room out to mid-orange
         # and leaves a person nowhere brighter to go.
         hi = lo + span_min
+
+    # HOLD THE SCALE STEADY BETWEEN FRAMES.
+    # Recomputing lo from this frame's 1st percentile makes the whole palette
+    # shift by the sensor's own noise every 250 ms, so a still room appears to
+    # boil -- the picture changes while the scene does not, which reads as a
+    # broken feed and, worse, makes an operator distrust a panel that is
+    # working. An exponential average with a deadband fixes it: small jitter is
+    # ignored, a real change in the scene still moves the scale within about a
+    # second. Display only; the gate never sees this.
+    key = disp.shape
+    prev = _SCALE.get(key)
+    if prev is not None:
+        plo, phi = prev
+        if abs(plo - lo) < _SCALE_DEADBAND_K and abs(phi - hi) < _SCALE_DEADBAND_K:
+            lo, hi = plo, phi                      # inside the deadband: hold
+        else:
+            a = _SCALE_ALPHA
+            lo, hi = (1 - a) * plo + a * lo, (1 - a) * phi + a * hi
+    _SCALE[key] = (lo, hi)
     norm = np.clip((disp - lo) / max(hi - lo, 1e-6), 0, 1)
     # Lanczos rather than cubic: a 20x upscale from 32x24 is an extreme ratio,
     # and the wider sinc kernel holds edges that cubic rounds off. This is a
@@ -1032,14 +1089,21 @@ class App:
         # new failure modes on the morning it matters.
         self.drizzle = None
         self.drizzle_stats = {"on": False}
+        # These two are defined ALWAYS, not only when the feature is enabled.
+        # Guarding the attributes behind the flag instead cost a live thermal
+        # feed: _frame_thermal reads drizzle_field on every request, so with
+        # --drizzle off the attribute did not exist and every frame raised
+        # AttributeError -- the panel went black while /stats kept reporting
+        # perfectly good temperatures, because the data path was never at
+        # fault. An optional feature must not change the shape of the object.
+        self.drizzle_ref: np.ndarray | None = None
+        self.drizzle_field: np.ndarray | None = None
         if getattr(args, "drizzle", 0):
             try:
                 from saresq.thermal.drizzle import Drizzle
                 self.drizzle = Drizzle((24, 32), scale=int(args.drizzle),
                                        pixfrac=args.drizzle_pixfrac,
                                        max_frames=args.drizzle_frames)
-                self.drizzle_ref: np.ndarray | None = None
-                self.drizzle_field: np.ndarray | None = None
                 self.drizzle_stats = {"on": True, "scale": int(args.drizzle)}
             except Exception as exc:                      # never fatal
                 self.drizzle_stats = {"on": False, "why": str(exc)}
@@ -1343,7 +1407,51 @@ def _frame_thermal(app: App):
         field = app.drizzle_field
     if field is not None:
         return colorize(field.astype(np.float32))
-    return colorize(t)
+
+    # TEMPORAL AVERAGE FOR THE VIEW.
+    # In a near-uniform scene -- a room, an aircon'd office -- the whole frame
+    # spans only a few kelvin while the sensor's own pixel-to-pixel spread is
+    # ~0.65 K. Measured on this payload: total scene range 3.8 K against a
+    # within-frame standard deviation of 0.67 K. That noise is a fifth of the
+    # picture, so the palette renders it as a shimmering chessboard and the
+    # feed looks broken even though every number is correct.
+    #
+    # Averaging a handful of frames cuts it by roughly sqrt(n). alpha 0.25 is
+    # about four frames, so ~2x less noise at 0.75 s of lag -- invisible for a
+    # casualty, who is not moving, and the reason this is display-only: the
+    # gate keeps reading the raw frame, where independent samples are what the
+    # robust-z test needs.
+    prev = getattr(app, "_disp_ema", None)
+    ema = t if prev is None or prev.shape != t.shape else 0.75 * prev + 0.25 * t
+    app._disp_ema = ema
+
+    # SCENE-BASED NON-UNIFORMITY CORRECTION, display only.
+    # Temporal averaging above removes RANDOM noise. What survives it is FIXED
+    # pattern noise: each thermopile carries its own small calibration offset,
+    # identical every frame, so it cannot average out. On a scene with real
+    # contrast it is invisible; on a near-uniform room it IS the picture, and
+    # it is what makes the feed look like a broken chessboard.
+    #
+    # The standard remedy in uncooled thermal imaging is a scene-based NUC:
+    # learn each pixel's offset from a long run of frames and subtract it. Two
+    # safeguards matter here. The map is learned ONLY while the gate is quiet,
+    # so a warm body present in frame is never absorbed into the correction --
+    # that is the failure that would hide the very thing we are looking for.
+    # And it is applied ONLY to the view; the gate, the crops and every number
+    # on /stats come from the raw array.
+    nuc = getattr(app, "_nuc", None)
+    quiet = not app.gate.get("fired")
+    if quiet:
+        # ~200 frames at 4 Hz, so about a minute to settle and slow enough that
+        # a person walking through never shifts it.
+        nuc = t.copy() if nuc is None or nuc.shape != t.shape else 0.995 * nuc + 0.005 * t
+        app._nuc = nuc
+    if nuc is not None and getattr(app, "_nuc_frames", 0) > 40:
+        view = ema - (nuc - float(nuc.mean()))
+    else:
+        view = ema
+    app._nuc_frames = getattr(app, "_nuc_frames", 0) + (1 if quiet else 0)
+    return colorize(view.astype(np.float32))
 
 
 def _frame_rgb(app: App):
@@ -1473,7 +1581,11 @@ def make_handler(app: App):
                                           list(app.crop_meta), app.seq)
                     hz = dict(app.hazard)
                 t = ({"min": float(th.min()), "max": float(th.max()),
-                      "spread": float(th.max() - th.min()), "fps": fps}
+                      "spread": float(th.max() - th.min()), "fps": fps,
+                      # Torn reads dropped since boot. A climbing number here
+                      # is an I2C or timing fault, and it should be visible
+                      # rather than hidden behind a smooth-looking picture.
+                      "torn": app.thermal.torn}
                      if th is not None else {})
                 try:
                     temp = subprocess.run(["vcgencmd", "measure_temp"],
