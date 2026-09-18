@@ -2,14 +2,71 @@
 {% block title %}Overview{% endblock %}
 {% block head %}
 <style>
-  .hero { display:flex; gap:22px; align-items:center; flex-wrap:wrap;
-          padding:26px 0 22px; border-bottom:1px solid var(--rule-soft); }
-  .hero img { width:88px; height:88px; flex:none; }
-  .hero h1 { margin:0; font:700 40px/1 system-ui,-apple-system,sans-serif; letter-spacing:-.025em;
-             color:var(--ink); }
-  .hero .tag { color:var(--ink-2); font:15px/1.5 system-ui,sans-serif; margin-top:7px; max-width:62ch; }
-  .hero .sub { color:var(--muted); font:11px/1.4 var(--mono); letter-spacing:.09em;
-               text-transform:uppercase; margin-top:9px; }
+  /* ---------- hero ----------
+     Full-bleed, so it is the weather and not a picture pasted into a report.
+     The scrim is two layers doing different jobs: a bottom-up black ramp that
+     the text sits on and is legible over regardless of what the photograph is
+     doing behind it, and a cold slate wash that pulls the whole frame into the
+     console's palette so the page does not look like two designs stapled
+     together. */
+  .hero { position:relative; margin:0 0 6px; min-height:clamp(330px,52vh,470px);
+          display:flex; align-items:flex-end; overflow:hidden;
+          border-bottom:1px solid var(--rule); background:#070B0E; }
+  .hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+              object-position:50% 58%; }
+  .hero-scrim { position:absolute; inset:0;
+                background:
+                  linear-gradient(to top, rgba(5,9,12,.97) 0%, rgba(5,9,12,.80) 26%,
+                                          rgba(5,9,12,.34) 56%, rgba(5,9,12,.10) 100%),
+                  linear-gradient(105deg, rgba(8,16,22,.80) 0%, rgba(8,16,22,.12) 58%,
+                                          rgba(8,16,22,0) 100%); }
+  /* A hairline of sodium along the bottom edge, picked straight out of the
+     street lamps in the photograph. It is the one piece of pure decoration on
+     this page and it earns its place by tying the image to the console rule
+     below it. */
+  .hero::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
+                 background:linear-gradient(90deg, var(--ember), var(--sodium) 34%,
+                                            rgba(240,183,92,0) 78%); }
+  .hero-in { position:relative; width:100%; max-width:1440px; margin:0 auto;
+             padding:34px 16px 24px; }
+  .hero .eyebrow { display:flex; align-items:center; gap:9px; margin-bottom:13px;
+                   font:700 10px/1 var(--mono); letter-spacing:.20em; text-transform:uppercase;
+                   color:var(--sodium); }
+  .hero .eyebrow::before { content:""; width:22px; height:2px; background:var(--sodium); }
+  .hero h1 { margin:0; font:700 clamp(38px,6.4vw,62px)/.98 system-ui,-apple-system,sans-serif;
+             letter-spacing:-.035em; color:#fff; text-wrap:balance;
+             text-shadow:0 2px 26px rgba(0,0,0,.72); }
+  .hero .tag { color:#D2DFE6; font:16px/1.62 system-ui,sans-serif; margin-top:13px;
+               max-width:56ch; text-shadow:0 1px 14px rgba(0,0,0,.8); }
+  .hero .tag b { color:#fff; font-weight:600; }
+  .hero .sub { color:var(--horizon); font:10.5px/1.5 var(--mono); letter-spacing:.11em;
+               text-transform:uppercase; margin-top:15px; }
+  .hero .cta { display:flex; gap:9px; flex-wrap:wrap; margin-top:19px; }
+  .hero .cta a { text-decoration:none; padding:10px 17px; border-radius:3px;
+                 font:600 12px/1 system-ui,sans-serif; letter-spacing:.07em;
+                 text-transform:uppercase; border:1px solid rgba(222,232,237,.30);
+                 color:#E7EFF3; background:rgba(8,16,22,.55); backdrop-filter:blur(3px); }
+  .hero .cta a:hover { border-color:var(--sodium); color:#fff; }
+  .hero .cta a.primary { background:var(--sodium); border-color:var(--sodium); color:#0A0F13; }
+  .hero .cta a.primary:hover { background:#fff; border-color:#fff; }
+  /* The photograph is an ILLUSTRATION. This console spends its whole existence
+     refusing to let an assumption look like a measurement, and a dramatic
+     image on the front page is exactly the kind of thing that quietly reads as
+     "footage from a deployment". It says what it is, on the image, always. */
+  .hero .credit { position:absolute; right:16px; bottom:11px; z-index:2;
+                  font:9.5px/1.4 var(--mono); letter-spacing:.07em; text-transform:uppercase;
+                  color:rgba(217,190,147,.62); text-align:right; }
+  /* A live strip under the hero: the conditions this thing is built for, and
+     whether it is actually up. */
+  .cond { display:grid; grid-template-columns:repeat(auto-fit,minmax(186px,1fr)); gap:1px;
+          background:var(--rule); border-bottom:1px solid var(--rule); }
+  .cond div { background:var(--panel); padding:13px 16px; }
+  .cond .k { font:600 9.5px/1 var(--mono); letter-spacing:.13em; text-transform:uppercase;
+             color:var(--muted); }
+  .cond .v { font:500 15px/1.3 var(--mono); color:var(--ink); margin-top:6px;
+             font-variant-numeric:tabular-nums; }
+  .cond .v small { font-size:11.5px; color:var(--muted); letter-spacing:.04em; }
+  @media (max-width:620px) { .hero-in { padding:26px 16px 20px; } }
   .lead { font:15.5px/1.75 system-ui,sans-serif; color:var(--ink-2); max-width:72ch; }
   .lead b { color:var(--ink); font-weight:600; }
   .steps { display:grid; gap:11px; margin:0; padding:0; list-style:none; }
@@ -55,18 +112,42 @@
 {% endblock %}
 
 {% block body %}
-<div class="wrap">
 
-  <div class="hero">
-    <img src="/static/logo.svg" alt="SaResQ">
-    <div style="min-width:0">
-      <h1>SaResQ</h1>
-      <div class="tag">A thermal + visible camera payload that finds people from a small
-        drone, decides on the aircraft whether what it sees is a person, and sends the
-        answer to the ground over a low-bandwidth radio link.</div>
-      <div class="sub">Raspberry Pi 4 &middot; MLX90640 &middot; Pi Camera v2 &middot; <span id="heroLink">checking payload&hellip;</span></div>
+<!-- Outside .wrap so it runs edge to edge. A disaster-response console should
+     open on the conditions it exists for, not on a logo in a margin. -->
+<section class="hero">
+  <img class="hero-img" src="/static/img/storm-surge.jpg" alt="">
+  <div class="hero-scrim"></div>
+  <div class="hero-in">
+    <div class="eyebrow">Search &amp; rescue payload</div>
+    <h1>Find people<br>in the dark.</h1>
+    <div class="tag">A thermal and visible camera payload that searches from a small
+      drone, decides <b>on the aircraft</b> whether what it is looking at is a living
+      person, and sends the answer to the ground over a low-bandwidth radio link.</div>
+    <div class="sub">Raspberry&nbsp;Pi&nbsp;4 &middot; MLX90640 &middot; Pi&nbsp;Camera&nbsp;v2 &middot;
+      <span id="heroLink">checking payload&hellip;</span></div>
+    <div class="cta">
+      <a class="primary" href="/feed">Open live feed</a>
+      <a href="/map">Map</a>
+      <a href="/hazards">Hazards</a>
+      <a href="/review">Review queue</a>
     </div>
   </div>
+  <div class="credit">Illustration &middot; not operational imagery</div>
+</section>
+
+<!-- The conditions this payload is built for, stated as numbers rather than as
+     adjectives. Filled from /api/live, and each says plainly when it has no
+     measurement rather than showing a comfortable zero. -->
+<div class="cond" id="cond">
+  <div><div class="k">Payload link</div><div class="v" id="cLink">&mdash;</div></div>
+  <div><div class="k">Scene</div><div class="v" id="cScene">&mdash;</div></div>
+  <div><div class="k">Thermal field</div><div class="v" id="cTherm">&mdash;</div></div>
+  <div><div class="k">Strongest signature</div><div class="v" id="cZ">&mdash;</div></div>
+  <div><div class="k">Assessment</div><div class="v" id="cVerdict">&mdash;</div></div>
+</div>
+
+<div class="wrap">
 
   <h2 class="sec">The problem, and the idea</h2>
   <section class="panel pb">
@@ -362,8 +443,57 @@
       } else {
         el.innerHTML = "<span style='color:#6D838D'>&#9679; payload offline</span> \u00b7 " + L.host;
       }
-    }).catch(function () {});
+      conditions(L);
+    }).catch(function () { conditions(null); });
   }
+
+  /* The strip under the hero. Every cell either carries a measurement or says
+     it has none -- an em dash and a reason, never a comfortable zero. A front
+     page that reads "0.0 degC / 0 sigma / CLEAR" while the payload is off is
+     asserting that the area is empty, which is the single thing this console
+     must never do. */
+  function set(id, html) {
+    var e = document.getElementById(id);
+    if (e) e.innerHTML = html;
+  }
+  function dim(t) { return "<small style='color:var(--muted)'>" + t + "</small>"; }
+  function conditions(L) {
+    if (!L || !L.configured) {
+      set("cLink", dim("not configured"));
+      ["cScene", "cTherm", "cZ", "cVerdict"].forEach(function (i) { set(i, dim("no payload")); });
+      return;
+    }
+    if (!L.connected) {
+      set("cLink", "<span style='color:var(--muted)'>&#9679;</span> " + dim("offline"));
+      ["cScene", "cTherm", "cZ", "cVerdict"].forEach(function (i) { set(i, dim("link down")); });
+      return;
+    }
+    set("cLink", "<span style='color:var(--neutral)'>&#9679;</span> live "
+      + dim(L.host || ""));
+    set("cScene", L.scene
+      ? (L.scene === "normal"
+          ? "<span style='color:var(--neutral)'>no hazard</span>"
+          : "<span style='color:var(--unknown)'>" + L.scene.replace(/_/g, " ") + "</span>")
+        + " " + dim(Math.round((L.scene_p || 0) * 100) + "%")
+      : dim("not classified"));
+    set("cTherm", L.t_min == null ? dim("no frames")
+      : L.t_min.toFixed(1) + "&ndash;" + L.t_max.toFixed(1) + "&deg;C "
+        + dim("spread " + (L.t_spread == null ? "?" : L.t_spread.toFixed(1))));
+    set("cZ", L.z_max == null ? dim("no frames")
+      : "<span style='color:" + (L.fired ? "var(--unknown)" : "var(--ink)") + "'>+"
+        + L.z_max.toFixed(1) + "\u03c3</span> " + dim("of " + (L.z_t || 2.5)));
+    // Same seven states as the feed and the map. One vocabulary everywhere.
+    var V = { LIVE_PERSON: ["LIVE PERSON", "var(--hostile)"],
+              LIVE_BODY:   ["LIVE BODY",   "var(--hostile)"],
+              PERSON:      ["PERSON",      "var(--hostile)"],
+              BODY_HEAT:   ["BODY HEAT",   "var(--unknown)"],
+              VISUAL_ONLY: ["VISUAL ONLY", "var(--unknown)"],
+              HEAT:        ["HEAT SOURCE", "var(--unknown)"],
+              CLEAR:       ["CLEAR",       "var(--neutral)"] };
+    var v = V[L.verdict] || V.CLEAR;
+    set("cVerdict", "<span style='color:" + v[1] + "'>" + v[0] + "</span>");
+  }
+
   tick(); setInterval(tick, 3000);
 })();
 </script>

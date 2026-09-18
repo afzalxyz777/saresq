@@ -27,6 +27,11 @@ const SHELL = [
   "/static/tiles.js",
   "/static/feed.js",
   "/static/logo.svg",
+  // The overview hero. 238 KB, and the one asset here that is purely
+  // presentational -- but "/" is already in this list, and a front page that
+  // renders as a black rectangle in the tent it was installed for looks
+  // broken rather than looks plain.
+  "/static/img/storm-surge.jpg",
   "/static/radar.js",
   "/static/manifest.webmanifest",
   "/static/icons/icon-192.png",

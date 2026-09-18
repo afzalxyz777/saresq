@@ -1,11 +1,27 @@
 /* SaResQ ground-station console.
    Palette matches the published Recovery Console artifact so a pitch video can
    cut between the two without a visual seam. No webfonts, no CDN: this has to
-   render in a field tent with no internet (Section 13.3). */
+   render in a field tent with no internet (Section 13.3).
+
+   THE NEUTRALS ARE THE STORM, THE ACCENTS ARE THE LIGHTS.
+   Drawn from the surge photograph on the overview page: a cold blue-grey
+   charcoal for everything structural, and warm sodium for everything that
+   wants attention -- which is how that scene is lit, and how a flooded city at
+   night actually looks.
+
+   What did NOT move: friend / unknown / neutral / hostile / own. Those are
+   track colours with operational meaning, not decoration, and an operator who
+   has learned that amber means unverified must not find it repainted because a
+   page looked better. They needed no adjustment anyway -- the photograph's
+   sodium lamps land on the existing amber and its tail-lights on the existing
+   red, which is why this palette fits the console instead of fighting it. */
 :root {
-  --ground:#04080B; --panel:#091015; --panel-2:#0D161D; --panel-3:#111D25; --sunken:#060C10;
-  --rule:#1A2A34; --rule-soft:#132029; --ink:#DCE7EC; --ink-2:#A6B9C2; --muted:#6D838D;
+  --ground:#05090C; --panel:#0A1115; --panel-2:#0E171D; --panel-3:#132029; --sunken:#070C10;
+  --rule:#1C2D38; --rule-soft:#14222B; --ink:#DEE8ED; --ink-2:#A7BAC3; --muted:#71878F;
   --friend:#3FCDEC; --unknown:#F3A83C; --neutral:#4FC489; --hostile:#F46454; --own:#A98BFF;
+  /* Hero-only, and deliberately not part of the semantic set above: the warm
+     end of the photograph, for the one page that carries it. */
+  --sodium:#F0B75C; --ember:#E0894C; --horizon:#D9BE93;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --lift:0 1px 1px rgba(0,0,0,.5), 0 14px 34px -22px rgba(0,0,0,.9);
 }
