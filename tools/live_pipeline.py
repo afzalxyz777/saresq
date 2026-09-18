@@ -480,13 +480,26 @@ async function poll(){
        radiator is not a find. Both are shown so the two stages stay legible
        as two stages. */
     const n = d.n || 0, ver = document.getElementById('verdict');
-    ver.className = n ? 'found' : (g.fired ? 'heat' : '');
+    const moved = !!((s.motion || {}).moved), blind = !!d.rgb_blind;
+    /* A count is the CAMERA's to give -- thermal cannot resolve individuals,
+       so two people together are one warm region. But when that region MOVES
+       and the camera is blind (night, smoke, an unlit room: what this payload
+       is for), "HEAT SOURCE / no person confirmed" reports a MISSING
+       measurement as a negative one, and is the exact wording that made a
+       working system look broken over two sleeping people. Say what is known:
+       likely life, in unknown number. */
+    const survivors = !n && g.fired && moved && blind;
+    ver.className = (n || survivors) ? 'found' : (g.fired ? 'heat' : '');
     document.getElementById('v-main').textContent =
-      n ? `${n} PERSON${n > 1 ? 'S' : ''}` : (g.fired ? 'HEAT SOURCE' : 'CLEAR');
+      n ? `${n} PERSON${n > 1 ? 'S' : ''}`
+        : survivors ? 'LIKELY SURVIVORS'
+        : (g.fired ? (moved ? 'MOVING BODY HEAT' : 'HEAT SOURCE') : 'CLEAR');
     document.getElementById('v-sub').textContent =
       n ? `detector confirmed · ${f(d.ms,0)} ms`
-        : (g.fired ? `gate fired at +${f(g.z_max,1)}σ · no person confirmed`
-                   : `peak +${f(g.z_max,1)}σ of ${f(g.z_t,1)} needed`);
+        : survivors ? `body heat MOVED at +${f(g.z_max,1)}σ · camera blind, count unknown`
+        : g.fired ? (blind ? `gate fired at +${f(g.z_max,1)}σ · camera blind (too dark)`
+                           : `gate fired at +${f(g.z_max,1)}σ · camera saw no person`)
+                  : `peak +${f(g.z_max,1)}σ of ${f(g.z_t,1)} needed`;
 
     /* Scene class. This answers a different question from the verdict: the
        verdict says whether anyone is there, this says what kind of place it
@@ -1117,7 +1130,23 @@ class App:
         # blind. Always on: it costs a subtraction on 768 pixels.
         try:
             from saresq.thermal.motion import ThermalMotion
-            self.motion = ThermalMotion()
+            # No self-estimated ego-compensation: this payload is on a bench or
+            # hovering, and phase correlation then has no camera motion to
+            # find. What it locks onto instead is the only thing moving -- the
+            # person -- and warping the older frame by that "shift" slides it
+            # along WITH them and subtracts them out.
+            #
+            # Measured on synthetic walks plus 200 still scenes, and confirmed
+            # against a real person waving at the sensor (0 detections in 25 s
+            # of movement before this change):
+            #
+            #   compensate=True    distant/mid person MISSED, 14 false alarms
+            #   compensate=False   all ranges detected,         0 false alarms
+            #
+            # It is strictly worse on a static platform, in both directions at
+            # once. In flight, telemetry supplies a real shift to add(), which
+            # this flag does not gate.
+            self.motion = ThermalMotion(compensate=False)
         except Exception:
             self.motion = None
         #: Motion is transient -- a limb shifts and then settles -- so the flag

@@ -88,6 +88,36 @@ def verdict(*, n_visual: int, gate_fired: bool, moved: bool,
     return "CLEAR"
 
 
+def phrase(name: str, *, rgb_blind: bool = False, n_visual: int = 0) -> str:
+    """The operator-facing wording, which depends on what could be COUNTED.
+
+    A count is the visible detector's to give: it resolves individuals, and
+    thermal does not. At 32x24 two people standing together are one warm
+    region, so any number read off the thermal branch would be invented.
+
+    But refusing to count is not the same as refusing to conclude. When a
+    body-temperature region MOVES and the camera is blind -- night, smoke, an
+    unlit room, the conditions this payload exists for -- the honest report is
+    that there is likely life there, in unknown number. "Heat source" undersells
+    it into something a tired operator skips past; "1 person" overclaims a
+    count nothing measured. `likely survivors` says exactly what is known.
+
+    When the camera could see and still found nobody, that silence IS evidence
+    and the wording stays cautious.
+    """
+    if name in ("LIVE_PERSON", "PERSON") and n_visual > 0:
+        return f"{n_visual} person{'s' if n_visual > 1 else ''} confirmed"
+    if name == "LIVE_BODY":
+        return ("likely survivors — moving body heat, camera blind"
+                if rgb_blind else
+                "body-temperature source that MOVED — alive, camera did not confirm")
+    if name == "BODY_HEAT":
+        return ("body heat, not moving — may be unconscious, camera blind"
+                if rgb_blind else
+                "body-temperature source, not moving — may be unconscious")
+    return MEANING.get(name, name)
+
+
 def outranks(a: str, b: str) -> bool:
     """True when verdict `a` deserves an operator's attention before `b`."""
     return RANK.get(a, len(LADDER)) < RANK.get(b, len(LADDER))

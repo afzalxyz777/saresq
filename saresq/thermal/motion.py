@@ -167,9 +167,18 @@ class ThermalMotion:
         shift is whole-scene; what remains after removing it is something in
         the scene that moved on its own.
         """
-        if not self.compensate or cv2 is None:
+        if cv2 is None:
             return old
-        dx, dy = shift if shift is not None else self._estimate(old, new)
+        if shift is not None:
+            dx, dy = shift
+        elif self.compensate:
+            dx, dy = self._estimate(old, new)
+        else:
+            # `compensate` gates SELF-ESTIMATION only. A shift measured by
+            # GNSS/IMU is a fact about the airframe and is always honoured; a
+            # shift inferred from the frames is a guess, and the guess is only
+            # safe when the payload is actually translating.
+            return old
         if abs(dx) < 0.02 and abs(dy) < 0.02:
             return old
         M = np.float32([[1, 0, dx], [0, 1, dy]])

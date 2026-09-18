@@ -33,7 +33,7 @@ import urllib.error
 import urllib.request
 
 from saresq.dashboard.contacts import project_contacts
-from saresq.fuse.verdict import MEANING as VERDICT_MEANING
+from saresq.fuse.verdict import phrase as _verdict_phrase
 from saresq.fuse.verdict import verdict as _verdict
 
 #: Two captures closer than this are the same physical target seen twice, not
@@ -331,7 +331,8 @@ class PayloadLink(threading.Thread):
         # The reason travels with the verdict. A one-word state an operator
         # cannot expand is a state they will eventually guess at, and guessing
         # is what "no person confirmed" over two sleeping people came from.
-        out["verdict_why"] = VERDICT_MEANING.get(out["verdict"])
+        out["verdict_why"] = _verdict_phrase(
+            out["verdict"], rgb_blind=out["rgb_blind"], n_visual=n)
         return out
 
     # ---- durable half -------------------------------------------------------
