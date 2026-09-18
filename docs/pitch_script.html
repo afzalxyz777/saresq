@@ -1,0 +1,230 @@
+<title>SaResQ — Pitch Script</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#161c22;--ink2:#3c4650;--dim:#6d7883;--paper:#fff;--tint:#f5f3f0;--rule:#ded8d0;
+    --say:#1d5c7a;--note:#a8720c;--acc:#c2410c;--warn:#a8321f;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  @page{size:A4;margin:14mm 14mm 13mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,serif;
+       font-size:9.9pt;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  h1,h2,h3,.lbl{font-family:var(--sans)}
+  .cover{border-bottom:3px solid var(--ink);padding-bottom:12px;margin-bottom:12px}
+  .cover h1{font-size:22pt;font-weight:700;margin:0;letter-spacing:-0.025em;line-height:1.08}
+  .cover .s{font-size:11pt;color:var(--acc);font-family:var(--sans);font-weight:500;margin-top:4px}
+  .slide{margin:0 0 16px;break-inside:avoid}
+  .slide.pb{break-before:page}
+  .shead{display:flex;align-items:baseline;justify-content:space-between;
+         border-bottom:2px solid var(--ink);padding-bottom:4px;margin-bottom:7px}
+  .shead h2{font-size:14pt;font-family:var(--sans);font-weight:700;margin:0}
+  .shead .dur{font-family:var(--mono);font-size:9pt;color:var(--dim);white-space:nowrap}
+  .beat{font-family:var(--sans);font-size:7.6pt;font-weight:700;letter-spacing:0.06em;
+        text-transform:uppercase;color:var(--dim);margin:9px 0 2px}
+  .say{border-left:3px solid var(--say);padding:2px 10px;margin:0 0 4px;font-size:10.3pt;line-height:1.52}
+  .say .cue{font-family:var(--mono);font-size:7.8pt;color:var(--dim);display:block;margin-top:2px}
+  .note{background:var(--tint);border-left:3px solid var(--note);padding:5px 10px;margin:6px 0;font-size:9pt}
+  .note b{font-family:var(--sans);font-size:7.6pt;text-transform:uppercase;letter-spacing:0.06em;color:var(--note);display:block;margin-bottom:2px}
+  .point{border-left:2px solid var(--ink);padding-left:9px;margin:3px 0 3px}
+  em.hit{font-style:normal;font-weight:700;color:var(--acc)}
+  .big{background:var(--tint);border-left:3px solid var(--acc);padding:8px 12px;margin:9px 0}
+  .big b{font-family:var(--sans);display:block;font-size:9.5pt;margin-bottom:2px}
+  table{border-collapse:collapse;width:100%;font-size:8.7pt;margin:5px 0 8px}
+  th{font-family:var(--sans);font-size:7.3pt;text-transform:uppercase;letter-spacing:0.05em;
+     color:var(--dim);text-align:left;padding:3px 8px 3px 0;border-bottom:1.5px solid var(--ink)}
+  td{padding:3px 8px 3px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+  code{font-family:var(--mono);font-size:0.86em;background:var(--tint);padding:0.5px 3px;border-radius:2px}
+  .foot{margin-top:16px;padding-top:9px;border-top:1px solid var(--rule);font-size:8.4pt;color:var(--dim)}
+</style>
+
+<div class="cover">
+  <h1>Pitch Script — Slides 1–6</h1>
+  <div class="s">SaResQ · SIH26177 · verbatim script, delivery cues, and slide-vs-reality notes · target ~4 min 30 s total</div>
+</div>
+
+<div class="note"><b>How to use this</b>
+Each slide has: a target duration, the script broken into beats (say it in your own cadence, not
+word-for-word if that feels stiff), a <b>cue</b> line telling you what to point at or do with your
+hands, and — where the PPT's wording is slightly ahead of what's actually built — a note on how to
+say it so it stays <em class="hit">true to the current architecture</em> without contradicting the
+slide on screen. Practice this out loud twice before tomorrow; the pauses matter more than the words.</div>
+
+<div class="slide">
+<div class="shead"><h2>Slide 1 — Title</h2><span class="dur">~15 s</span></div>
+
+<div class="beat">Say</div>
+<div class="say">"Good [morning/afternoon]. We're <em class="hit">Team SaResQ</em>, presenting on
+Problem Statement 26177 — an AI-powered drone payload for search and rescue. I'm [name], and this is
+[team members, if presenting jointly]."
+<span class="cue">CUE — stand centred, let the title slide sit for a beat before you speak. Don't
+rush the first line; a confident pause here sets the tone for the whole pitch.</span></div>
+
+<div class="beat">Say</div>
+<div class="say">"In the next four minutes, we'll show you a system that's not a concept — it's
+built, it's running on real hardware right now, and every number we give you today was measured on
+that hardware."
+<span class="cue">CUE — this line is your thesis for the whole talk. Say it slowly.</span></div>
+</div>
+
+<div class="slide">
+<div class="shead"><h2>Slide 2 — Problem &amp; Solution</h2><span class="dur">~50 s</span></div>
+
+<div class="beat">Say — the problem</div>
+<div class="say">"After a disaster, the first few hours decide outcomes. But three things slow
+rescue teams down. <em class="hit">Limited visibility</em> — survivors are hard to spot from the
+air, especially at night. <em class="hit">Difficult terrain</em> — the ground is often too damaged
+or dangerous to search on foot. And <em class="hit">manual analysis</em> — someone still has to sit
+and watch hours of drone footage, and a tired human misses things."
+<span class="cue">CUE — point to the three PROBLEM bullets as you say each one.</span></div>
+
+<div class="beat">Say — the solution</div>
+<div class="say">"SaResQ automates the watching, not the flying. It's a payload that bolts onto any
+drone a rescue team already owns, and does three things onboard, in real time, with no internet
+connection: it runs <em class="hit">thermal-first detection</em> — a lightweight cascade finds body
+heat first, then confirms with a vision model, so we never need a heavy network running on every
+single frame. It <em class="hit">classifies the disaster scene</em> — fire, flooding, collapsed
+structures — so responders get context, not just a person-count. And it <em class="hit">fuses
+multiple observations</em> — heat, motion, and vision — into one confidence score per detection, so
+a coordinator knows not just 'something's there' but how sure we are, and why."
+<span class="cue">CUE — point to the three SOLUTION bullets in the same order as the problem
+bullets, so the audience sees problem→answer pairs.</span></div>
+
+<div class="note"><b>Slide-vs-reality note</b> The slide says "detects survivors using lightweight
+YOLOv8n" — true, but say it as part of the cascade, not standalone: the network only ever looks at
+the small patches the thermal stage flags. That's the actual innovation, and it's what makes this
+run on a ₹4,000 computer instead of needing a GPU.</div>
+</div>
+
+<div class="slide pb">
+<div class="shead"><h2>Slide 3 — Technical Approach</h2><span class="dur">~70 s</span></div>
+
+<div class="beat">Say — hardware</div>
+<div class="say">"On the hardware side: a Raspberry Pi 4 as the onboard computer, an MLX90640
+thermal array, a Pi Camera for the visible spectrum, and GPS plus an IMU for position and
+orientation. All commodity parts, all together under ₹14,000."
+<span class="cue">CUE — point to the Hardware & Sensors column.</span></div>
+
+<div class="beat">Say — the AI pipeline, in order</div>
+<div class="say">"Here's how a frame actually moves through the system. The thermal sensor reads
+32-by-24 pixels, four times a second. A statistical gate checks every single one of those frames for
+free — it's just arithmetic, no neural network yet — and flags the handful of warm or cold patches
+worth a closer look. <em class="hit">Only those small crops</em> go to YOLOv8n, our detector, which
+confirms whether it's actually a person. In parallel, MobileNetV2 looks at the full frame and
+classifies the disaster scene — fire, flood, collapsed building — at over 95% accuracy. Then our
+fusion layer combines heat, motion, and the visual confirmation into one ranked verdict per
+detection, so responders see a confidence level and the reason behind it, not just a box on a
+screen."
+<span class="cue">CUE — trace the pipeline left to right with your hand: gate → crop → detector →
+fusion. This is the moment to slow down; it's the technical heart of the pitch.</span></div>
+
+<div class="beat">Say — why it's efficient</div>
+<div class="say">"Everything is quantised to run without a GPU — INT8 weights on a TFLite runtime —
+and the whole pipeline, worst case, takes 177 milliseconds on the Pi, against a 250 millisecond
+budget. That headroom is measured, not estimated."
+<span class="cue">CUE — point to INT8/TFLite on the slide.</span></div>
+
+<div class="beat">Say — software</div>
+<div class="say">"On the ground side: Flask serves a live dashboard, SQLite stores every detection
+and its evidence, and Leaflet renders the live map — so a coordinator sees detections appear near
+the drone's position as they're confirmed, in real time, fully offline."
+<span class="cue">CUE — point to the Software column, then gesture toward the demo device if you have it live.</span></div>
+
+<div class="note"><b>Slide-vs-reality note</b> "RGB–Thermal Fusion" on the slide is our verdict
+ladder — a transparent, ranked combination of heat + motion + vision, not a black-box network. Say
+it as "our fusion layer" confidently; if a judge asks why not a learned fusion network, the honest
+answer is in the Q&amp;A sheet — calibration and explainability both mattered more than squeezing
+out another point of accuracy.</div>
+</div>
+
+<div class="slide">
+<div class="shead"><h2>Slide 4 — Feasibility &amp; Viability</h2><span class="dur">~70 s</span></div>
+
+<div class="beat">Say — operational</div>
+<div class="say">"This is airframe-agnostic — it deploys on any F450-class commodity drone a
+department already flies, with zero electrical connection to the flight controller. It's fully
+offline by design: detection, classification, and geo-tagging all happen onboard, no connectivity
+required. And we validated it in the right order — characterised on a fixed bench first, then
+flight-tested — specifically so vibration and wind don't get confused with the AI's own accuracy."
+<span class="cue">CUE — point to Operational Feasibility column.</span></div>
+
+<div class="beat">Say — financial</div>
+<div class="say">"The AI and search-and-rescue system — the part we built — comes to about
+₹13,000. A complete autonomous drone around it is roughly ₹30,000. That's seven to ten times
+cheaper than enterprise thermal SAR drones on the market today, which run three to twenty-two lakh
+rupees. And training cost us nothing — we used free compute."
+<span class="cue">CUE — point to the ₹13,000 / ₹30,000 numbers; let them land, don't rush past them.</span></div>
+
+<div class="beat">Say — technical feasibility</div>
+<div class="say">"This isn't a guess at what might work. It's built on a peer-reviewed reference
+result — a 2018 study that got over 99% CNN accuracy on exactly this sensor combination, low-cost
+RGB and thermal on a Raspberry Pi. What that same study found is that running a CNN on embedded
+hardware in real time was, in their words, impractical. Our cascade design is the answer to that
+specific limitation — we don't run the network on every frame, only where the thermal gate says
+something's there. And because our gate checks for both hot <em class="hit">and</em> cold anomalies,
+we don't fail on hot rooftops and debris in direct sun the way a simple 'find the hot spot' approach
+would."
+<span class="cue">CUE — this is your strongest credibility line. Say "peer-reviewed" and "impractical" clearly — it shows you know the literature, not just your own build.</span></div>
+
+<div class="beat">Say — risk &amp; validation</div>
+<div class="say">"Flight control itself uses a proven, open-source autopilot stack — we didn't
+reinvent that. Our job was the perception payload, and we validated it end to end on the actual
+target hardware, with a working prototype you can hold."
+<span class="cue">CUE — if you have the physical prototype, this is the moment to hold it up.</span></div>
+</div>
+
+<div class="slide pb">
+<div class="shead"><h2>Slide 5 — Impact &amp; Benefits</h2><span class="dur">~50 s</span></div>
+
+<div class="beat">Say — who benefits</div>
+<div class="say">"Four groups benefit directly. Rescue teams get faster survivor identification and
+location. Disaster response agencies get better aerial awareness over large search areas. Survivors
+themselves have a higher chance of being found at night or in low visibility, which is exactly when
+human search is weakest. And drone operators do less manual video monitoring, because the AI is
+doing the watching."
+<span class="cue">CUE — point to each of the four WHO BENEFITS entries as you name them, quick pace here.</span></div>
+
+<div class="beat">Say — where the value shows up, and why it's different</div>
+<div class="say">"The value shows up as faster search — the AI prioritises where survivors are
+likely to be, instead of scanning everything equally. Day and night detection, because thermal
+doesn't need light. Accurate location sharing, because every detection is geo-tagged, not just
+described. And low-cost deployment, because the whole onboard brain is a Raspberry Pi."
+<p style="margin:6px 0 0">"What makes this different isn't one clever trick — it's that we built for
+Indian field conditions specifically: our thermal gate is tuned to keep working in high ambient
+temperatures, where a naive 'hot-spot' detector would fail. It's low latency because everything runs
+at the edge. And it's cost-effective because the core AI system was built for about ₹13,000."</p>
+<span class="cue">CUE — slow down on "built for Indian field conditions" — that's your localisation answer if anyone asks "why not just use an existing foreign system."</span></div>
+</div>
+
+<div class="slide">
+<div class="shead"><h2>Slide 6 — Research &amp; References</h2><span class="dur">~35 s</span></div>
+
+<div class="beat">Say</div>
+<div class="say">"We didn't build this in isolation. Four papers shaped our design: ETH Zurich's
+work on RGB-plus-infrared detection and tracking for UAVs, flight-tested with Switzerland's real
+air-rescue service — that's where our re-identification and tracking ideas come from. A 2018 study
+on low-cost RGB-thermal pedestrian detection on embedded hardware, which we just discussed — that's
+our baseline. A transformer-based fusion network for multispectral victim detection at different
+scales. And COXNet, on cross-modal fusion for tiny-object detection from drones."
+<span class="cue">CUE — point to each numbered reference as you name it, don't linger.</span></div>
+
+<div class="beat">Say — the honest close</div>
+<div class="say">"The gap all four of these papers point at is the same one we set out to solve:
+RGB-plus-thermal fusion works well in research, but small targets and real-time detection on
+low-cost hardware remain hard. That gap is exactly where SaResQ sits — and everything you saw in
+this presentation was measured on the actual hardware, not simulated. Thank you — happy to take
+questions."
+<span class="cue">CUE — end standing still, hands open, eye contact on the judges — this is the line
+that invites questions instead of bracing for them.</span></div>
+</div>
+
+<div class="big">
+<b>If you only remember one delivery note</b>
+Slow down on numbers and speed up on background. A judge remembers the number you paused on, not
+the one you rushed through.
+</div>
+
+<p class="foot">Companion document: <code>docs/SaResQ_QA_Prep.pdf</code> — every likely follow-up
+question, answered simply. Source slides: pasted PPT export, 6 slides, SIH26177. Script built
+2026-09-18 against repository commit 7f1372a, 223 tests passing.</p>
