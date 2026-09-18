@@ -95,18 +95,29 @@
     fetch("/api/live").then(function (r) { return r.json(); }).then(function (L) {
       var ver = document.getElementById("verdict");
       var down = !L.configured || !L.connected;
-      ver.className = down ? "down" : (L.verdict === "PERSON" ? "found"
-                                    : (L.verdict === "HEAT" ? "heat" : ""));
+      // BODY_HEAT is its own state. A blob at body temperature with a camera
+      // that had no light is the night case this payload is built for, and it
+      // must not be reported with the same words as a candidate the detector
+      // examined and rejected.
+      ver.className = down ? "down"
+        : (L.verdict === "PERSON" ? "found"
+        : (L.verdict === "BODY_HEAT" ? "found"
+        : (L.verdict === "HEAT" ? "heat" : "")));
       document.getElementById("v-main").textContent =
         !L.configured ? "NO PAYLOAD"
         : !L.connected ? "LINK DOWN"
-        : (L.n ? L.n + " PERSON" + (L.n > 1 ? "S" : "") : (L.fired ? "HEAT SOURCE" : "CLEAR"));
+        : (L.n ? L.n + " PERSON" + (L.n > 1 ? "S" : "")
+              : (L.verdict === "BODY_HEAT" ? "BODY HEAT"
+              : (L.fired ? "HEAT SOURCE" : "CLEAR")));
       document.getElementById("v-sub").textContent =
         !L.configured ? "start the dashboard with --payload <pi-ip>"
         : !L.connected ? (L.host + " — " + (L.why || "unreachable"))
         : (L.n ? "detector confirmed · " + f(L.det_ms, 0) + " ms"
-               : (L.fired ? "gate fired at +" + f(L.z_max, 1) + "σ · no person confirmed"
-                          : "peak +" + f(L.z_max, 1) + "σ of " + f(L.z_t, 1) + " needed"));
+        : (L.verdict === "BODY_HEAT"
+             ? "thermal signature at +" + f(L.z_max, 1) + "σ · camera blind ("
+               + f(L.crop_lum, 0) + "/255) — visible branch cannot corroborate"
+             : (L.fired ? "gate fired at +" + f(L.z_max, 1) + "σ · no person confirmed"
+                        : "peak +" + f(L.z_max, 1) + "σ of " + f(L.z_t, 1) + " needed")));
 
       document.getElementById("f-detect").innerHTML = L.connected
         ? "<b>" + (L.n || 0) + "</b> detection(s) · " + f(L.det_ms, 0) + " ms · " + (L.model || "")

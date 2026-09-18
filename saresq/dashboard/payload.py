@@ -216,7 +216,18 @@ class PayloadLink(threading.Thread):
         n = int(d.get("n", 0) or 0)
         return {
             "connected": True,
-            "verdict": ("PERSON" if n else ("HEAT" if g.get("fired") else "CLEAR")),
+            # Three outcomes, not two. A thermal blob at body temperature with
+            # a BLIND camera is not the same as one the detector examined and
+            # rejected: the first is the normal night case this payload exists
+            # for, the second is a real negative. Collapsing them made the
+            # console report "no person confirmed" over two sleeping people in
+            # an unlit room, where the crops handed to the detector were black
+            # squares at 10-21 of 255 luminance.
+            "verdict": ("PERSON" if n else
+                        ("BODY_HEAT" if g.get("fired") and d.get("rgb_blind")
+                         else ("HEAT" if g.get("fired") else "CLEAR"))),
+            "rgb_blind": bool(d.get("rgb_blind")),
+            "crop_lum": d.get("lum"),
             "n": n,
             "det_ms": d.get("ms"),
             "model": d.get("model"),

@@ -906,6 +906,15 @@ class Camera(threading.Thread):
                                                            self.stamp)
 
 
+#: Below this mean crop luminance the visible camera has no usable signal and
+#: its silence carries no information. Measured on this payload in an unlit
+#: room: crops containing people came back at 10-21 of 255, while the detector
+#: needs roughly 40+ before recall is meaningful (results/detector/
+#: rgb_confirm.json). Reporting "no person confirmed" from a black square is
+#: not a negative result, it is a missing one.
+RGB_BLIND_LUM = 35.0
+
+
 def gate_stats(thermal: np.ndarray, cfg: dict) -> dict:
     g = cfg.get("gate", {})
     z_t = float(g.get("z_t", 2.5))
@@ -1185,8 +1194,14 @@ class App:
                 cy = int((b["row"] + 0.5) / 24 * H)
                 x0 = max(0, min(cx - crop_px // 2, W - crop_px))
                 y0 = max(0, min(cy - crop_px // 2, H - crop_px))
-                crops.append(rgb[y0:y0 + crop_px, x0:x0 + crop_px].copy())
-                meta.append({"i": i, "z": b["z"], "T": b["T"]})
+                patch = rgb[y0:y0 + crop_px, x0:x0 + crop_px].copy()
+                crops.append(patch)
+                # How much light the camera actually had here. Without it the
+                # system cannot tell "the detector looked and saw no person"
+                # from "the detector was handed a black square", and those two
+                # mean opposite things to a rescuer.
+                lum = float(cv2.cvtColor(patch, cv2.COLOR_BGR2GRAY).mean())
+                meta.append({"i": i, "z": b["z"], "T": b["T"], "lum": round(lum, 1)})
                 cv2.rectangle(vis, (x0, y0), (x0 + crop_px, y0 + crop_px),
                               (70, 170, 255), 2)
                 cv2.putText(vis, f"+{b['z']:.1f}s", (x0, y0 - 6),
@@ -1195,9 +1210,26 @@ class App:
 
             with self.lock:
                 self.det_img = vis
+                # Is the visible branch's silence informative? If every crop the
+                # gate nominated came back essentially black, the detector was
+                # not given a chance to disagree, and "no person confirmed"
+                # would be a false negative dressed as a judgement. Say BLIND
+                # instead, and let the thermal evidence stand on its own -- at
+                # night over rubble that is the normal case, which is the whole
+                # reason this payload is thermal-first.
+                # Judge blindness on the STRONGEST thermal candidate, not on
+                # the brightest crop in the frame. meta is ordered by blob z,
+                # so meta[0] is the best thermal evidence we have -- and it is
+                # the one whose corroboration matters. Taking a max across all
+                # crops let a single sunlit window declare the camera healthy
+                # while the crop actually containing a person sat at 8/255.
+                top = meta[0] if meta else None
+                blind = bool(top) and top.get("lum", 255) < RGB_BLIND_LUM
                 self.det_info = {"n": len(dets), "ms": ms, "conf": self.args.conf,
                                  "model": pathlib.Path(self.args.rgb_model).name,
                                  "contours": n_cont,
+                                 "rgb_blind": blind,
+                                 "lum": (top.get("lum") if top else None),
                                  "calib": (round(cal[1], 3) if cal else None)}
                 self.crops, self.crop_meta, self.gate = crops, meta, g
                 self.seq += 1
