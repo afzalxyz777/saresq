@@ -20,7 +20,14 @@
     // Breadcrumb of where the aircraft has been. Capped because a long flight
     // at 1 Hz would otherwise grow without bound in a page nobody reloads.
     trail: [], TRAIL_MAX: 600,
-    followed: false,
+    // Keep the aircraft centred. On by default, because a map that opens
+    // somewhere other than the payload is a map the operator has to go and
+    // find the payload on -- and indoors, where there is never a GPS fix, the
+    // old one-shot pan was keyed on L.lat and so never fired at all: the
+    // camera just sat on its hardcoded Kolkata default while the drone sat in
+    // the room. Any pan, pinch or wheel hands control back to the operator,
+    // which is what every map does and what they will expect.
+    follow: true,
     // Frame the contacts ONCE, when the first ones arrive. Not on every poll:
     // the gate fires and clears several times a minute and a map that
     // re-zoomed each time would be unusable. After that the operator owns the
@@ -228,6 +235,55 @@
     });
   }
 
+  /* Where the aircraft glyph is actually drawn -- a GPS fix if there is one,
+     otherwise the operator's datum. The map follows the DRAWN position rather
+     than the fix, because on a bench there is no fix and the drawn position is
+     the only one that exists. */
+  function payloadLL() {
+    var L = S.live;
+    if (!L || !L.configured) return null;
+    if (L.lat != null && L.lon != null) return [L.lat, L.lon];
+    if (L.origin) return [L.origin.lat, L.origin.lon];
+    return null;
+  }
+  function centreOnPayload() {
+    var ll = payloadLL();
+    if (!ll) return false;
+    // Only actually move when it differs. A stationary payload would
+    // otherwise re-pan and redraw the whole basemap once a second for the
+    // length of the mission.
+    if (Math.abs(view.cam.lat - ll[0]) < 1e-7 &&
+        Math.abs(view.cam.lon - ll[1]) < 1e-7) return true;
+    view.panTo(ll[0], ll[1]);
+    return true;
+  }
+
+  /* Any deliberate camera gesture hands control back. Attached here rather
+     than in mapcore because following is this page's idea, not the shared
+     view's -- the radar scope has its own. These listeners run after
+     mapcore's, so drag.moved is already set by the time dragged() is read. */
+  (function () {
+    var cvEl = document.getElementById("cv");
+    if (!cvEl) return;
+    function release() {
+      if (!S.follow) return;
+      S.follow = false;
+      syncFollowBtn();
+    }
+    cvEl.addEventListener("pointermove", function () {
+      if (view.dragged()) release();
+    });
+    cvEl.addEventListener("wheel", release, { passive: true });
+  })();
+
+  function syncFollowBtn() {
+    if (!fitBtn) return;
+    fitBtn.setAttribute("aria-pressed", String(!!S.follow));
+    fitBtn.title = S.follow
+      ? "Following the payload \u2014 drag the map to take over"
+      : "Recentre on the payload and follow it";
+  }
+
   /* Frame the aircraft and everything the gate is currently looking at.
      Padded to a floor of ~8 m across so a single contact 20 cm from the
      payload does not zoom the map to a scale where the basemap is one
@@ -250,7 +306,15 @@
     return true;
   }
   var fitBtn = document.getElementById("fitBtn");
-  if (fitBtn) fitBtn.addEventListener("click", function () { fitContacts(); });
+  if (fitBtn) fitBtn.addEventListener("click", function () {
+    // One button, one meaning: "put me back on the payload". It re-engages
+    // following as well as reframing, because an operator who pressed it and
+    // then watched the aircraft drift back out of view would reasonably call
+    // that broken.
+    S.follow = true;
+    syncFollowBtn();
+    if (!fitContacts()) centreOnPayload();
+  });
 
   function drawOverlay() {
     ov.innerHTML = "";
@@ -460,7 +524,15 @@
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lat: ll[0], lon: ll[1] })
     }).then(function (r) { return r.json(); })
-      .then(function () { pollLive(); })
+      .then(function () {
+        // The operator just said where the payload is. Go there -- but only
+        // recentre, never re-zoom: they placed that datum at the scale they
+        // were looking at, and yanking the zoom out from under them would
+        // lose the spot they just picked.
+        S.follow = true;
+        syncFollowBtn();
+        pollLive();
+      })
       .catch(function () {});
   });
 
@@ -483,7 +555,8 @@
           source: "browser", accuracy_m: pos.coords.accuracy
         })
       }).then(function () {
-        S.followed = false;                 // recentre on the new datum
+        S.follow = true;                    // recentre on the new datum
+        syncFollowBtn();
         pollLive();
         if (btn) { btn.disabled = false; btn.textContent = "Use this device"; }
       });
@@ -524,8 +597,10 @@
           S.trail.push([L.lat, L.lon]);
           if (S.trail.length > S.TRAIL_MAX) S.trail.shift();
         }
-        if (!S.followed) { view.panTo(L.lat, L.lon); S.followed = true; }
       }
+      // Centre on the payload wherever it is drawn from -- fix or datum --
+      // rather than only when a fix exists.
+      if (S.follow) centreOnPayload();
       // One automatic attempt, only when there is genuinely nothing else: a
       // real GPS fix always wins, and an operator-set datum is not overridden.
       if (!geoAsked && L.configured && L.connected && !L.fix && !L.origin) {
@@ -541,7 +616,9 @@
       if (!S.contactsFitted && (L.contacts || []).length) {
         S.contactsFitted = fitContacts();
       }
-      if (fitBtn) fitBtn.disabled = !(L.contacts || []).length;
+      // Enabled whenever there is anything to centre ON, not only when the
+      // gate is firing -- its job is the payload first and the contacts second.
+      if (fitBtn) fitBtn.disabled = !payloadLL();
       livePanel(L); hazPanel(L);
       draw();
     }).catch(function () {
@@ -634,6 +711,7 @@
       + "</div>";
   }
 
+  syncFollowBtn();
   refresh();
   setInterval(refresh, 4000);
   pollLive();
