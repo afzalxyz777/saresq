@@ -100,6 +100,20 @@
           Wi-Fi location of the <b>ground station</b> &mdash; drawn dashed, never as a fix.
         </div>
       </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dotted var(--rule-soft)">
+        <div class="lvl"><span class="lbl">Height above ground</span>
+          <b id="aglVal">20 m</b></div>
+        <input type="range" id="aglR" min="1" max="60" step="1" value="20"
+               aria-label="Height above ground in metres">
+        <!-- The one number the contact projection cannot measure. GNSS gives
+             height above the ellipsoid; the distance down to the roof someone
+             is lying on needs a terrain model this payload does not carry. So
+             the operator states it and the map says whose number it is. -->
+        <div class="ps" id="aglNote" style="color:var(--muted);line-height:1.45;margin-top:5px">
+          <b style="color:#F3A83C">assumed</b> &mdash; survey altitude. Drag to the
+          real height and every live contact tightens up.
+        </div>
+      </div>
     </div>
   </div>
 
@@ -111,6 +125,11 @@
   <div class="mc-tr">
     <button class="zb" id="zin" aria-label="Zoom in">+</button>
     <button class="zb" id="zout" aria-label="Zoom out">&minus;</button>
+    <!-- Frames the aircraft and whatever the gate is looking at right now.
+         Disabled when there is nothing to frame, rather than silently doing
+         nothing. -->
+    <button class="zb" id="fitBtn" title="Frame the live contacts"
+            aria-label="Frame the live contacts" disabled>&#9678;</button>
   </div>
 
   <div class="mc mc-live">

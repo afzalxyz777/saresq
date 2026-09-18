@@ -264,6 +264,37 @@ def api_origin():
     return jsonify({"ok": True, "origin": {"lat": lat, "lon": lon, "source": src}})
 
 
+@app.route("/api/agl", methods=["POST"])
+def api_agl():
+    """Height above ground used to place live contacts.
+
+    The gate's blobs are projected to the ground with one angle and one
+    height. The angle is measured; the height is not -- GNSS altitude is
+    height above the ellipsoid, and turning that into height above the rubble
+    someone is lying on needs a terrain model this payload does not carry. So
+    the operator states it, and the map says whose number it is.
+
+    POST {"agl_m": 2.0}   set it
+    POST {"agl_m": null}  clear it, back to the survey altitude as an
+                          explicitly-flagged assumption
+    """
+    if LINK is None:
+        return jsonify({"error": "no payload configured"}), 409
+    body = request.get_json(silent=True) or {}
+    v = body.get("agl_m")
+    if v is None:
+        LINK.set_agl(None)
+        return jsonify({"ok": True, "agl_m": None, "assumed": True})
+    try:
+        agl = float(v)
+    except (TypeError, ValueError):
+        return jsonify({"error": "agl_m must be a number or null"}), 400
+    if not (0.5 <= agl <= 500.0):
+        return jsonify({"error": "agl_m out of range (0.5-500 m)"}), 400
+    LINK.set_agl(agl)
+    return jsonify({"ok": True, "agl_m": LINK.agl_m, "assumed": False})
+
+
 @app.route("/api/readiness")
 def api_readiness():
     return jsonify(readiness(app.config["DB_PATH"],

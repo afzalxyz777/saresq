@@ -20,7 +20,12 @@
     // Breadcrumb of where the aircraft has been. Capped because a long flight
     // at 1 Hz would otherwise grow without bound in a page nobody reloads.
     trail: [], TRAIL_MAX: 600,
-    followed: false
+    followed: false,
+    // Frame the contacts ONCE, when the first ones arrive. Not on every poll:
+    // the gate fires and clears several times a minute and a map that
+    // re-zoomed each time would be unusable. After that the operator owns the
+    // camera and gets a button.
+    contactsFitted: false
   };
 
   var host = document.getElementById("maparea");
@@ -30,6 +35,14 @@
     canvas: document.getElementById("cv"),
     svg: ov,
     cam: { lat: 22.57323, lon: 88.36497, z: 17.2 },
+    // Above the 19.5 the shared default allows. At 20 m survey altitude
+    // contacts sit metres apart and 19.5 frames them fine, but on a bench the
+    // payload is three metres up and its contacts are DECIMETRES apart -- at
+    // 19.5 they are half a pixel apart and pile onto the aircraft glyph.
+    // tiles.js already clamps the tile request to each source's own max and
+    // upscales beyond it, so this costs sharpness in the basemap and nothing
+    // else.
+    maxZoom: 22.5,
     onChange: draw,
     onHover: function (ll) {
       document.getElementById("readout").textContent =
@@ -112,6 +125,133 @@
     ov.appendChild(g);
   }
 
+  /* LIVE CONTACTS -- where the gate's blobs are on the ground, right now.
+     Deliberately drawn unlike a stored target: a target has been through the
+     ledger and carries a fused probability over several passes, a contact is
+     one frame old and vanishes with the blob. Same picture, different claim.
+
+     A dashed pin with a range spoke back to the aircraft, because RANGE is
+     measured (one angle, one height) while BEARING is not -- this payload has
+     no magnetometer. The spoke says "this far from the drone, direction
+     unsurveyed", which is the true statement. */
+  function drawContacts() {
+    var L = S.live;
+    if (!L || !L.connected) return;
+    var cs = L.contacts || [];
+    if (!cs.length) return;
+    // Anchor: wherever the aircraft glyph itself was drawn.
+    var alat = L.lat, alon = L.lon;
+    if (alat == null && L.origin) { alat = L.origin.lat; alon = L.origin.lon; }
+    if (alat == null) return;
+    var a = view.P(alat, alon);
+
+    // Screen positions first, so labels can be stacked when two contacts land
+    // within a few pixels of each other -- which is the NORMAL case indoors,
+    // where two people a metre apart are a metre apart on the ground too.
+    var pts = cs.map(function (c) { return view.P(c.lat, c.lon); });
+    var lanes = pts.map(function (q, i) {
+      var n = 0;
+      for (var j = 0; j < i; j++)
+        if (Math.hypot(q[0] - pts[j][0], q[1] - pts[j][1]) < 46) n++;
+      return n;
+    });
+
+    cs.forEach(function (c, ci) {
+      var s2 = pts[ci], lane = lanes[ci] * 32;
+      var brgGuess = (c.assumed || []).indexOf("heading") >= 0;
+      // Colour by what the payload concluded, not by the blob alone: a
+      // contact the whole stack calls LIVE is not the same find as a warm
+      // patch the gate has not corroborated.
+      var col = (L.verdict === "LIVE_PERSON" || L.verdict === "LIVE_BODY") ? "#F46454"
+              : (L.verdict === "PERSON" || L.verdict === "BODY_HEAT") ? "#F3A83C"
+              : "#3FCDEC";
+      var g = sve("g", {});
+
+      // With no compass the contact is not AT a bearing -- it is somewhere on
+      // a circle of this radius about the aircraft. Drawing that locus is the
+      // true statement; drawing only a pin would assert a direction nothing
+      // measured. The pin still goes on the circle so the operator has
+      // something to click and read, but the circle is what carries the claim.
+      if (brgGuess) {
+        var lr = (c.range_m || 0) / view.mpp();
+        if (lr > 3) g.appendChild(sve("circle", { cx: a[0], cy: a[1], r: lr,
+          fill: "none", stroke: col, "stroke-opacity": .30,
+          "stroke-width": 1.1, "stroke-dasharray": "5 6" }));
+      }
+
+      // range spoke
+      g.appendChild(sve("path", {
+        d: "M " + a[0].toFixed(1) + " " + a[1].toFixed(1)
+         + " L " + s2[0].toFixed(1) + " " + s2[1].toFixed(1),
+        stroke: col, "stroke-width": 1.1, "stroke-opacity": .45,
+        "stroke-dasharray": "2 4", fill: "none" }));
+
+      // How well the contact is known RELATIVE to the aircraft. Not the
+      // absolute figure: the aircraft's own ring already draws that, and a
+      // datum error moves the drone and the contact together, so drawing it
+      // twice would show a 25 m circle around something sitting 0.2 m away.
+      var rr = Math.max(4, (c.rel_err_m || 1.5) / view.mpp());
+      g.appendChild(sve("circle", { cx: s2[0], cy: s2[1], r: rr,
+        fill: col, "fill-opacity": .08, stroke: col, "stroke-opacity": .40,
+        "stroke-width": 1, "stroke-dasharray": "3 4" }));
+
+      // person glyph -- head and shoulders, the same mark the target pin
+      // uses, so the two read as the same KIND of thing at a glance...
+      g.appendChild(sve("circle", { cx: s2[0], cy: s2[1], r: 9.5,
+        fill: "#091015", "fill-opacity": .9, stroke: col,
+        "stroke-width": 1.8,
+        // ...but dashed, because this one has not been through the ledger.
+        "stroke-dasharray": "3.5 2.5" }));
+      g.appendChild(sve("circle", { cx: s2[0], cy: s2[1] - 2.3, r: 1.8, fill: col }));
+      g.appendChild(sve("path", {
+        d: "M " + (s2[0] - 2.7) + " " + (s2[1] + 3.9)
+         + " a 2.7 3.2 0 0 1 5.4 0 Z", fill: col }));
+
+      if (lane)
+        g.appendChild(sve("path", {
+          d: "M " + (s2[0] + 10) + " " + s2[1]
+           + " L " + (s2[0] + 11.5) + " " + (s2[1] + lane - 4),
+          stroke: col, "stroke-opacity": .5, "stroke-width": .9, fill: "none" }));
+      g.appendChild(label(s2[0] + 13, s2[1] - 1 + lane,
+        "LIVE \u00b7 +" + (c.z == null ? "?" : c.z.toFixed(1)) + "\u03c3",
+        { "font-weight": 700, "font-size": 10.5, fill: col }));
+      g.appendChild(label(s2[0] + 13, s2[1] + 10 + lane,
+        (c.T == null ? "\u2014" : c.T.toFixed(1)) + "\u00b0C \u00b7 "
+        + (c.range_m == null ? "\u2014" : c.range_m.toFixed(1)) + " m"
+        + (brgGuess ? "" : " \u00b7 " + Math.round(c.bearing_deg) + "\u00b0"),
+        { "font-size": 9.5, fill: "#6D838D" }));
+      if (brgGuess)
+        g.appendChild(label(s2[0] + 13, s2[1] + 20 + lane,
+          "ON THIS RING \u00b7 bearing unmeasured",
+          { "font-size": 8.5, fill: "#F3A83C", "font-weight": 600 }));
+      ov.appendChild(g);
+    });
+  }
+
+  /* Frame the aircraft and everything the gate is currently looking at.
+     Padded to a floor of ~8 m across so a single contact 20 cm from the
+     payload does not zoom the map to a scale where the basemap is one
+     upscaled pixel and nothing around it is recognisable. */
+  function fitContacts() {
+    var L = S.live;
+    if (!L) return false;
+    var alat = L.lat, alon = L.lon;
+    if (alat == null && L.origin) { alat = L.origin.lat; alon = L.origin.lon; }
+    if (alat == null) return false;
+    var cs = L.contacts || [];
+    var la = [alat], lo = [alon];
+    cs.forEach(function (c) { la.push(c.lat); lo.push(c.lon); });
+    var mLat = 8 / 111320, mLon = mLat / Math.cos(alat * Math.PI / 180);
+    var lat0 = Math.min.apply(null, la), lat1 = Math.max.apply(null, la);
+    var lon0 = Math.min.apply(null, lo), lon1 = Math.max.apply(null, lo);
+    if (lat1 - lat0 < mLat) { var cy2 = (lat0 + lat1) / 2; lat0 = cy2 - mLat / 2; lat1 = cy2 + mLat / 2; }
+    if (lon1 - lon0 < mLon) { var cx2 = (lon0 + lon1) / 2; lon0 = cx2 - mLon / 2; lon1 = cx2 + mLon / 2; }
+    view.fitBounds(lat0, lon0, lat1, lon1, 0.7);
+    return true;
+  }
+  var fitBtn = document.getElementById("fitBtn");
+  if (fitBtn) fitBtn.addEventListener("click", function () { fitContacts(); });
+
   function drawOverlay() {
     ov.innerHTML = "";
     S.hazards.forEach(function (h) {
@@ -152,6 +292,7 @@
       });
       ov.appendChild(g);
     });
+    drawContacts();
     drawPayload();
   }
 
@@ -211,6 +352,41 @@
     });
   });
 
+  /* Height above ground. Debounced: the slider fires on every pixel of drag
+     and the projection is server-side, so posting each one would put a few
+     hundred requests behind one gesture. */
+  var aglR = document.getElementById("aglR"),
+      aglVal = document.getElementById("aglVal"),
+      aglNote = document.getElementById("aglNote"),
+      aglT = null;
+  function aglLabel(v, assumed) {
+    if (aglVal) aglVal.textContent = v + " m";
+    if (!aglNote) return;
+    aglNote.innerHTML = assumed
+      ? "<b style='color:#F3A83C'>assumed</b> \u2014 survey altitude. Drag to the "
+        + "real height and every live contact tightens up."
+      : "<b style='color:#4FC489'>operator set</b> \u2014 contacts are projected "
+        + "from this height.";
+  }
+  if (aglR) {
+    aglR.addEventListener("input", function () {
+      var v = parseFloat(aglR.value);
+      aglLabel(v, false);
+      clearTimeout(aglT);
+      aglT = setTimeout(function () {
+        // Cleared BEFORE the request, not after: pollLive() checks this flag
+        // to decide whether the operator is mid-gesture, and a handle that is
+        // never cleared would freeze the slider at its first value for the
+        // rest of the session.
+        aglT = null;
+        fetch("/api/agl", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agl_m: v })
+        }).then(function () { pollLive(); }).catch(function () {});
+      }, 180);
+    });
+  }
+
   // ---- live data ----
   function refresh() {
     Promise.all([
@@ -264,7 +440,13 @@
       : "Baked OSM geometry \u00a9 OpenStreetMap contributors (ODbL)";
     el.textContent = !h || h.ok === 0
       ? (h && h.fail ? "no network \u2014 offline geometry" : "loading\u2026")
-      : (t && t.drawn ? "z" + t.z + " \u00b7 " + h.ok + " tiles" : "offline geometry");
+      : (t && t.drawn
+          ? (t.up && t.up >= 4
+              // Past the source's own maximum zoom the basemap is one tile
+              // magnified, which reads as a blank map unless it says so.
+              ? "z" + t.z + " \u00b7 upscaled " + Math.round(t.up) + "\u00d7"
+              : "z" + t.z + " \u00b7 " + h.ok + " tiles")
+          : "offline geometry");
   }
 
   /* Shift-click sets the datum used for captures with no GPS fix. Deliberately
@@ -350,6 +532,16 @@
         geoAsked = true;
         useBrowserLocation(false);
       }
+      // Only when the operator is not mid-drag, or the poll would fight them.
+      if (aglR && document.activeElement !== aglR && aglT === null) {
+        var srv = L.agl_m == null ? 20 : L.agl_m;
+        if (parseFloat(aglR.value) !== srv) aglR.value = srv;
+        aglLabel(srv, L.agl_assumed !== false);
+      }
+      if (!S.contactsFitted && (L.contacts || []).length) {
+        S.contactsFitted = fitContacts();
+      }
+      if (fitBtn) fitBtn.disabled = !(L.contacts || []).length;
       livePanel(L); hazPanel(L);
       draw();
     }).catch(function () {
@@ -416,6 +608,25 @@
                    + (L.scene === "normal" ? "#4FC489" : "#F3A83C") + "'>"
                    + L.scene.replace(/_/g, " ") + "</b> "
                    + Math.round((L.scene_p || 0) * 100) + "%" : "")
+      // The gate is plainly firing but there is nowhere to put the result. Say
+      // that, rather than showing an empty map next to a panel reporting four
+      // sigma -- an operator reading those two together concludes the map is
+      // broken, and the next thing they stop trusting is the gate.
+      + (L.fired && !(L.contacts && L.contacts.length) && L.lat == null && !L.origin
+          ? "<br><span style='color:#F3A83C'><b>" + (L.blobs || 0)
+            + " blob(s) held</b> \u00b7 no datum, so nothing can be placed"
+            + "<br>shift-click the map or use this device</span>"
+          : "")
+      + (L.contacts && L.contacts.length
+          ? "<br><b style='color:#F46454'>" + L.contacts.length
+            + " live contact(s)</b> \u00b7 "
+            + L.contacts.map(function (c) { return c.range_m.toFixed(1) + " m"; }).join(", ")
+            + " from the aircraft"
+            + "<br><span style='color:var(--muted)'>range measured \u00b7 "
+            + "bearing assumed (no compass) \u00b7 AGL "
+            + (L.agl_m == null ? "20 m assumed" : L.agl_m.toFixed(0) + " m set")
+            + "</span>"
+          : "")
       + "<br>" + (L.ingested || 0) + " event(s) this mission"
       + (L.session ? " \u00b7 " + mmss(L.session_age_s) : "")
       + (L.age_s != null ? " \u00b7 " + L.age_s.toFixed(1) + "s ago" : "")

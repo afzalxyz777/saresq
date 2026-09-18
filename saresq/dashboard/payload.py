@@ -32,6 +32,7 @@ import time
 import urllib.error
 import urllib.request
 
+from saresq.dashboard.contacts import project_contacts
 from saresq.fuse.verdict import MEANING as VERDICT_MEANING
 from saresq.fuse.verdict import verdict as _verdict
 
@@ -102,6 +103,13 @@ class PayloadLink(threading.Thread):
         self._origin: tuple[float, float] | None = None
         self._origin_src = "manual"
         self._origin_acc: float | None = None
+        #: Height above ground, in metres, for placing live contacts. None
+        #: means nobody has said, and the projection falls back to the survey
+        #: altitude and declares the assumption. Not derived from GNSS
+        #: altitude: that is height above the ellipsoid, and the difference
+        #: from the ground the casualty is lying on needs a terrain model this
+        #: payload does not carry.
+        self._agl_m: float | None = None
         self._stop = threading.Event()
         self._ingested = 0
         self._last_ok = 0.0
@@ -125,6 +133,23 @@ class PayloadLink(threading.Thread):
             self._origin = (float(lat), float(lon))
             self._origin_src = source
             self._origin_acc = accuracy_m
+
+    def set_agl(self, agl_m: float | None) -> None:
+        """Operator-stated height above ground for the contact projection.
+
+        A payload on a table in a college room is one metre up, not the twenty
+        the survey profile assumes, and pinning contacts twenty metres out from
+        an aircraft that is sitting still would be a worse lie than admitting
+        the number was a default. So it is settable, and what was used is
+        always reported back.
+        """
+        with self._lock:
+            self._agl_m = None if agl_m is None else max(0.5, float(agl_m))
+
+    @property
+    def agl_m(self) -> float | None:
+        with self._lock:
+            return self._agl_m
 
     @property
     def origin(self):
@@ -170,6 +195,34 @@ class PayloadLink(threading.Thread):
         s["session"] = self._session
         s["session_age_s"] = (time.time() - self._session_started
                               if self._session_started else None)
+
+        # ---- live contacts ---------------------------------------------
+        # Where the gate's current blobs are ON THE GROUND. Done here rather
+        # than in _shape() because it needs the fallback datum, which is the
+        # dashboard's to know, not the payload's.
+        #
+        # A contact is NOT a target: no ledger entry, no fused probability, no
+        # pass count. It exists while the blob does. The map draws the two
+        # differently and this is why.
+        with self._lock:
+            agl = self._agl_m
+        plat, plon = s.get("lat"), s.get("lon")
+        psrc = "gps"
+        if plat is None or plon is None:
+            if o:
+                plat, plon, psrc = o[0], o[1], (src or "manual")
+        s["agl_m"] = agl
+        s["agl_assumed"] = agl is None
+        s["contacts"] = project_contacts(
+            s.get("gate_blobs") or [],
+            lat=plat, lon=plon, agl_m=agl,
+            # No magnetometer, and the NEO-6M reports no course standing
+            # still. Left as None so every contact carries the "heading"
+            # assumption rather than a fabricated north-up bearing that looks
+            # surveyed.
+            yaw_deg=None,
+            hdop=s.get("hdop"), pos_source=psrc,
+        ) if s.get("connected") else []
         return s
 
     # ---- polling ------------------------------------------------------------
@@ -248,6 +301,10 @@ class PayloadLink(threading.Thread):
             "model": d.get("model"),
             "z_max": g.get("z_max"), "z_t": g.get("z_t"),
             "blobs": g.get("n_blobs", 0), "fired": bool(g.get("fired")),
+            # The blobs themselves, not just how many. live() projects these
+            # onto the map; capped at the same six the payload sends so a
+            # runaway frame cannot flood the poll.
+            "gate_blobs": list(g.get("blobs") or [])[:6],
             "t_min": th.get("min"), "t_max": th.get("max"),
             "t_spread": th.get("spread"), "t_fps": th.get("fps"),
             "scene": hz.get("top") if hz.get("ok") else None,

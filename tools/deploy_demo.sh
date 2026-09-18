@@ -57,7 +57,11 @@ scp -q saresq/detect/hazard.py "$PI:$REMOTE/saresq/detect/hazard.py"
 # anyone tries the flag, in front of judges, is not a discovery worth saving
 # two kilobytes for.
 ssh "$PI" "mkdir -p $REMOTE/saresq/thermal"
+# motion.py is imported on EVERY run, not behind a flag like drizzle -- the
+# pipeline calls ThermalMotion unconditionally, so a missing file here is not a
+# degraded feature, it is a payload that will not start.
 scp -q saresq/thermal/__init__.py saresq/thermal/drizzle.py \
+       saresq/thermal/motion.py \
        "$PI:$REMOTE/saresq/thermal/"
 
 # The scene classifier is 2.7 MB and is NOT part of the fast path above, which

@@ -179,7 +179,14 @@ window.TileLayer = (function () {
       }
     }
     ctx.restore();
-    return { drawn: drawn, want: want, z: zi };
+    // `up` is how far past this source's own maximum zoom the camera has
+    // gone. It matters: at a bench scale the camera sits six levels above the
+    // dark basemap's z16, every tile is magnified 64x, and the result is a
+    // uniform grey rectangle that looks exactly like a broken map. Reporting
+    // the factor lets the UI say "upscaled" instead of leaving the operator to
+    // guess whether the tiles failed.
+    return { drawn: drawn, want: want, z: zi,
+             up: Math.pow(2, Math.max(0, cam.z - zi)) };
   }
 
   return {
