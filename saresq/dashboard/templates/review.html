@@ -73,7 +73,20 @@
       var d = document.createElement("div");
       d.className = "q";
       d.setAttribute("aria-current", i === idx ? "true" : "false");
+      // The queue is ordered by the GATE (higher of aircraft and ground), so
+      // the chip has to say when the two disagreed -- otherwise a row that the
+      // ground station promoted looks like the aircraft ranked it there.
+      var AG = {
+        GROUND_HIGHER: ["↑ ground", "#4FC489", "ground station scored this far above the aircraft"],
+        GROUND_LOWER:  ["↓ ground", "#6D838D", "ground station thinks this is a false alarm"],
+        AGREE:         ["✓ both",   "#8FA3AD", "aircraft and ground agree"],
+        NO_RESCORE:    ["", "", ""],
+        GROUND_ONLY:   ["ground",  "#8FA3AD", "scored on the ground only"]
+      };
+      var ag = AG[t.agreement] || AG.NO_RESCORE;
       d.innerHTML = '<span class="q-id">T-' + String(t.target_id).padStart(3, "0") + '</span>'
+        + (ag[0] ? '<span class="q-ag" title="' + ag[2] + '" style="color:' + ag[1]
+                   + ';font-size:9.5px;letter-spacing:.04em;margin-left:6px">' + ag[0] + '</span>' : "")
         + '<span class="q-cls cls-' + esc(t.class) + '">' + esc(t.class || "—") + '</span>'
         + '<span class="q-p">' + n(t.p_final) + '</span>';
       d.addEventListener("click", function () { idx = i; renderQueue(); renderWork(); });

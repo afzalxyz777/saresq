@@ -282,11 +282,51 @@ class Store:
 
     def review_queue(self) -> list[dict]:
         """Targets with no verdict yet, most-confident first -- an operator's
-        attention is the scarcest resource in the loop, so spend it top-down."""
+        attention is the scarcest resource in the loop, so spend it top-down.
+
+        Ordering is the GATE, and it combines both opinions: the aircraft's
+        p_final and the ground station's re-score of the same crop by a model
+        it had no room to run. Two rules govern how they combine, and both are
+        deliberate.
+
+        ORDER BY THE HIGHER OF THE TWO. A second opinion may promote a
+        candidate but may never bury one. The ground model is more precise on
+        our own measurements (false-positive rate 0.013 against 0.020) and far
+        more sensitive (0.560 against 0.020), so it is usually right -- but
+        "usually right" is not the standard when being wrong means walking past
+        a casualty. Promotion is cheap and reversible; demotion is neither.
+
+        NOTHING IS EVER FILTERED OUT. This gate reorders attention, it does not
+        remove candidates. An operator can always reach every target.
+
+        `agreement` names the pattern, because the disagreements are the
+        interesting rows: GROUND_HIGHER is a find the aircraft nearly let go,
+        GROUND_LOWER is probably a false alarm and can wait.
+        """
         rows = self.conn.execute(
-            "SELECT t.* FROM targets t "
+            "SELECT t.*, r.p AS rescore_p, r.model AS rescore_model, "
+            "       MAX(COALESCE(t.p_final, 0), COALESCE(r.p, 0)) AS gate_p "
+            "FROM targets t "
             "LEFT JOIN verdicts v ON v.target_id = t.target_id "
+            "LEFT JOIN (SELECT target_id, MAX(p) AS p, model FROM rescores "
+            "           GROUP BY target_id) r ON r.target_id = t.target_id "
             "WHERE v.verdict_id IS NULL "
-            "ORDER BY t.p_final DESC, t.target_id"
+            "ORDER BY gate_p DESC, t.target_id"
         ).fetchall()
-        return [dict(r) for r in rows]
+
+        out = []
+        for row in rows:
+            d = dict(row)
+            pa, pg = d.get("p_final"), d.get("rescore_p")
+            if pg is None:
+                d["agreement"] = "NO_RESCORE"
+            elif pa is None:
+                d["agreement"] = "GROUND_ONLY"
+            elif pg >= 0.35 and pa < 0.35:
+                d["agreement"] = "GROUND_HIGHER"      # the aircraft nearly missed it
+            elif pa >= 0.35 and pg < 0.15:
+                d["agreement"] = "GROUND_LOWER"       # probably a false alarm
+            else:
+                d["agreement"] = "AGREE"
+            out.append(d)
+        return out
