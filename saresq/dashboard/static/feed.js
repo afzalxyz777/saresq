@@ -99,38 +99,44 @@
       // that had no light is the night case this payload is built for, and it
       // must not be reported with the same words as a candidate the detector
       // examined and rejected.
-      ver.className = down ? "down"
-        : (L.verdict === "PERSON" ? "found"
-        : (L.verdict === "LIVE_BODY" ? "found"
-        : (L.verdict === "BODY_HEAT" ? "found"
-        : (L.verdict === "HEAT" ? "heat" : ""))));
+      // Driven by the ladder in saresq/fuse/verdict.py rather than by branches
+      // written here, so the UI cannot drift from the doctrine the way the
+      // live path already did once.
+      var V = {
+        LIVE_PERSON: ["LIVE PERSON", "found"],
+        LIVE_BODY:   ["LIVE BODY",   "found"],
+        PERSON:      ["PERSON",      "found"],
+        BODY_HEAT:   ["BODY HEAT",   "found"],
+        VISUAL_ONLY: ["VISUAL ONLY", "heat"],
+        HEAT:        ["HEAT SOURCE", "heat"],
+        CLEAR:       ["CLEAR",       ""]
+      };
+      var v = V[L.verdict] || V.CLEAR;
+      ver.className = down ? "down" : v[1];
       document.getElementById("v-main").textContent =
         !L.configured ? "NO PAYLOAD"
         : !L.connected ? "LINK DOWN"
-        : (L.n ? L.n + " PERSON" + (L.n > 1 ? "S" : "")
-              : (L.verdict === "LIVE_BODY" ? "LIVE BODY"
-              : (L.verdict === "BODY_HEAT" ? "BODY HEAT"
-              : (L.fired ? "HEAT SOURCE" : "CLEAR"))));
+        : (L.verdict === "LIVE_PERSON" || L.verdict === "PERSON") && L.n > 1
+            ? L.n + " PEOPLE" : v[0];
+      var why = L.verdict_why || "";
+      if (L.fired) why += " · +" + f(L.z_max, 1) + "\u03c3";
+      if (L.motion) {
+        why += " · moved " + (L.motion_ago_s ? f(L.motion_ago_s, 0) + " s ago" : "just now")
+             + " (" + (L.motion_area || 0) + " px, " + f(L.motion_peak, 1) + " K)";
+      }
+      if (L.rgb_blind) why += " · camera blind (" + f(L.crop_lum, 0) + "/255)";
       document.getElementById("v-sub").textContent =
         !L.configured ? "start the dashboard with --payload <pi-ip>"
-        : !L.connected ? (L.host + " — " + (L.why || "unreachable"))
-        : (L.n ? "detector confirmed · " + f(L.det_ms, 0) + " ms"
-        : (L.verdict === "LIVE_BODY"
-             ? "thermal signature at +" + f(L.z_max, 1) + "σ · MOVED "
-               + (L.motion_ago_s ? f(L.motion_ago_s, 0) + " s ago" : "just now")
-               + " (" + (L.motion_area || 0) + " px, " + f(L.motion_peak, 1) + " K)"
-             : (L.verdict === "BODY_HEAT"
-             ? "thermal signature at +" + f(L.z_max, 1) + "σ · camera blind ("
-               + f(L.crop_lum, 0) + "/255) — visible branch cannot corroborate"
-             : (L.fired ? "gate fired at +" + f(L.z_max, 1) + "σ · no person confirmed"
-                        : "peak +" + f(L.z_max, 1) + "σ of " + f(L.z_t, 1) + " needed"))));
+        : !L.connected ? (L.host + " \u2014 " + (L.why || "unreachable"))
+        : why;
 
       // The detector panel must not report "none" when the thermal branch is
       // holding a body-temperature signature. "none" reads as "nothing is
       // there", which is the opposite of what the payload is saying -- and it
       // was the wording that made a working system look broken over two
       // sleeping people. State what the visible branch could and could not do.
-      var thermalSays = (L.verdict === "LIVE_BODY" || L.verdict === "BODY_HEAT");
+      var thermalSays = (L.verdict === "LIVE_BODY" || L.verdict === "BODY_HEAT"
+                         || L.verdict === "LIVE_PERSON");
       document.getElementById("f-detect").innerHTML = !L.connected
         ? "no frames — link down"
         : (L.n
@@ -139,10 +145,10 @@
                 ? "<b>likely life</b> on thermal — visible branch had no light ("
                   + f(L.crop_lum, 0) + "/255), so it cannot confirm or deny"
                 : "<b>0</b> detection(s) · " + f(L.det_ms, 0) + " ms · " + (L.model || "")));
+      var PILL = { LIVE_PERSON: "likely life", LIVE_BODY: "likely life",
+                   BODY_HEAT: "body heat", VISUAL_ONLY: "unverified" };
       document.getElementById("p-det").textContent = !L.connected ? "down"
-        : (L.n ? L.n + " found"
-               : (L.verdict === "LIVE_BODY" ? "likely life"
-               : (L.verdict === "BODY_HEAT" ? "body heat" : "none")));
+        : (L.n ? L.n + " found" : (PILL[L.verdict] || "none"));
       document.getElementById("p-det").className =
         "pill" + (L.n || thermalSays ? " on" : "");
 

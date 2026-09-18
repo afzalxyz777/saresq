@@ -32,6 +32,9 @@ import time
 import urllib.error
 import urllib.request
 
+from saresq.fuse.verdict import MEANING as VERDICT_MEANING
+from saresq.fuse.verdict import verdict as _verdict
+
 #: Two captures closer than this are the same physical target seen twice, not
 #: two finds. 12 m is a little over the geolocation CEP the deck quotes, so it
 #: merges genuine re-sightings without swallowing two people in one room.
@@ -215,7 +218,7 @@ class PayloadLink(threading.Thread):
         mv = st.get("motion", {}) or {}
         th = st.get("thermal", {}) or {}
         n = int(d.get("n", 0) or 0)
-        return {
+        out = {
             "connected": True,
             # Three outcomes, not two. A thermal blob at body temperature with
             # a BLIND camera is not the same as one the detector examined and
@@ -224,20 +227,19 @@ class PayloadLink(threading.Thread):
             # console report "no person confirmed" over two sleeping people in
             # an unlit room, where the crops handed to the detector were black
             # squares at 10-21 of 255 luminance.
-            # MOVING beats everything except a confirmed visible detection.
-            # A warm blob might be a casualty, a corpse, a car bonnet or a slab
-            # the sun has been on all afternoon. One that CHANGES SHAPE between
-            # frames is none of those. For a team deciding where to dig first,
-            # "this one moved" outranks another decimal place of confidence --
-            # and it is the one thing the thermal branch can still establish on
-            # its own when the camera has no light.
-            "verdict": ("PERSON" if n else
-                        ("LIVE_BODY" if g.get("fired") and mv.get("moved")
-                         else ("BODY_HEAT" if g.get("fired") and d.get("rgb_blind")
-                               else ("HEAT" if g.get("fired") else "CLEAR")))),
+            # The ladder lives in saresq/fuse/verdict.py with the reasoning
+            # for its ordering. Briefly: a body-temperature source that MOVED
+            # outranks a bare visual detection, because a stock COCO detector
+            # will box a mannequin, a poster or a corpse, while motion plus
+            # body heat is two independent physical measurements agreeing on
+            # the thing this mission actually searches for -- a LIVING human.
+            "verdict": _verdict(n_visual=n, gate_fired=bool(g.get("fired")),
+                                moved=bool(mv.get("moved")),
+                                rgb_blind=bool(d.get("rgb_blind"))),
             "rgb_blind": bool(d.get("rgb_blind")),
             "crop_lum": d.get("lum"),
             "motion": bool(mv.get("moved")),
+            "verdict_why": None,   # filled below
             "motion_ago_s": mv.get("ago_s"),
             "motion_area": mv.get("area"),
             "motion_peak": mv.get("peak"),
@@ -269,6 +271,11 @@ class PayloadLink(threading.Thread):
                       for i, c in enumerate(st.get("crops") or [])],
             "temp": st.get("temp"), "up": st.get("up"),
         }
+        # The reason travels with the verdict. A one-word state an operator
+        # cannot expand is a state they will eventually guess at, and guessing
+        # is what "no person confirmed" over two sleeping people came from.
+        out["verdict_why"] = VERDICT_MEANING.get(out["verdict"])
+        return out
 
     # ---- durable half -------------------------------------------------------
     def _ingest(self, events) -> None:
