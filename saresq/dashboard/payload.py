@@ -422,16 +422,19 @@ class PayloadLink(threading.Thread):
                 blob = self._blob(f"/event/{eid}/crop{i}")
                 if blob:
                     media.put_bytes(blob, KIND_RGB_CROP, target_id=tid,
-                                          pass_id=pass_id, t_ns=t_ns, priority=conf)
+                                          pass_id=pass_id, t_ns=t_ns, priority=conf,
+                                      synced=True)
             det = self._blob(f"/event/{eid}/detect")
             if det:
                 media.put_bytes(det, KIND_THUMB, target_id=tid,
-                                      pass_id=pass_id, t_ns=t_ns, priority=conf)
+                                      pass_id=pass_id, t_ns=t_ns, priority=conf,
+                                      synced=True)
             raw = self._blob(f"/event/{eid}/raw")
             # 32x24 uint16 = 1536 bytes exactly; anything else is not a frame.
             if raw and len(raw) == 32 * 24 * 2:
                 media.put_bytes(raw, KIND_THERMAL_PATCH, target_id=tid,
                                       pass_id=pass_id, t_ns=t_ns, priority=conf,
+                                      synced=True,
                                       width=32, height=24)
         except Exception as e:                      # noqa: BLE001
             # Evidence is valuable but never worth losing the detection over:

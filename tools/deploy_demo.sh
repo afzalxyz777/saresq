@@ -52,6 +52,14 @@ fi
 # model rather than assuming the card's copy matches.
 scp -q saresq/detect/hazard.py "$PI:$REMOTE/saresq/detect/hazard.py"
 
+# saresq.thermal is imported only when --drizzle is passed, which is exactly
+# why it has to be pushed unconditionally: an import that fails the first time
+# anyone tries the flag, in front of judges, is not a discovery worth saving
+# two kilobytes for.
+ssh "$PI" "mkdir -p $REMOTE/saresq/thermal"
+scp -q saresq/thermal/__init__.py saresq/thermal/drizzle.py \
+       "$PI:$REMOTE/saresq/thermal/"
+
 # The scene classifier is 2.7 MB and is NOT part of the fast path above, which
 # is deliberately two small files so a deploy finishes in a second over a phone
 # hotspot. Copy it only when the Pi does not already have it -- otherwise every

@@ -78,7 +78,18 @@ class MediaStore:
         priority: float = 0.0,
         width: int | None = None,
         height: int | None = None,
+        synced: bool = False,
     ) -> int:
+        """`synced` marks the artefact as already downlinked.
+
+        The sync fields were written for the AIRCRAFT's store, where NULL means
+        "still queued to send". On the GROUND station the same row means the
+        opposite: the ground station only ever holds an artefact because it
+        successfully fetched it. Leaving it NULL made Evidence label 247
+        pictures it was displaying on screen as "queued on aircraft", which is
+        a contradiction an operator can see -- and exactly the kind of untrue
+        status line the rest of this console exists to avoid.
+        """
         if kind not in _EXT:
             raise ValueError(f"unknown media kind {kind!r}; expected one of {sorted(_EXT)}")
         sha, rel = self._write_blob(data, _EXT[kind])
@@ -86,6 +97,8 @@ class MediaStore:
             target_id=target_id, pass_id=pass_id, t_ns=t_ns if t_ns is not None else _now_ns(),
             kind=kind, sha256=sha, rel_path=rel, bytes=len(data),
             width=width, height=height, priority=priority,
+            synced_ns=_now_ns() if synced else None,
+            sent_bytes=len(data) if synced else 0,
         )
 
     # ------------------------------------------------------------------

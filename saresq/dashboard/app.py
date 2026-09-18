@@ -281,14 +281,41 @@ def api_analytics():
 
     res = _root("RESULTS_DIR")
     out = {"detector": None, "hazard": None, "sim": None}
-    for cand in sorted(res.glob("detector/**/results.csv")) + sorted(res.glob("**/results.csv")):
+
+    # WHICH run to report is not a free choice. Globbing and taking the first
+    # match sorts alphabetically, which silently promoted a REJECTED candidate
+    # (v11n_p3_hituav) over the model we actually fly (v8n_p3_thermalmix2) the
+    # moment that directory existed -- the console would have shown a judge
+    # 0.6305 for a model that is not on the aircraft.
+    #
+    # So derive it from a real artefact instead of a name: tflite_exports.json
+    # records the weights each deployed .tflite was built from, and the model
+    # on the Pi is by definition the one that was exported. If that file is
+    # missing we fall back to the old scan, but the response always says which
+    # run it read so the number can never be anonymous.
+    preferred: list[pathlib.Path] = []
+    try:
+        exports = json.loads((res / "detector" / "tflite_exports.json").read_text())
+        for e in exports.get("exports", []):
+            src = e.get("source_weights")
+            if not src:
+                continue
+            run = pathlib.Path(src).parent.parent / "results.csv"
+            if run.exists() and run not in preferred:
+                preferred.append(run)
+    except Exception:
+        pass
+
+    for cand in preferred + sorted(res.glob("detector/**/results.csv")) + sorted(res.glob("**/results.csv")):
         try:
             with open(cand, newline="") as fh:
                 rows = [r for r in _csv.DictReader(fh)]
             if not rows:
                 continue
             last = {k.strip(): v for k, v in rows[-1].items() if k}
-            out["detector"] = {"file": cand.name, "epochs": len(rows), "final": last}
+            out["detector"] = {"file": cand.name, "run": cand.parent.name,
+                               "shipped": bool(preferred and cand == preferred[0]),
+                               "epochs": len(rows), "final": last}
             break
         except Exception:
             continue
