@@ -101,29 +101,50 @@
       // examined and rejected.
       ver.className = down ? "down"
         : (L.verdict === "PERSON" ? "found"
+        : (L.verdict === "LIVE_BODY" ? "found"
         : (L.verdict === "BODY_HEAT" ? "found"
-        : (L.verdict === "HEAT" ? "heat" : "")));
+        : (L.verdict === "HEAT" ? "heat" : ""))));
       document.getElementById("v-main").textContent =
         !L.configured ? "NO PAYLOAD"
         : !L.connected ? "LINK DOWN"
         : (L.n ? L.n + " PERSON" + (L.n > 1 ? "S" : "")
+              : (L.verdict === "LIVE_BODY" ? "LIVE BODY"
               : (L.verdict === "BODY_HEAT" ? "BODY HEAT"
-              : (L.fired ? "HEAT SOURCE" : "CLEAR")));
+              : (L.fired ? "HEAT SOURCE" : "CLEAR"))));
       document.getElementById("v-sub").textContent =
         !L.configured ? "start the dashboard with --payload <pi-ip>"
         : !L.connected ? (L.host + " — " + (L.why || "unreachable"))
         : (L.n ? "detector confirmed · " + f(L.det_ms, 0) + " ms"
-        : (L.verdict === "BODY_HEAT"
+        : (L.verdict === "LIVE_BODY"
+             ? "thermal signature at +" + f(L.z_max, 1) + "σ · MOVED "
+               + (L.motion_ago_s ? f(L.motion_ago_s, 0) + " s ago" : "just now")
+               + " (" + (L.motion_area || 0) + " px, " + f(L.motion_peak, 1) + " K)"
+             : (L.verdict === "BODY_HEAT"
              ? "thermal signature at +" + f(L.z_max, 1) + "σ · camera blind ("
                + f(L.crop_lum, 0) + "/255) — visible branch cannot corroborate"
              : (L.fired ? "gate fired at +" + f(L.z_max, 1) + "σ · no person confirmed"
-                        : "peak +" + f(L.z_max, 1) + "σ of " + f(L.z_t, 1) + " needed")));
+                        : "peak +" + f(L.z_max, 1) + "σ of " + f(L.z_t, 1) + " needed"))));
 
-      document.getElementById("f-detect").innerHTML = L.connected
-        ? "<b>" + (L.n || 0) + "</b> detection(s) · " + f(L.det_ms, 0) + " ms · " + (L.model || "")
-        : "no frames — link down";
-      document.getElementById("p-det").textContent = L.connected ? (L.n ? L.n + " found" : "none") : "down";
-      document.getElementById("p-det").className = "pill" + (L.n ? " on" : "");
+      // The detector panel must not report "none" when the thermal branch is
+      // holding a body-temperature signature. "none" reads as "nothing is
+      // there", which is the opposite of what the payload is saying -- and it
+      // was the wording that made a working system look broken over two
+      // sleeping people. State what the visible branch could and could not do.
+      var thermalSays = (L.verdict === "LIVE_BODY" || L.verdict === "BODY_HEAT");
+      document.getElementById("f-detect").innerHTML = !L.connected
+        ? "no frames — link down"
+        : (L.n
+            ? "<b>" + L.n + "</b> detection(s) · " + f(L.det_ms, 0) + " ms · " + (L.model || "")
+            : (thermalSays
+                ? "<b>likely life</b> on thermal — visible branch had no light ("
+                  + f(L.crop_lum, 0) + "/255), so it cannot confirm or deny"
+                : "<b>0</b> detection(s) · " + f(L.det_ms, 0) + " ms · " + (L.model || "")));
+      document.getElementById("p-det").textContent = !L.connected ? "down"
+        : (L.n ? L.n + " found"
+               : (L.verdict === "LIVE_BODY" ? "likely life"
+               : (L.verdict === "BODY_HEAT" ? "body heat" : "none")));
+      document.getElementById("p-det").className =
+        "pill" + (L.n || thermalSays ? " on" : "");
 
       document.getElementById("f-thermal").innerHTML = L.connected
         ? "<b>" + f(L.t_min, 1) + "–" + f(L.t_max, 1) + "°C</b> · spread "

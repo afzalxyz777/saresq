@@ -914,6 +914,11 @@ class Camera(threading.Thread):
 #: not a negative result, it is a missing one.
 RGB_BLIND_LUM = 35.0
 
+#: How long a movement stays reported after it stops. Long enough that an
+#: operator glancing at the console sees it, short enough that it still means
+#: "recently".
+MOTION_HOLD_S = 8.0
+
 
 def gate_stats(thermal: np.ndarray, cfg: dict) -> dict:
     g = cfg.get("gate", {})
@@ -1107,6 +1112,19 @@ class App:
         # fault. An optional feature must not change the shape of the object.
         self.drizzle_ref: np.ndarray | None = None
         self.drizzle_field: np.ndarray | None = None
+        # Motion is the evidence that a heat source is ALIVE, and it is the
+        # one extra thing the thermal branch can still say when the camera is
+        # blind. Always on: it costs a subtraction on 768 pixels.
+        try:
+            from saresq.thermal.motion import ThermalMotion
+            self.motion = ThermalMotion()
+        except Exception:
+            self.motion = None
+        #: Motion is transient -- a limb shifts and then settles -- so the flag
+        #: is HELD briefly. "moved 3 s ago" is what an operator needs; a flag
+        #: that blinks for one frame is one nobody will ever see.
+        self.motion_state = {"moved": False, "ago_s": None, "area": 0, "peak": 0.0}
+        self._motion_last = 0.0
         if getattr(args, "drizzle", 0):
             try:
                 from saresq.thermal.drizzle import Drizzle
@@ -1160,6 +1178,23 @@ class App:
             g = gate_stats(th, self.cfg) if th is not None else self.gate
             if th is not None and self.drizzle is not None:
                 accumulate_drizzle(self, th)
+            if th is not None and self.motion is not None:
+                try:
+                    mr = self.motion.add(th, t_s=time.time())
+                    now = time.time()
+                    if mr.moved:
+                        self._motion_last = now
+                        self.motion_state = {"moved": True, "ago_s": 0.0,
+                                             "area": mr.area_px,
+                                             "peak": round(mr.peak_dK, 2)}
+                    elif self._motion_last:
+                        ago = now - self._motion_last
+                        self.motion_state = {
+                            "moved": ago <= MOTION_HOLD_S, "ago_s": round(ago, 1),
+                            "area": self.motion_state.get("area", 0),
+                            "peak": self.motion_state.get("peak", 0.0)}
+                except Exception:
+                    pass
 
             t0 = time.time()
             dets = det.detect(rgb)
@@ -1628,6 +1663,7 @@ def make_handler(app: App):
                 self._send(200, "application/json", json.dumps({
                     "thermal": t, "gate": g, "detect": info, "crops": meta,
                     "gps": app.gps.read(), "hazard": hz,
+                    "motion": dict(app.motion_state),
                     "drizzle": dict(app.drizzle_stats),
                     "seq": seq, "rotated": bool(app.args.rotate),
                     "rgb_w": app.args.width, "rgb_h": app.args.height,

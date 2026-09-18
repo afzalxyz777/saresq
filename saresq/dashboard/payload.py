@@ -212,6 +212,7 @@ class PayloadLink(threading.Thread):
         d = st.get("detect", {}) or {}
         gps = st.get("gps", {}) or {}
         hz = st.get("hazard", {}) or {}
+        mv = st.get("motion", {}) or {}
         th = st.get("thermal", {}) or {}
         n = int(d.get("n", 0) or 0)
         return {
@@ -223,11 +224,23 @@ class PayloadLink(threading.Thread):
             # console report "no person confirmed" over two sleeping people in
             # an unlit room, where the crops handed to the detector were black
             # squares at 10-21 of 255 luminance.
+            # MOVING beats everything except a confirmed visible detection.
+            # A warm blob might be a casualty, a corpse, a car bonnet or a slab
+            # the sun has been on all afternoon. One that CHANGES SHAPE between
+            # frames is none of those. For a team deciding where to dig first,
+            # "this one moved" outranks another decimal place of confidence --
+            # and it is the one thing the thermal branch can still establish on
+            # its own when the camera has no light.
             "verdict": ("PERSON" if n else
-                        ("BODY_HEAT" if g.get("fired") and d.get("rgb_blind")
-                         else ("HEAT" if g.get("fired") else "CLEAR"))),
+                        ("LIVE_BODY" if g.get("fired") and mv.get("moved")
+                         else ("BODY_HEAT" if g.get("fired") and d.get("rgb_blind")
+                               else ("HEAT" if g.get("fired") else "CLEAR")))),
             "rgb_blind": bool(d.get("rgb_blind")),
             "crop_lum": d.get("lum"),
+            "motion": bool(mv.get("moved")),
+            "motion_ago_s": mv.get("ago_s"),
+            "motion_area": mv.get("area"),
+            "motion_peak": mv.get("peak"),
             "n": n,
             "det_ms": d.get("ms"),
             "model": d.get("model"),
