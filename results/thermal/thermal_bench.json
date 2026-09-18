@@ -1,0 +1,42 @@
+{
+  "drizzle": {
+    "n_trials": 40,
+    "n_frames": 8,
+    "scale": 2,
+    "centroid_err_px_raw": 0.0434,
+    "centroid_err_px_single": 0.0237,
+    "centroid_err_px_drizzle": 0.1013,
+    "noise_k_single": 0.0681,
+    "noise_k_drizzle": 0.0394,
+    "centroid_err_px_drizzle_true_shifts": 0.0205,
+    "noise_k_drizzle_true_shifts": 0.0416,
+    "trustworthy_frac": 0.95
+  },
+  "motion": {
+    "still_frames": 600,
+    "deadband_sweep_false_alarms": {
+      "0.0": 170,
+      "0.5": 52,
+      "1.0": 1
+    },
+    "false_alarms": 1,
+    "false_alarm_rate": 0.0017,
+    "false_alarms_uncompensated": 0,
+    "min_detected_shift_px": 1
+  },
+  "subpage": {
+    "captures": [
+      {
+        "capture": "capture_2.npy",
+        "subpage_gap_k": 0.0514
+      },
+      {
+        "capture": "first_light.npy",
+        "subpage_gap_k": 0.0593
+      }
+    ],
+    "threshold_k": 0.6
+  },
+  "netd_k": 0.1,
+  "seed": 20260918
+}

@@ -98,3 +98,49 @@ def test_no_result_until_the_lag_window_is_full():
     rng = np.random.default_rng(0)
     for i in range(4):
         assert not m.add(_noisy(_room(12), rng)).moved
+
+
+def test_alignment_does_not_manufacture_motion_on_a_still_scene():
+    """The sub-pixel deadband in _estimate. This one shipped broken.
+
+    On a low-texture thermal frame -- a warm body on a flat background, i.e.
+    the normal case -- phase correlation scatters by up to ~1.1 px between two
+    frames of a scene that has NOT moved. Warping the older frame by that
+    imaginary offset shears every gradient in it, and the difference image then
+    carries real signal at the edge of the warm blob. Measured at 23 false
+    "movements" in 80 still frames before the deadband; ~0.5% after.
+
+    This matters more than a tidy number: a false motion flag promotes
+    BODY_HEAT to LIVE_BODY, which is the console asserting that a warm object
+    is a LIVING person. A radiator does not need a rescue team.
+    """
+    rng = np.random.default_rng(4242)
+    rr = np.arange(24)[:, None] - 12.0
+    cc = np.arange(32)[None, :] - 16.0
+    base = 22.0 + 6.0 * np.exp(-(rr ** 2 + cc ** 2) / (2 * 1.6 ** 2))
+
+    m = ThermalMotion()
+    false_alarms = sum(m.add(base + rng.normal(0, 0.10, base.shape)).moved
+                       for _ in range(200))
+    assert false_alarms <= 4, f"{false_alarms}/200 false alarms on a still scene"
+
+
+def test_a_real_shift_is_still_compensated():
+    """The deadband must not disable ego-motion compensation.
+
+    Motion worth correcting is large -- 95 px per 100 ms at 14 m/s and 20 m --
+    so rejecting sub-pixel estimates costs nothing. Guard that the large case
+    still works, or the fix above would have traded one failure for a worse one.
+    """
+    rng = np.random.default_rng(5)
+    # A wider world, from which the sensor sees a 32-px window. Panning the
+    # WINDOW is a true translation; np.roll would instead wrap one edge around
+    # and hand the detector genuinely new content to be right about.
+    world = rng.normal(22.0, 2.0, (24, 48))
+    view = lambda x0: world[:, x0:x0 + 32]           # noqa: E731
+
+    m = ThermalMotion()
+    for _ in range(6):
+        m.add(view(4) + rng.normal(0, 0.10, (24, 32)))
+    # The whole scene slides 3 px: that is the aircraft, not a casualty.
+    assert not m.add(view(7) + rng.normal(0, 0.10, (24, 32))).moved

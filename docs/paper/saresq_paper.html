@@ -60,6 +60,11 @@
   .wide{ column-span:all; margin:8pt 0 9pt; }
   .wide figcaption{ padding:0 4mm; }
 
+  /* The verdict ladder sits inside an equation block, so it must not inherit
+     the full-width bordered look of a data table. */
+  table.ladder{ width:auto; margin:0 auto; border:0; font-size:8.8pt; }
+  table.ladder td{ border:0; padding:0.6pt 8pt 0.6pt 0; text-align:left; white-space:nowrap; }
+  table.ladder td:first-child{ font-weight:700; }
   /* ---- tables ---- */
   table{
     border-collapse:collapse; width:100%; font-size:7.9pt; margin:2pt 0 3pt;
@@ -128,9 +133,20 @@
   against a 2018 result on comparable hardware that reported 0.18&nbsp;FPS for embedded CNN pedestrian
   detection, and against current RGBT fusion networks that require 22&times; the parameters and a discrete
   GPU. The system has been flown end-to-end: a field trial produced 41 captures, 247 evidence artefacts
-  and zero errors with the SoC thermally unthrottled throughout.</p>
+  and zero errors with the SoC thermally unthrottled throughout. We further report three findings that
+  bench work surfaced and that we have not seen quantified elsewhere for this sensor class. Approximately
+  <b>half</b> of all frames from the thermal array arrive internally torn between its two interleaved
+  subpages; because the gate is relative, tearing inflates the dispersion the threshold is scaled by and so
+  <i>suppresses</i> true detections rather than creating false ones. A two-mean test raises measured
+  significance on the same subjects from 3.5 to <b>4&ndash;6&thinsp;&sigma;</b>. Extending the cascade one
+  hop across the radio link to re-score uploaded crops on the ground station shows that <b>input resolution,
+  not model capacity</b>, carries the gain, by roughly 4&times;. And a sub-pixel registration floor of
+  0.12&nbsp;px median but 1.1&nbsp;px maximum on low-texture 32&times;24 frames limits multi-frame
+  reconstruction and, left unconstrained, manufactured apparent movement in 28.3% of frames of a stationary
+  scene.</p>
   <p class="kw"><b class="lead">Index Terms</b>&mdash;Unmanned aerial vehicles, search and rescue, thermal
-  imaging, embedded computer vision, object detection, sensor registration, model quantisation.</p>
+  imaging, embedded computer vision, object detection, sensor registration, model quantisation,
+  motion detection, image reconstruction.</p>
 </div>
 
 <hr class="rule">
@@ -416,6 +432,40 @@ to route the thermal sensor's cheap, high-recall evidence into the expensive, di
 </div>
 
 <div class="cols">
+
+<h3>C. A sensor artefact that raises the detection threshold</h3>
+
+<p class="first">The MLX90640 does not expose a frame. It exposes two interleaved <i>subpages</i>: pixel
+(<i class="v">r</i>,&nbsp;<i class="v">c</i>) belongs to subpage (<i class="v">r</i>&nbsp;+&nbsp;<i class="v">c</i>)&nbsp;mod&nbsp;2,
+a chessboard, and the two are integrated at different instants. A read that straddles a refresh therefore
+returns an array whose halves describe the scene at two different moments. The result is not noisy in any
+way a filter recognises&mdash;it is two valid images woven together.</p>
+
+<p>The consequence is worse than a corrupted frame, because the gate of Section&nbsp;IV-A is
+<i>relative</i>. A torn frame inflates the frame's own dispersion, and since the threshold is
+<i class="v">z<sub>t</sub></i> scaled by that dispersion, the artefact <b>raises the bar the casualty has to
+clear</b>. The sensor defect does not add false positives; it suppresses true ones, silently, and in
+proportion to how badly torn the frame is.</p>
+
+<p>Detection needs no model. Both subpages sample the same scene, so on an intact frame their means agree;
+on a torn frame they do not. Writing &mu;<sub>A</sub> and &mu;<sub>B</sub> for the two subpage means, a
+frame is rejected when</p>
+
+<div class="eq"><div class="body">
+  |&thinsp;&mu;<sub>A</sub> &minus; &mu;<sub>B</sub>&thinsp;| &gt; &Delta;<sub>sub</sub>,
+&nbsp;&nbsp;&Delta;<sub>sub</sub> = 0.60&nbsp;K.
+</div><div class="num">(21)</div></div>
+
+<p>The threshold is set by measurement rather than taste. On the payload captures retained in
+results/thermal/ the two subpages agree to <b>0.051&nbsp;K</b> and <b>0.059&nbsp;K</b>&mdash;below the
+sensor's own 0.1&nbsp;K NETD&mdash;so 0.60&nbsp;K sits an order of magnitude above the intact case and
+cannot discard good data. The test costs two means over 768 values and runs before anything else in the
+chain.</p>
+
+<p>Section&nbsp;VI-M reports what rejection is worth. We note here only that the artefact is a property of
+the part, not of our wiring: it follows from the datasheet's own readout description, and any system
+sampling this sensor asynchronously to its refresh will meet it. We have not seen it quantified in the
+embedded search-and-rescue literature, where this sensor family is otherwise popular.</p>
 
 <h2>IV.&nbsp;&nbsp;Method</h2>
 
@@ -722,6 +772,44 @@ is forced to LOW regardless of its own score, because in this system a person is
 HIGH requires <i class="v">p</i>&nbsp;&ge;&nbsp;0.80 together with visible corroboration at
 IoU&nbsp;&ge;&nbsp;0.10 and at least two hits.</p>
 
+<p>Three classes are, however, too coarse for the operator-facing verdict, and a bench trial showed why.
+Over two sleeping subjects the gate fired correctly at 4&ndash;6&thinsp;&sigma; on blobs at
+33.1&ndash;34.4&nbsp;&deg;C; the crops it handed the detector had mean luminance 8&ndash;21 of 255, because
+the room was unlit and an unilluminated rolling-shutter camera has no signal. The visible branch was not
+disagreeing. It was <i>blind</i>, and the console reported its silence as "no person confirmed"&mdash;turning
+a missing measurement into a negative one. At night over rubble a blind visible branch is the normal case;
+it is the entire reason the payload is thermal-first.</p>
+
+<p>The payload therefore separates three questions that the three-class scheme conflates: is there a
+body-temperature source, did it <i>move</i>, and could the visible branch see anything at all. The last is
+answered by the mean luminance of the crop belonging to the strongest thermal candidate&mdash;not the
+brightest crop in frame, which lets one sunlit window certify a camera that is blind where the casualty
+actually is. Writing <i class="v">n</i><sub>vis</sub> for visible detections, <i class="v">g</i> for the
+gate, <i class="v">m</i> for motion (Section&nbsp;IV-L) and <i class="v">b</i> for blindness, the verdict is
+the first matching rule of</p>
+
+<div class="eq"><div class="body">
+  <table class="ladder"><tbody>
+<tr><td>LIVE&nbsp;PERSON</td><td><i>g</i> &and; <i>m</i> &and; <i>n</i><sub>vis</sub>&gt;0</td></tr>
+<tr><td>LIVE&nbsp;BODY</td><td><i>g</i> &and; <i>m</i></td></tr>
+<tr><td>PERSON</td><td><i>n</i><sub>vis</sub>&gt;0 &and; <i>g</i></td></tr>
+<tr><td>VISUAL&nbsp;ONLY</td><td><i>n</i><sub>vis</sub>&gt;0</td></tr>
+<tr><td>BODY&nbsp;HEAT</td><td><i>g</i> &and; <i>b</i></td></tr>
+<tr><td>HEAT</td><td><i>g</i></td></tr>
+<tr><td>CLEAR</td><td>otherwise</td></tr>
+</tbody></table>
+</div><div class="num">(22)</div></div>
+
+<p>Two orderings in (22) are deliberate and are the substance of the rule. First, <b>a moving body outranks
+a bare visible detection</b>. A COCO-trained detector will box a mannequin, a coat on a chair, a poster, a
+photograph&mdash;and a corpse. Body temperature together with independent movement are two physical
+measurements agreeing that a <i>living</i> human is present, which no appearance model can assert.
+Second, BODY&nbsp;HEAT sits immediately below the moving cases rather than near the bottom, because
+<b>motion proves life but its absence proves nothing</b>: an unconscious casualty, the most medically
+urgent person on any site, does not move. The ladder ranks confidence that a living human is present. It is
+not a triage order and it is not the ledger's calibrated probability, both of which it is reported
+alongside.</p>
+
 <div class="tbl">
 <table>
   <caption><b>Table II.</b> Complete inventory of models and algorithms.</caption>
@@ -743,6 +831,12 @@ IoU&nbsp;&ge;&nbsp;0.10 and at least two hits.</p>
     <tr><td>Evidence fusion</td><td>logistic regression, 18 features (10)</td><td>instrumented</td></tr>
     <tr><td>Confidence ledger</td><td>log-odds, correlation-discounted (11), (12)</td><td>tested</td></tr>
     <tr><td>Verdict rules</td><td>pattern-based three-class assignment</td><td>tested</td></tr>
+    <tr><td>Subpage rejection</td><td>chessboard mean gap (21), 0.60&nbsp;K</td><td>payload</td></tr>
+    <tr><td>Thermal motion</td><td>robust aligned difference (23), 1.0&nbsp;px deadband</td><td>payload</td></tr>
+    <tr><td>Verdict ladder</td><td>seven-state evidence pattern (22)</td><td>payload</td></tr>
+    <tr><td>Multi-frame recon.</td><td>drizzle (24) [22], circular-variance diversity</td><td>payload, off</td></tr>
+    <tr><td>Contact projection</td><td>pinhole ray (18), operator-stated AGL</td><td>ground</td></tr>
+    <tr><td>Ground re-score</td><td>YOLOv8m @640, promote-only gate (25)</td><td>ground</td></tr>
     <tr><td>Map tracker</td><td>alpha-beta, Kalata gains (19), &chi;<sup>2</sup> gate (20), 3-of-4</td><td>ground</td></tr>
   </tbody>
 </table>
@@ -751,8 +845,90 @@ station. <b>tested</b>: implemented and unit-tested against the acceptance crite
 not in the current flying build&mdash;the payload build is deliberately minimal, and the tracking and
 georeferencing stages require the GNSS/IMU stream that indoor bench trials cannot supply.
 <b>instrumented</b>: trained and evaluated, reported in Section&nbsp;VIII-B, and not relied upon by any
-claim in this paper. The suite is 180 tests.</p>
+claim in this paper. <b>payload, off</b>: present in the flying build but disabled by default, for the
+reason given in Section&nbsp;VI-L. The suite is 223 tests.</p>
 </div>
+
+<h3>K. Thermal motion as evidence of life</h3>
+
+<p class="first">A 34&nbsp;&deg;C blob says something is warm. It does not say whether that something is a
+casualty, a corpse, a car bonnet or a sun-warmed slab. Movement does, and it is the one further statement
+the thermal branch can make unaided&mdash;which matters precisely in the unlit case where the visible branch
+contributes nothing.</p>
+
+<p>Three effects masquerade as movement and each is removed explicitly. <i>Sensor noise</i>: the threshold
+is derived from the difference image's own robust spread rather than fixed, so it tracks the sensor's state.
+<i>Payload motion</i>: the earlier frame is first brought onto the current frame's grid, so that only
+residual change survives. <i>Thermal drift</i>: differences are taken across about a second, far faster than
+a room or a sensor warms, and the median of the difference is removed so that a uniform shift cancels.
+For frames <i class="v">F</i><sub>t</sub> and the aligned earlier frame
+<i class="v">F&#770;</i><sub>t&minus;&tau;</sub>, with
+<i class="v">D</i> = <i class="v">F</i><sub>t</sub> &minus; <i class="v">F&#770;</i><sub>t&minus;&tau;</sub>
+&minus; med(&middot;),</p>
+
+<div class="eq"><div class="body">
+  &sigma;<sub>D</sub> = 1.4826&thinsp;&middot;&thinsp;med|<i class="v">D</i>|,
+&nbsp;&nbsp;<i class="v">M</i> = [&thinsp;|<i class="v">D</i>| &ge; max(<i class="v">k</i>&thinsp;&sigma;<sub>D</sub>, &Delta;<sub>min</sub>)&thinsp;]
+</div><div class="num">(23)</div></div>
+
+<p>with <i class="v">k</i>&nbsp;=&nbsp;4 and &Delta;<sub>min</sub>&nbsp;=&nbsp;0.45&nbsp;K. Motion is
+declared when <i class="v">M</i> contains a connected region of at least four pixels whose peak exceeds
+0.60&nbsp;K, with a two-pixel border excluded. The flag is then held for eight seconds: a limb shifts and
+settles, and an indicator that blinks for one frame is one no operator sees.</p>
+
+<p>The alignment step is not optional and is not free; Section&nbsp;VI-L reports what it cost us before it
+was constrained.</p>
+
+<h3>L. Multi-frame reconstruction</h3>
+
+<p class="first">A 32&times;24 array is coarse enough that sub-pixel sampling is worth attempting. We
+implemented <i>drizzle</i>&nbsp;[22], the variable-pixel linear reconstruction developed for
+under-sampled Hubble imagery, which drops each input pixel onto a finer output grid as a shrunken footprint
+and accumulates an area-weighted sum. Given frames at offsets
+(<i class="v">&delta;x<sub>k</sub></i>,&nbsp;<i class="v">&delta;y<sub>k</sub></i>) relative to a reference,
+the output pixel <i class="v">I</i><sub>j</sub> accumulates</p>
+
+<div class="eq"><div class="body">
+  <i class="v">I</i><sub>j</sub> =
+(&sum;<sub>k</sub> <i class="v">w</i><sub>jk</sub>&thinsp;<i class="v">v</i><sub>k</sub>) /
+(&sum;<sub>k</sub> <i class="v">w</i><sub>jk</sub>),
+&nbsp;&nbsp;<i class="v">w</i><sub>jk</sub> = area(<i class="v">f</i><sub>k</sub> &cap; <i class="v">b</i><sub>j</sub>)
+</div><div class="num">(24)</div></div>
+
+<p>where <i class="v">f</i><sub>k</sub> is the shrunken footprint of input pixel <i class="v">k</i> and
+<i class="v">b</i><sub>j</sub> the output bin. Drizzle requires genuine sub-pixel diversity among the
+offsets, which we quantify as circular variance,
+1&nbsp;&minus;&nbsp;|mean(exp(2&pi;<i>i</i>&thinsp;frac(&delta;)))|, because fractional phase wraps and a
+linear spread would score a set clustered either side of an integer boundary as diverse when it is not. A
+reconstruction is reported as trustworthy only with at least three frames, diversity above 0.25 and output
+coverage above 0.98.</p>
+
+<p>Two limits are worth stating in advance of the measurement. Drizzle recovers <i>sampling</i>, not the
+detector's own blur, and the MLX90640's roughly 100% fill factor means little scene information sits above
+Nyquist to recover. And the offsets must come from somewhere: in flight from inertial data, on a bench from
+the frames themselves. Section&nbsp;VI-L shows that on this sensor the second of these, not the first,
+is what binds.</p>
+
+<h3>M. Extending the cascade across the radio link</h3>
+
+<p class="first">The cascade of Section&nbsp;III ends at the aircraft only because that is where the
+compute ends. The ground station is a laptop, idle, holding every evidence crop the payload has already
+uploaded&mdash;so the same cascade can take one more step on hardware two orders of magnitude larger,
+without costing the aircraft a millisecond or a byte.</p>
+
+<p>Each uploaded crop is re-scored by a larger detector at full resolution, and the result is stored
+alongside the payload's own score rather than replacing it. The review queue is then ordered by</p>
+
+<div class="eq"><div class="body">
+  <i class="v">p</i><sub>gate</sub> = max(<i class="v">p</i><sub>payload</sub>, <i class="v">p</i><sub>ground</sub>)
+</div><div class="num">(25)</div></div>
+
+<p>The maximum, not the mean and not a replacement, and the asymmetry is deliberate: a second opinion may
+<i>promote</i> a candidate the payload nearly missed, but must never bury one the payload was confident
+about. A ground model disagreeing with the aircraft is a reason for a human to look sooner, not a reason to
+look later. Re-scoring is idempotent per artefact, so a re-run costs nothing and an interrupted one resumes.
+Section&nbsp;VI-K reports which of model capacity and input resolution actually carries the gain; the answer
+determined what we shipped.</p>
 
 <h2>V.&nbsp;&nbsp;Datasets and Training</h2>
 
@@ -1060,6 +1236,152 @@ spawns a fresh tentative track almost every frame&mdash;the failure is total rat
 estimating it from the images: the compensation is not a refinement that improves track quality, it is the
 precondition for any track existing at all at survey speed.</p>
 
+<h3>J. Detector generation: does a newer backbone help?</h3>
+
+<p class="first">YOLOv8n was selected early. Since a newer generation is available and a reviewer will
+reasonably ask, we trained YOLO11n end-to-end on our own data under an identical schedule&mdash;same corpus,
+same 640&nbsp;px input, same 30 epochs, same P3&ndash;P5 head, same machine&mdash;and pre-registered the
+adoption rule before seeing the result: adopt only if Person&nbsp;AP<sub>50</sub> improves by more than
+0.02 and mAP<sub>50</sub> does not regress. Fixing the rule in advance is the only thing that stops a
+1&nbsp;% difference being read as whichever answer was already preferred.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table X.</b> Detector generation, HIT-UAV, identical 30-epoch schedule.</caption>
+  <thead><tr><th>Model</th><th>Param</th><th>GFLOPs</th><th>Person AP<sub>50</sub></th><th>mAP<sub>50</sub></th><th>mAP<sub>50-95</sub></th></tr></thead>
+  <tbody>
+    <tr><td>YOLOv8n P3&ndash;P5</td><td>3.16&nbsp;M</td><td>8.86</td><td>0.8211</td><td><b>0.6387</b></td><td>0.3442</td></tr>
+    <tr><td>YOLO11n P3&ndash;P5</td><td><b>2.62&nbsp;M</b></td><td><b>6.67</b></td><td><b>0.8249</b></td><td>0.6306</td><td><b>0.3451</b></td></tr>
+  </tbody>
+</table>
+<p class="tnote">Person AP<sub>50</sub> differs by <b>+0.0038</b>, five times below the pre-registered
+margin, while mAP<sub>50</sub> <i>falls</i> by 0.0081. Across matched epochs the mean difference is
+&minus;0.0016 with standard deviation 0.0287&mdash;the run-to-run spread is an order of magnitude larger
+than the effect. <b>YOLOv8n is retained.</b></p>
+</div>
+
+<p>The newer backbone is genuinely cheaper&mdash;17% fewer parameters, 25% fewer FLOPs&mdash;which on this
+hardware is not nothing. We none the less did not adopt it, because the export path, the quantisation
+fidelity of Section&nbsp;VI-C and the measured latency of Section&nbsp;VI-F are all characterised for the
+incumbent, and re-establishing them buys an accuracy difference indistinguishable from noise. We record the
+result because a negative outcome obtained under a pre-registered rule is evidence; the same numbers
+obtained afterwards would not be.</p>
+
+<h3>K. Ground re-scoring: capacity or resolution?</h3>
+
+<p class="first">Section&nbsp;IV-M adds a ground-side re-score. Whether that helps, and <i>why</i>, is a
+2&times;2: two model capacities against two input resolutions, on 150 crops containing a person and 150
+containing none.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table XI.</b> Ground re-scoring ablation, 300 crops, confidence 0.25.</caption>
+  <thead><tr><th>Arm</th><th>Param</th><th>Detection</th><th>False pos.</th><th>Mean <i>p</i></th></tr></thead>
+  <tbody>
+    <tr><td>YOLOv8n @160 <span class="tnote">(payload)</span></td><td>3.16&nbsp;M</td><td>0.020</td><td>0.020</td><td>0.045</td></tr>
+    <tr><td>YOLOv8m @160</td><td>25.9&nbsp;M</td><td>0.187</td><td>0.027</td><td>0.133</td></tr>
+    <tr><td>YOLOv8n @640</td><td>3.16&nbsp;M</td><td><b>0.633</b></td><td>0.040</td><td>0.316</td></tr>
+    <tr><td>YOLOv8m @640 <span class="tnote">(shipped)</span></td><td>25.9&nbsp;M</td><td>0.560</td><td><b>0.013</b></td><td><b>0.324</b></td></tr>
+  </tbody>
+</table>
+<p class="tnote">Holding capacity and raising resolution moves detection 0.020&nbsp;&rarr;&nbsp;0.633.
+Holding resolution and raising capacity 8&times; moves it 0.020&nbsp;&rarr;&nbsp;0.187.</p>
+</div>
+
+<p>The lever is <b>input resolution, not model capacity</b>, by a factor of roughly four. An eightfold
+increase in parameters at 160&nbsp;px recovers less than a third of what the same small model recovers when
+simply given its crop at 640&nbsp;px. This is consistent with Section&nbsp;VI-A: these are small, few-pixel
+targets, and the constraint is how many pixels survive to the detection head, not how much capacity sits
+behind it.</p>
+
+<p>We ship YOLOv8m&nbsp;@640 despite YOLOv8n&nbsp;@640 detecting more, because it does so at a third of the
+false-positive rate (0.013 against 0.040) at equal mean confidence. The ground stage exists to reorder an
+operator's attention; a stage that promotes empty crops spends the one resource the operator cannot get
+back. The result also bounds what the aircraft gives up: the payload's own 160&nbsp;px pass is weak in
+isolation, and the architecture is sound only because that pass is a <i>gate</i> feeding a cascade, never
+the final word.</p>
+
+<h3>L. The sub-pixel registration floor</h3>
+
+<p class="first">Two subsystems&mdash;multi-frame reconstruction and motion detection&mdash;both depend on
+estimating a sub-pixel shift between two 32&times;24 thermal frames by phase correlation. Both were
+limited by it, in one case invisibly, and the two failures have a single cause.</p>
+
+<p>Over 3,000 frame pairs of a <i>stationary</i> low-texture scene, the estimator's output has median
+magnitude 0.119&nbsp;px&mdash;consistent with the correlation floor of Section&nbsp;VI-D&mdash;but a 99th
+percentile of 0.838&nbsp;px and a maximum of 1.128&nbsp;px. The scene never moved; the estimate is entirely
+noise, and on a warm body against a flat background there is little high-frequency content for the
+correlation to lock to.</p>
+
+<div class="tbl">
+<table>
+  <caption><b>Table XII.</b> Consequences of the sub-pixel floor. 40 trials, 8 frames, synthetic ground
+  truth; reproduced by training/bench_thermal.py.</caption>
+  <thead><tr><th>Reconstruction</th><th>Centroid err. (px)</th><th>Noise (K)</th></tr></thead>
+  <tbody>
+    <tr><td>Raw 32&times;24</td><td>0.0434</td><td>&mdash;</td></tr>
+    <tr><td>Bicubic &times;2</td><td>0.0237</td><td>0.0681</td></tr>
+    <tr><td>Drizzle, estimated shifts</td><td>0.1013</td><td><b>0.0394</b></td></tr>
+    <tr><td>Drizzle, true shifts</td><td><b>0.0205</b></td><td>0.0416</td></tr>
+  </tbody>
+  <tbody><tr><th colspan="3" style="padding-top:5pt">Motion false alarms, 600 still frames</th></tr>
+    <tr><td>Alignment disabled</td><td colspan="2">0 / 600</td></tr>
+    <tr><td>Alignment, no deadband</td><td colspan="2">170 / 600 &nbsp;(28.3%)</td></tr>
+    <tr><td>Alignment, 0.5&nbsp;px deadband</td><td colspan="2">52 / 600 &nbsp;(8.7%)</td></tr>
+    <tr><td>Alignment, 1.0&nbsp;px deadband</td><td colspan="2"><b>1 / 600</b> &nbsp;(0.2%)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>Given <i>perfect</i> offsets, drizzle is the most accurate reconstruction tested&mdash;0.0205&nbsp;px,
+better than bicubic interpolation&mdash;and is 1.7&times; quieter than a single frame. Given offsets the
+payload can actually measure, its centroid error degrades more than fourfold, to worse than plain
+interpolation. <b>The method is sound; its input is not.</b> The shift error is the same order as the dither
+the method exists to exploit. Drizzle therefore ships disabled by default, and the honest next step is
+better registration&mdash;inertial offsets in flight&mdash;not a better reconstruction.</p>
+
+<p>The same floor produced an outright defect in motion detection. Warping the earlier frame by an estimated
+offset that is in fact noise shears every temperature gradient in it, and the difference image then carries
+a genuine crescent of signal at the edge of the warm blob. The detector was right; the motion had been
+manufactured one step earlier. Unconstrained, this fired on <b>28.3% of still frames</b>. The remedy is a
+deadband at the estimator's measured noise floor. Table&nbsp;XII sweeps it: 0.5&nbsp;px&mdash;near the 99th
+percentile&mdash;still leaves 8.7%, because a single axis may exceed the floor while the magnitude does not, so
+the test is on the magnitude and the threshold is the observed <i>maximum</i> rather than a quantile. At
+1.0&nbsp;px this costs nothing operationally: ego-motion
+worth correcting is large, 95&nbsp;px per 100&nbsp;ms at survey speed (Section&nbsp;IV-G), while everything
+the deadband rejects is a shift the payload cannot measure. False alarms fall to 1 in 600 while a genuine
+four-pixel limb displacement at 1.6&nbsp;K is still detected. We note that phase correlation's own response
+statistic does not separate these cases&mdash;1.11 mean for a true zero shift against 1.13 for a true
+1.5&nbsp;px shift&mdash;so confidence cannot be the gate and magnitude must be.</p>
+
+<p>This matters beyond a tidy false-alarm rate. Under (22) a motion flag promotes BODY&nbsp;HEAT to
+LIVE&nbsp;BODY: the console asserting that a warm object is a <i>living</i> person. A radiator does not need
+a rescue team, and the top of a verdict ladder is the worst place in a system for a manufactured input.</p>
+
+<h3>M. Subpage rejection in the field</h3>
+
+<p class="first">Section&nbsp;III-C predicts that discarding torn frames should <i>raise</i> measured
+significance, because tearing inflates the dispersion the threshold is scaled by. A bench session with two
+human subjects at 2&ndash;4&nbsp;m confirms it, and the prevalence is the part we did not expect:
+approximately <b>half of all frames</b> arrived torn at the programmed 8&nbsp;Hz refresh.</p>
+
+<p>With rejection enabled, peak significance on the same subjects rose from roughly 3.5&thinsp;&sigma; to a
+stable <b>4&ndash;6&thinsp;&sigma;</b>, and the blob count per frame steadied from 1&ndash;15 to
+1&ndash;3&mdash;the high counts having been fragments of the chessboard rather than objects. No parameter of
+the gate changed. The improvement is entirely the removal of a corrupted denominator.</p>
+
+<p>We also tested the obvious alternative of halving the refresh to 4&nbsp;Hz so that reads are less likely
+to straddle an integration. Tearing fell roughly fivefold, but the yield of <i>good</i> frames per second
+fell too, from 2.2 to 1.45, because the sensor now produces half as many. Rejecting at 8&nbsp;Hz dominates
+slowing down, and the payload ships that way with a counter of discarded frames exposed in telemetry so the
+rate is visible rather than assumed.</p>
+
+<p>Two caveats. The 50% figure is one session on one device and should be read as an order of magnitude, not
+a constant; it will depend on the host's I2C timing relative to the sensor's refresh. And the test is a
+necessary condition, not a sufficient one&mdash;a tear between two subpages that happen to have equal means
+passes it. That case is benign for the same reason it is undetectable: if the means agree, the dispersion is
+not meaningfully inflated, which is the only thing the gate depends on.</p>
+
 <h2>VII.&nbsp;&nbsp;Comparison With the State of the Art</h2>
 
 <p class="first">Table&nbsp;IX places the system against the reference works. The rows are not commensurable
@@ -1153,14 +1475,22 @@ nominates two to six regions, and only those are examined. The consequence is a 
 250&nbsp;ms budget in 95.2&nbsp;MB of memory, on hardware for which the prior literature reported 5.5&nbsp;s per
 frame for the equivalent task.</p>
 
-<p>Along the way we report three results with implications beyond this system: that the conventional
+<p>Along the way we report six results with implications beyond this system: that the conventional
 stride-4 small-object head loses to the standard head when the regime is information-limited rather than
 sampling-limited; that full INT8 quantisation can degrade a DFL-based detector to 31.9% of reference
 accuracy while presenting no observable symptom, and that quantising weights alone recovers 99.2% at
 identical file size; and that sub-pixel automatic correspondence detection makes cross-modal calibration
 tractable at a 45:1 resolution ratio where manual annotation is not, reaching 0.506 thermal pixels of
-reprojection residual. The complete system has been flown end-to-end with zero errors and no thermal
-throttling.</p>
+reprojection residual. To these bench work added three more: that roughly half of all frames from a widely
+used low-cost thermal array arrive torn between its interleaved subpages, and that because a contrast-relative
+gate scales its threshold by the frame's own dispersion this <i>suppresses</i> true detections rather than
+creating false ones&mdash;a failure mode that is silent by construction and that a two-mean test removes for
+the cost of two means; that when a cascade is extended across the radio link onto ground hardware, input
+resolution rather than model capacity carries essentially all of the gain, which is the opposite of where a
+laptop's spare capacity invites one to spend it; and that sub-pixel correspondence on a 32&times;24 thermal
+frame has a floor high enough to bound multi-frame reconstruction and, unguarded, to fabricate the very
+movement a liveness test is looking for. The complete system has been flown end-to-end with zero errors and
+no thermal throttling.</p>
 
 <h2>References</h2>
 <ol class="refs">
@@ -1185,6 +1515,7 @@ throttling.</p>
   <li>P. R. Kalata, "The tracking index: A generalized parameter for &alpha;-&beta; and &alpha;-&beta;-&gamma; target trackers," <i>IEEE Trans. Aerospace and Electronic Systems</i>, vol. AES-20, no. 2, pp. 174&ndash;182, 1984.</li>
   <li>T. R. Benedict and G. W. Bordner, "Synthesis of an optimal set of radar track-while-scan smoothing equations," <i>IRE Trans. Automatic Control</i>, vol. 7, no. 4, pp. 27&ndash;32, 1962.</li>
   <li>R. E. Kalman, "A new approach to linear filtering and prediction problems," <i>J. Basic Engineering</i>, vol. 82, no. 1, pp. 35&ndash;45, 1960.</li>
+  <li>A. S. Fruchter and R. N. Hook, "Drizzle: A method for the linear reconstruction of undersampled images," Publ. Astron. Soc. Pacific, vol. 114, no. 792, pp. 144&ndash;152, 2002.</li>
 </ol>
 
 <div class="footer">
