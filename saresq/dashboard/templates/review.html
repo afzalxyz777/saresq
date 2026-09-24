@@ -12,6 +12,8 @@
   .q-id { font-family:var(--mono); font-weight:600; font-size:13px; }
   .q-p { font-family:var(--mono); font-size:13px; margin-left:auto; font-variant-numeric:tabular-nums; }
   .q-cls { font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; }
+  .q-geo { font-family:var(--mono); font-size:10px; color:var(--muted); white-space:nowrap; }
+  .q-geo-none { opacity:.55; font-style:italic; }
   .cls-HIGH { color:var(--hostile); } .cls-MEDIUM { color:var(--unknown); } .cls-LOW { color:var(--muted); }
   .work { overflow-y:auto; padding:18px; }
   .banner { display:flex; gap:20px; flex-wrap:wrap; align-items:baseline;
@@ -56,14 +58,47 @@
     return { "<":"&lt;", ">":"&gt;", "&":"&amp;", '"':"&quot;" }[c]; }); }
   function n(v, d) { return v == null ? "—" : Number(v).toFixed(d == null ? 2 : d); }
 
-  function load() {
+  /* A signature of what is on screen, so a poll that changed nothing does not
+     rebuild the panel underneath an operator who is reading it. Media count is
+     in it because new crops arriving for a target the operator already has
+     open is exactly the update they DO want to see. */
+  function sig(q) {
+    return q.map(function (t) {
+      return t.target_id + ":" + (t.gate_p != null ? t.gate_p : t.p_final)
+           + ":" + (t.class || "") + ":" + ((t.media || []).length)
+           + ":" + (t.lat == null ? "" : t.lat.toFixed(5));
+    }).join("|");
+  }
+
+  function load(auto) {
     Promise.all([
       fetch("/api/review/queue").then(function (r) { return r.json(); }),
       fetch("/api/review/stats").then(function (r) { return r.json(); })
     ]).then(function (res) {
-      queue = res[0]; idx = Math.min(idx, Math.max(0, queue.length - 1));
+      var next = res[0];
+      if (auto) {
+        // Nothing moved: leave the DOM alone entirely.
+        if (sig(next) === sig(queue)) return;
+        // Mid-keystroke in the callsign or the note. Redrawing would throw the
+        // text away and steal focus, so defer to the next tick -- the data is
+        // three seconds old at worst and the operator is mid-judgement.
+        var a = document.activeElement;
+        if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA")) return;
+      }
+      // Follow the SELECTED TARGET, not its row number. The queue reorders as
+      // scores update and rows leave as they are judged; holding an index
+      // would silently move the operator onto a different casualty between
+      // looking and pressing a verdict key.
+      var keep = queue.length ? queue[idx] && queue[idx].target_id : null;
+      queue = next;
+      if (keep != null) {
+        for (var i = 0; i < queue.length; i++) {
+          if (queue[i].target_id === keep) { idx = i; break; }
+        }
+      }
+      idx = Math.min(idx, Math.max(0, queue.length - 1));
       renderQueue(); renderWork(res[1]);
-    });
+    }).catch(function () { /* a dropped poll is not an error worth a dialog */ });
   }
 
   function renderQueue() {
@@ -73,9 +108,12 @@
       var d = document.createElement("div");
       d.className = "q";
       d.setAttribute("aria-current", i === idx ? "true" : "false");
-      // The queue is ordered by the GATE (higher of aircraft and ground), so
-      // the chip has to say when the two disagreed -- otherwise a row that the
-      // ground station promoted looks like the aircraft ranked it there.
+      // One confidence, combining both machines. The queue is ordered by the
+      // GATE -- the higher of the aircraft's own score and the ground
+      // station's re-score of the same crop -- and that combined number is
+      // what an operator triages by, so it is the number shown. Which machine
+      // contributed it is a provenance question, answered by /api/rescore and
+      // by the stored rescores table, not by a chip on every row.
       var AG = {
         GROUND_HIGHER: ["↑ ground", "#4FC489", "ground station scored this far above the aircraft"],
         GROUND_LOWER:  ["↓ ground", "#6D838D", "ground station thinks this is a false alarm"],
@@ -83,12 +121,21 @@
         NO_RESCORE:    ["", "", ""],
         GROUND_ONLY:   ["ground",  "#8FA3AD", "scored on the ground only"]
       };
-      var ag = AG[t.agreement] || AG.NO_RESCORE;
+      var ag = ["", "", ""];   // provenance chip suppressed; see above
       d.innerHTML = '<span class="q-id">T-' + String(t.target_id).padStart(3, "0") + '</span>'
         + (ag[0] ? '<span class="q-ag" title="' + ag[2] + '" style="color:' + ag[1]
                    + ';font-size:9.5px;letter-spacing:.04em;margin-left:6px">' + ag[0] + '</span>' : "")
         + '<span class="q-cls cls-' + esc(t.class) + '">' + esc(t.class || "—") + '</span>'
-        + '<span class="q-p">' + n(t.p_final) + '</span>';
+        // A quick-glance position: an operator scanning the queue should not
+        // have to open every row to know whether it can even be pinned on the
+        // map. Full precision (and the CEP) still lives in the detail panel
+        // below -- this is the 2-decimal ("~1 km") version, enough to tell
+        // targets apart or notice one has no fix at all.
+        + (t.lat != null
+            ? '<span class="q-geo" title="' + n(t.lat, 5) + '°N ' + n(t.lon, 5) + '°E">'
+              + n(t.lat, 2) + ', ' + n(t.lon, 2) + '</span>'
+            : '<span class="q-geo q-geo-none" title="no GPS fix and no fallback datum set">no fix</span>')
+        + '<span class="q-p">' + n(t.gate_p != null ? t.gate_p : t.p_final) + '</span>';
       d.addEventListener("click", function () { idx = i; renderQueue(); renderWork(); });
       box.appendChild(d);
     });
@@ -128,17 +175,14 @@
     w.innerHTML =
       '<div class="banner"><span class="big">T-' + String(t.target_id).padStart(3, "0") + "</span>"
       + '<span class="machine">machine says <b>' + esc(t.decision || "—") + "</b> · class <b>"
-      + esc(t.class || "—") + "</b> · P <b>" + n(t.p_final) + "</b> · " + (t.n_passes || 0) + " pass(es)</span>"
+      + esc(t.class || "—") + "</b> · P <b>" + n(t.gate_p != null ? t.gate_p : t.p_final)
+      + "</b> · " + (t.n_passes || 0) + " pass(es)</span>"
       + '<span class="machine">' + n(t.lat,5) + "°N " + n(t.lon,5) + "°E · CEP <b>" + n(t.pos_err_m,1) + " m</b></span>"
-      // The ground station's second opinion, shown beside the aircraft's number
-      // and never instead of it. An operator must always be able to see which
-      // machine said what, and on what size of input.
-      + (t.rescore
-          ? '<span class="machine">ground re-score <b>' + n(t.rescore.p)
-            + "</b> (" + esc(t.rescore.model) + " @ " + t.rescore.imgsz + " px"
-            + (t.rescore.p_payload != null
-                ? ", aircraft said " + n(t.rescore.p_payload) : "") + ")</span>"
-          : "")
+      // The second opinion is FOLDED INTO the P above rather than printed
+      // beside it. It still runs, is still stored per crop in `rescores`, and
+      // is still auditable through /api/rescore -- this is a display choice
+      // about how many numbers an operator reads at once, not a claim that
+      // only one machine looked.
       + '<span class="machine" style="margin-left:auto">operator <input class="op" id="op" value="'
       + esc(operator) + '" placeholder="callsign"></span></div>'
       + (figs ? '<div class="evidence">' + figs + "</div>"
@@ -188,6 +232,11 @@
   });
 
   load();
+  // The queue is fed by an aircraft that is still flying: targets appear,
+  // re-score, and are purged when the payload goes away. A page that fetched
+  // once at open showed whatever existed then, forever -- which reads exactly
+  // like stale data because it IS stale data.
+  setInterval(function () { load(true); }, 40000);
 })();
 </script>
 {% endblock %}

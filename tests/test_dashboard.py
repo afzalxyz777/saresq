@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pytest
 
@@ -12,7 +14,14 @@ def rig(tmp_path, monkeypatch):
     store = Store(str(db))
     media = MediaStore(tmp_path / "media", store)
 
-    tid = store.insert_target(first_seen_ns=1, last_seen_ns=2, lat=22.573, lon=88.364,
+    # Real "just now" timestamps, not epoch-adjacent placeholders: the review
+    # queue and Evidence API both hold to a 40 s freshness window
+    # (app.FRESH_WINDOW_S) so a payload that has gone quiet stops showing
+    # stale finds. A fixture stamped at t=2ns would fail that filter on
+    # every run, which is a fixture bug, not a reason to weaken the filter.
+    now_ns = time.time_ns()
+    tid = store.insert_target(first_seen_ns=now_ns, last_seen_ns=now_ns,
+                              lat=22.573, lon=88.364,
                               pos_err_m=2.5, p_final=0.96, class_="HIGH", n_passes=1,
                               decision="CONFIRM")
     pid = store.insert_pass(target_id=tid, alt_m=10.0, p_pass=0.88)

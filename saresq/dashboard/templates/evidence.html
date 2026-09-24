@@ -96,5 +96,9 @@ function render(rows) {
   body.appendChild(grid);
 }
 load();
+// The payload keeps capturing while this page is open, and the mission is
+// purged when it goes away: fetching once at open showed a frozen gallery.
+// Scroll position is left alone -- only the grid contents are replaced.
+setInterval(load, 40000);
 </script>
 {% endblock %}

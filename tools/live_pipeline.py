@@ -821,20 +821,44 @@ class Camera(threading.Thread):
 
     daemon = True
 
-    def __init__(self, w: int, h: int, rotate: int, fps: int = 15):
+    def __init__(self, w: int, h: int, rotate: int, fps: int = 15,
+                 gain: float = 0.0, shutter: int = 0):
         super().__init__()
         self.lock = threading.Lock()
         self.frame: np.ndarray | None = None
         self.stamp = 0.0
         self.fps_measured = 0.0
         self.w, self.h, self.rotate, self.fps = w, h, rotate, fps
+        #: 0 means "let auto-exposure decide", which is right in daylight.
+        self.gain, self.shutter = gain, shutter
         self.tmp = pathlib.Path("/tmp/_live_rgb.jpg")
 
     # -- video path -------------------------------------------------------
     def _vid_cmd(self) -> list[str]:
+        # The frame rate is also the EXPOSURE CEILING: at 15 fps auto-exposure
+        # can never integrate longer than 1/15 s, and in an unlit room that is
+        # not enough light to form an image at all. Measured on the bench at
+        # night, mean luminance of 640x480:
+        #
+        #   auto-exposure, 15 fps cap      2.7 / 255   black
+        #   forced 33 ms + gain 8          2.4 / 255   black
+        #   forced 100 ms + gain 8         9.0 / 255   black
+        #   forced 500 ms + gain 16       57.0 / 255   usable
+        #
+        # No software brightening recovers the first three -- gamma-lifting a
+        # 6/255 frame to 95/255 still detects nothing, because what is being
+        # amplified is sensor noise. Dropping the ceiling lets AE choose a long
+        # exposure when it is dark and a short one when it is not, which is why
+        # this is a frame-rate change rather than a fixed --shutter: it stays
+        # correct in daylight. Costs nothing real either way -- the visible
+        # detector needs 531 ms per frame, so it never consumed 15 fps.
         cmd = ["rpicam-vid", "-n", "-t", "0", "--codec", "mjpeg",
                "--width", str(self.w), "--height", str(self.h),
                "--framerate", str(self.fps), "-o", "-"]
+        if self.gain:
+            cmd += ["--gain", str(self.gain)]
+        if self.shutter:
+            cmd += ["--shutter", str(self.shutter)]
         if self.rotate:
             cmd += ["--rotation", str(self.rotate)]
         return cmd
@@ -1096,7 +1120,8 @@ class App:
         self.cfg = cfg
         self.args = args
         self.thermal = Thermal(hz=args.hz, mode=args.tflip)
-        self.camera = Camera(args.width, args.height, args.rotate, args.fps)
+        self.camera = Camera(args.width, args.height, args.rotate, args.fps,
+                             gain=args.gain, shutter=args.shutter)
         self.gps = Gps(args.gps_port, args.gps_baud)
         self.lock = threading.Lock()
         self.det_img: np.ndarray | None = None
@@ -1106,6 +1131,12 @@ class App:
         self.crop_meta: list[dict] = []
         self.gate = {"z_max": 0.0, "z_t": 2.5, "fired": False, "n_blobs": 0,
                      "blobs": []}
+        # Written only by rgb_detect_loop, read only by detect_loop. Splitting
+        # these out is what lets the thermal gate stop waiting on the visible
+        # detector -- see rgb_detect_loop's docstring for the measured cost of
+        # not doing this.
+        self.last_dets: list = []
+        self.last_det_ms: float = 0.0
         # Scene class, filled by hazard_loop. Starts "not ok" with a reason, so
         # the page says WHY there is no scene rather than showing a blank strip.
         self.hazard = {"ok": False, "why": "starting\u2026"}
@@ -1184,10 +1215,28 @@ class App:
         self.thermal.start()
         self.camera.start()
         self.gps.start()
+        threading.Thread(target=self.rgb_detect_loop, daemon=True).start()
         threading.Thread(target=self.detect_loop, daemon=True).start()
         threading.Thread(target=self.hazard_loop, daemon=True).start()
 
-    def detect_loop(self):
+    def rgb_detect_loop(self):
+        """Run the visible-spectrum detector on its own thread, at its own pace.
+
+        Measured live on demo day (2026-09-19): this detector costs ~532 ms a
+        frame on the Pi's CPU running full-frame -- more than DOUBLE the whole
+        cascade's 250 ms budget by itself. Until this split, detect_loop ran it
+        inline, so the thermal gate -- the branch this payload actually exists
+        for, the one that still works with the lens cap on -- sat blocked
+        behind it every iteration. Loop period rose from a designed ~250 ms to
+        ~600 ms, which is the gate evaluating at ~1.7 Hz against the 4 Hz the
+        rest of the design assumes: roughly 40% of thermal frames processed,
+        60% silently skipped.
+
+        hazard_loop already made exactly this argument for the scene
+        classifier ("the detector never waits on it"); this is the same fix
+        applied to the branch that was actually blocking it. detect_loop reads
+        `self.last_dets`/`self.last_det_ms`; this is the only writer.
+        """
         from saresq.detect.tflite_detector import CropDetector
         det = CropDetector(self.args.rgb_model, conf=self.args.conf,
                            iou=float(self.cfg.get("detector", {}).get("nms_iou", 0.5)),
@@ -1195,6 +1244,23 @@ class App:
                                            .get("threads", 4)))
         print(f"detector: {pathlib.Path(self.args.rgb_model).name} "
               f"({det.imgsz}px, boxes {det.box_units})", flush=True)
+        while True:
+            rgb, _ = self.camera.read()
+            if rgb is None:
+                time.sleep(0.3)
+                continue
+            t0 = time.time()
+            dets = det.detect(rgb)
+            ms = (time.time() - t0) * 1000
+            # A COCO model reports all 80 classes; on a desk that means chairs
+            # and laptops. Class 0 is person, which is the only one this
+            # payload is looking for.
+            if self.args.classes:
+                dets = [d for d in dets if int(d.cls) in self.args.classes]
+            with self.lock:
+                self.last_dets, self.last_det_ms = dets, ms
+
+    def detect_loop(self):
         crop_px = int(self.cfg.get("detector", {}).get("crop_px", 160))
         while True:
             rgb, stamp = self.camera.read()
@@ -1225,14 +1291,13 @@ class App:
                 except Exception:
                     pass
 
-            t0 = time.time()
-            dets = det.detect(rgb)
-            ms = (time.time() - t0) * 1000
-            # A COCO model reports all 80 classes; on a desk that means chairs
-            # and laptops. Class 0 is person, which is the only one this
-            # payload is looking for.
-            if self.args.classes:
-                dets = [d for d in dets if int(d.cls) in self.args.classes]
+            # Read whatever rgb_detect_loop last finished, rather than running
+            # -- and waiting behind -- a fresh detection every gate cycle. Up
+            # to ~530 ms stale on this hardware, which is the visible frame
+            # lagging its own detector by about two gate cycles, never the
+            # gate lagging the detector.
+            with self.lock:
+                dets, ms = self.last_dets, self.last_det_ms
 
             vis = rgb.copy()
             # Heat outlines go on FIRST, so detection boxes and scores stay the
@@ -1306,10 +1371,19 @@ class App:
             # with 40 near-identical frames of themselves. Encoding happens
             # outside the lock: it costs ~40 ms and no viewer should wait on it.
             now = time.time()
-            if manual or (dets and now - self.last_auto >= self.args.event_gap):
+            # Capture on THERMAL evidence too, not only on a visual detection.
+            # Keying this on `dets` alone meant the one case this payload
+            # exists for -- a body-temperature source in the dark, where the
+            # camera cannot confirm anything -- produced no evidence at all:
+            # no crop, no Review row, and nothing for the ground station's
+            # second-opinion re-scorer to work on. The gate firing IS the
+            # finding; the detector agreeing is a bonus, not the trigger.
+            worth_keeping = bool(dets) or bool(g.get("fired"))
+            if manual or (worth_keeping and now - self.last_auto >= self.args.event_gap):
                 self.last_auto = now
-                self._capture(rgb, vis, th, g, dets, crops,
-                              "saved" if manual else "detection")
+                why = ("saved" if manual else
+                       "detection" if dets else "body heat")
+                self._capture(rgb, vis, th, g, dets, crops, why)
             time.sleep(0.05)
 
     def hazard_loop(self):
@@ -1716,8 +1790,17 @@ def main() -> int:
     ap.add_argument("--hz", type=int, default=8, choices=[2, 4, 8])
     ap.add_argument("--width", type=int, default=1640)
     ap.add_argument("--height", type=int, default=1232)
-    ap.add_argument("--fps", type=int, default=15,
-                    help="camera frame rate for the video stream")
+    ap.add_argument("--fps", type=int, default=4,
+                    help="camera frame rate, and therefore the auto-exposure "
+                         "CEILING: 4 fps lets AE integrate up to 250 ms, which "
+                         "is what an unlit room needs. 15 fps caps it at 66 ms "
+                         "and yields a black frame indoors at night.")
+    ap.add_argument("--gain", type=float, default=0.0,
+                    help="analogue gain; 0 lets auto-exposure choose")
+    ap.add_argument("--shutter", type=int, default=0, metavar="US",
+                    help="fixed exposure in microseconds; 0 is automatic. The "
+                         "frame rate caps this either way -- 4 fps allows at "
+                         "most 250 ms.")
     ap.add_argument("--rotate", type=int, default=180, choices=[0, 90, 180, 270],
                     help="the module is mounted inverted; 180 corrects it")
     ap.add_argument("--tflip", default="h",

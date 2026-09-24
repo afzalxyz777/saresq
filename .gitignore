@@ -44,3 +44,8 @@ models/**/*.keras
 # Losing it costs a rebuild of the rig, so it is tracked despite living beside
 # generated calibration output.
 !saresq/calib/thermal_to_rgb.json
+
+# Personal documents -- this repo is PUBLIC and these carry a real phone
+# number and email. Kept on disk and in ~/Downloads, never pushed.
+docs/resume.html
+docs/Afzal_Amanullah_Resume.pdf

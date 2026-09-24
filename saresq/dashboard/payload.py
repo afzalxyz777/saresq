@@ -46,6 +46,33 @@ MERGE_RADIUS_M = 12.0
 #: two separate sightings minutes apart do not become one target.
 UNLOCATED_GAP_NS = 90 * 1_000_000_000
 
+#: How long the payload must be unreachable before the mission is cleared.
+#: Not a blip tolerance -- a shutdown detector. The payload polls at 1 Hz, so
+#: this is ~45 consecutive failures: far beyond a wifi roam or a pass behind a
+#: building, and reached within seconds of somebody switching the payload off.
+PAYLOAD_GONE_S = 45.0
+
+#: How stale the ground station's own look at the live frame may be before it
+#: stops counting toward the verdict. Two seconds is a few payload frames: long
+#: enough to bridge one slow inference, short enough that a frozen second
+#: opinion cannot keep asserting a person who has walked out of shot.
+GROUND_LOOK_TTL_S = 2.5
+
+#: Two thresholds, because they answer two different questions and the second
+#: is the harder claim. PRESENCE decides "is anyone there at all", and feeds
+#: only the verdict's has_visual -- a weak box there costs an operator a
+#: second look, which in search and rescue is the cheap error. COUNT decides
+#: the number actually SHOWN to them, and a number is a claim about how many
+#: people need rescuing, so it must be right rather than eager.
+#:
+#: Calibrated against six live frames with one person standing in shot:
+#: every threshold from 0.10 to 0.40 reported two people on one of the six,
+#: the phantom box scoring 0.433 against the real detection's 0.60-0.92.
+#: 0.50 and above were exact on all six. The real person clears PRESENCE by a
+#: wide margin in every frame, so the split costs no sensitivity.
+GROUND_PRESENCE_CONF = 0.25
+GROUND_COUNT_CONF = 0.50
+
 
 def _haversine_m(a_lat, a_lon, b_lat, b_lon) -> float:
     R = 6371000.0
@@ -113,6 +140,16 @@ class PayloadLink(threading.Thread):
         self._stop = threading.Event()
         self._ingested = 0
         self._last_ok = 0.0
+        #: The ground station's own look at the SAME live frame, by a model
+        #: far larger than the aircraft can carry (yolov8m, 25.9 M parameters,
+        #: against the payload's 3.0 M). The payload is compute-bound and
+        #: cannot be asked to run this; the laptop is not. Both opinions are
+        #: about the same photograph, so the verdict may take the better of
+        #: the two rather than being limited by what fits on the aircraft.
+        #: None until a look succeeds -- never a default of "saw nobody",
+        #: which would be a missing measurement reported as a negative one.
+        self._ground_look: dict | None = None
+        self._rescorer = None
 
     # ---- fallback datum -----------------------------------------------------
     def set_origin(self, lat: float, lon: float, source: str = "manual",
@@ -150,6 +187,40 @@ class PayloadLink(threading.Thread):
     def agl_m(self) -> float | None:
         with self._lock:
             return self._agl_m
+
+    def attach_rescorer(self, engine) -> None:
+        """Give the link the ground station's detector, once it has loaded.
+
+        Loading takes seconds and must not delay the link coming up, so this
+        arrives late rather than being a constructor argument.
+        """
+        self._rescorer = engine
+
+    def _ground_look_now(self):
+        """Run the ground station's model over the payload's current frame."""
+        engine = self._rescorer
+        if engine is None or not getattr(engine, "available", False):
+            return
+        try:
+            import cv2
+            import numpy as np
+            raw = self._blob("/rgb.jpg")
+            if not raw:
+                return
+            img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+            if img is None:
+                return
+            res = engine.score([img])[0]
+        except Exception:
+            return                     # a lost second opinion is never fatal
+        confs = res.confs or ()
+        with self._lock:
+            self._ground_look = {
+                # How many to SAY: the strict bar.
+                "n": sum(1 for c in confs if c >= GROUND_COUNT_CONF),
+                # Whether anyone is there at all: the permissive one.
+                "present": bool(res.p >= GROUND_PRESENCE_CONF),
+                "p": float(res.p), "ms": float(res.ms), "t": time.time()}
 
     @property
     def origin(self):
@@ -245,6 +316,10 @@ class PayloadLink(threading.Thread):
             try:
                 st = self._get("/stats")
                 self._last_ok = time.time()
+                # Look at the same frame the payload just described, before
+                # shaping -- so the verdict below sees this poll's opinion and
+                # not the previous one's.
+                self._ground_look_now()
                 with self._lock:
                     self._state = self._shape(st)
             except (urllib.error.URLError, OSError, ValueError, TimeoutError) as e:
@@ -254,6 +329,7 @@ class PayloadLink(threading.Thread):
                     # an empty panel is not.
                     self._state["connected"] = False
                     self._state["why"] = f"{type(e).__name__}"
+                self._purge_if_payload_gone()
             if time.time() >= next_events:
                 next_events = time.time() + self._events_period
                 try:
@@ -262,15 +338,68 @@ class PayloadLink(threading.Thread):
                     pass
             self._stop.wait(max(0.05, self._stats_period - (time.time() - t0)))
 
-    @staticmethod
-    def _shape(st: dict) -> dict:
+    def _purge_if_payload_gone(self) -> None:
+        """Clear the mission once the payload has been off long enough to mean it.
+
+        A mission was previously bounded only by the payload's session token
+        changing, which is right when it power-cycles and comes BACK: the new
+        token says "different sortie". It said nothing about a payload that is
+        switched off and stays off, so yesterday's evidence and review queue
+        sat there looking live against a dead link.
+
+        The delay is the whole design. A radio blip, a wifi roam, a few
+        dropped polls -- none of those are a new mission, and purging on the
+        first failed request would throw away a real mission's evidence every
+        time the aircraft flew behind something. PAYLOAD_GONE_S is long enough
+        that only a deliberate shutdown reaches it.
+        """
+        if self._last_ok == 0.0 or self._session is None:
+            return                              # nothing to clear yet
+        if time.time() - self._last_ok < PAYLOAD_GONE_S:
+            return                              # a gap, not a shutdown
+        store = self._store_factory()
+        try:
+            n = store.purge_mission()
+            self._wipe_media()
+        finally:
+            store.close()
+        with self._lock:
+            self._seen.clear()
+            self._session = None
+            self._session_started = None
+        print(f"payload-link: payload gone for {PAYLOAD_GONE_S:.0f}s -- "
+              f"cleared {n} row(s); evidence and review start empty",
+              flush=True)
+
+    def _shape(self, st: dict) -> dict:
         g = st.get("gate", {}) or {}
         d = st.get("detect", {}) or {}
         gps = st.get("gps", {}) or {}
         hz = st.get("hazard", {}) or {}
         mv = st.get("motion", {}) or {}
         th = st.get("thermal", {}) or {}
-        n = int(d.get("n", 0) or 0)
+        n_air = int(d.get("n", 0) or 0)
+        # BOTH machines looked at this frame. The aircraft ran a 3.0 M-parameter
+        # detector because that is what fits inside a 250 ms budget on a Pi; the
+        # ground station ran 25.9 M on the same picture because it has a GPU and
+        # no such budget. Neither is "the" answer -- the payload's silence at
+        # 3.0 M is a statement about its compute, not about the scene.
+        #
+        # So take the better-informed look, the same MAX rule the review queue
+        # already applies to stored crops. A second opinion may promote, never
+        # bury: if the ground model sees nobody, the aircraft's own count still
+        # stands. This is why /api/rescore reports separately -- the provenance
+        # is auditable even though the operator reads one number.
+        look = self._ground_look
+        n_gnd, gnd_present = 0, False
+        if look and (time.time() - look["t"]) <= GROUND_LOOK_TTL_S:
+            n_gnd = int(look.get("n", 0) or 0)
+            gnd_present = bool(look.get("present"))
+        n = max(n_air, n_gnd)
+        # Presence can be true while the count is zero: a single box at 0.30 is
+        # enough to say somebody is there and not enough to say how many. The
+        # verdict takes presence; the number shown takes the count.
+        has_visual = bool(n) or gnd_present
         out = {
             "connected": True,
             # Three outcomes, not two. A thermal blob at body temperature with
@@ -286,7 +415,11 @@ class PayloadLink(threading.Thread):
             # will box a mannequin, a poster or a corpse, while motion plus
             # body heat is two independent physical measurements agreeing on
             # the thing this mission actually searches for -- a LIVING human.
-            "verdict": _verdict(n_visual=n, gate_fired=bool(g.get("fired")),
+            # The LADDER asks only "did the camera see a person", so it gets
+            # presence. The WORDING below gets `n`, the strict count, so a
+            # confirmed sighting never names a number it cannot stand behind.
+            "verdict": _verdict(n_visual=(n or int(has_visual)),
+                                gate_fired=bool(g.get("fired")),
                                 moved=bool(mv.get("moved")),
                                 rgb_blind=bool(d.get("rgb_blind"))),
             "rgb_blind": bool(d.get("rgb_blind")),
@@ -297,6 +430,10 @@ class PayloadLink(threading.Thread):
             "motion_area": mv.get("area"),
             "motion_peak": mv.get("peak"),
             "n": n,
+            # Auditable provenance: one number is displayed, but who saw what
+            # is always answerable. n_air is the aircraft alone.
+            "n_air": n_air,
+            "n_ground": n_gnd,
             "det_ms": d.get("ms"),
             "model": d.get("model"),
             "z_max": g.get("z_max"), "z_t": g.get("z_t"),

@@ -366,13 +366,26 @@ def api_analytics():
     return jsonify(out)
 
 
+#: Hard freshness window for the operator-facing pages. Evidence and Review
+#: show what the payload is seeing NOW: a crop older than this is from a
+#: moment that has passed, and on a live search that is worse than showing
+#: nothing, because it puts a survivor on screen who was found somewhere else
+#: 10 minutes ago. Everything remains in the database and on disk -- this
+#: filters the VIEW, it does not delete evidence.
+FRESH_WINDOW_S = 40.0
+
+
+def _fresh_cutoff_ns() -> int:
+    return int((time.time() - FRESH_WINDOW_S) * 1e9)
+
+
 @app.route("/api/media")
 def api_media():
     """All evidence rows, newest first, optionally filtered by kind or target."""
     kind = request.args.get("kind")
     target = request.args.get("target_id", type=int)
-    sql = "SELECT * FROM media WHERE 1=1"
-    args = []
+    sql = "SELECT * FROM media WHERE t_ns >= ?"
+    args = [_fresh_cutoff_ns()]
     if kind:
         sql += " AND kind = ?"; args.append(kind)
     if target is not None:
@@ -418,11 +431,19 @@ def api_hazards():
 @app.route("/api/review/queue")
 def api_review_queue():
     """Unjudged targets, most-confident first, each with its evidence."""
+    cutoff = _fresh_cutoff_ns()
     with get_store() as store:
         out = []
         for t in store.review_queue():
             t = dict(t)
-            t["media"] = store.media_for_target(t["target_id"])
+            # Same 40 s window as Evidence. A target last seen before it is no
+            # longer what the payload is looking at, and a queue that keeps
+            # them accumulates a backlog of places the aircraft has already
+            # flown past. The row stays in the database for the mission record.
+            if (t.get("last_seen_ns") or 0) < cutoff:
+                continue
+            t["media"] = [m for m in store.media_for_target(t["target_id"])
+                          if (dict(m).get("t_ns") or 0) >= cutoff]
             t["passes"] = store.get_passes_for_target(t["target_id"])
             best = store.best_rescore(t["target_id"])
             t["rescore"] = ({"p": best["p"], "n": best["n"], "model": best["model"],
@@ -494,6 +515,21 @@ def api_verdicts():
 # ---------------------------------------------------------------------------
 # media
 # ---------------------------------------------------------------------------
+#: media_id is `INTEGER PRIMARY KEY` with no AUTOINCREMENT, so SQLite restarts
+#: it at 1 after purge_mission() empties the table. /media/7 is therefore a
+#: DIFFERENT crop every mission, and a browser that cached the last one shows
+#: an operator a survivor from a flight that ended hours ago. Nothing about the
+#: data was stale; the URL was reused. Blobs are LAN-local and small, so
+#: refetching them costs nothing next to that.
+def _no_store(resp):
+    resp.headers["Cache-Control"] = "no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.direct_passthrough = False
+    resp.headers.pop("ETag", None)
+    resp.headers.pop("Last-Modified", None)
+    return resp
+
+
 @app.route("/media/<int:media_id>")
 def media_blob(media_id: int):
     with get_store() as store:
@@ -503,7 +539,9 @@ def media_blob(media_id: int):
         path = _root("MEDIA_DIR") / row["rel_path"]
         if not path.exists():
             abort(404)
-        return send_file(path, mimetype=_MIME.get(path.suffix.lstrip("."), "application/octet-stream"))
+        return _no_store(send_file(
+            path,
+            mimetype=_MIME.get(path.suffix.lstrip("."), "application/octet-stream")))
 
 
 @app.route("/media/<int:media_id>/render")
@@ -532,12 +570,12 @@ def media_render(media_id: int):
     ok, buf = cv2.imencode(".png", cv2.applyColorMap(big, cv2.COLORMAP_INFERNO))
     if not ok:
         abort(500)
-    return send_file(io.BytesIO(buf.tobytes()), mimetype="image/png")
+    return _no_store(send_file(io.BytesIO(buf.tobytes()), mimetype="image/png"))
 
 
 @app.route("/thumbs/<path:filename>")
 def thumbs(filename: str):
-    return send_from_directory(_root("THUMB_DIR"), filename)
+    return _no_store(send_from_directory(_root("THUMB_DIR"), filename))
 
 
 # ---------------------------------------------------------------------------
@@ -701,6 +739,10 @@ def main():
                 engine, batch=args.rescore_batch)
             worker.start()
             RESCORE = worker
+            # The same engine also looks at the LIVE frame for the verdict, not
+            # only at stored crops for the review queue. One load, two uses.
+            if LINK is not None:
+                LINK.attach_rescorer(engine)
             print(f"  re-scoring crops with {args.rescore_model} "
                   f"({engine.params/1e6:.1f} M params) at {args.rescore_imgsz} px on {engine.device}")
         threading.Thread(target=_spin_up, name="rescore-init", daemon=True).start()

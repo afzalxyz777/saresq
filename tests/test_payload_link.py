@@ -203,3 +203,91 @@ def test_a_link_drop_is_not_a_new_mission(payload_server, tmp_path):
         assert link.live()["ingested"] == len(EVENTS)
     finally:
         link.stop()
+
+
+def test_mission_clears_once_the_payload_has_been_off_long_enough(tmp_path):
+    """A shutdown ends the mission; a blip does not.
+
+    Evidence and the review queue sitting there populated against a dead
+    payload is the stale-data case: it reads as live, and an operator cannot
+    tell yesterday's bench run from this morning's.
+    """
+    import time as _t
+    from saresq.dashboard import payload as P
+
+    link = P.PayloadLink("127.0.0.1:1", lambda: Store(str(tmp_path / "m.db")),
+                         media_root=str(tmp_path / "media"))
+    link._session = "abc"
+    link._seen.add(("abc", 1))
+
+    # A short gap is a blip: nothing is cleared.
+    link._last_ok = _t.time() - 2.0
+    link._purge_if_payload_gone()
+    assert link._session == "abc"
+    assert link._seen
+
+    # Beyond the threshold it is a shutdown, and the mission ends.
+    link._last_ok = _t.time() - (P.PAYLOAD_GONE_S + 1.0)
+    link._purge_if_payload_gone()
+    assert link._session is None
+    assert not link._seen
+
+
+def test_a_payload_never_seen_is_not_a_payload_that_vanished(tmp_path):
+    """Before the first successful poll there is no mission to clear, and
+    purging then would wipe a store the operator deliberately loaded with
+    --db before the aircraft was even switched on."""
+    from saresq.dashboard import payload as P
+
+    link = P.PayloadLink("127.0.0.1:1", lambda: Store(str(tmp_path / "m.db")),
+                         media_root=str(tmp_path / "media"))
+    link._last_ok = 0.0
+    link._session = None
+    link._purge_if_payload_gone()          # must not raise, must not purge
+    assert link._session is None
+
+
+def test_counting_people_needs_more_evidence_than_finding_one(tmp_path):
+    """Presence and count are different claims and take different bars.
+
+    Calibrated live: with one person in shot, every threshold up to 0.40
+    reported two on some frames -- a phantom box at 0.433 beside the real
+    detection. A number shown to an operator is a claim about how many people
+    need rescuing, so it takes the strict bar; deciding somebody is there at
+    all takes the permissive one, because a second look is the cheap error.
+    """
+    from saresq.dashboard import payload as P
+
+    link = P.PayloadLink("127.0.0.1:1", lambda: Store(str(tmp_path / "m.db")))
+
+    # One solid detection plus the phantom: exactly the measured case.
+    link._ground_look = {"n": sum(1 for c in (0.60, 0.433)
+                                  if c >= P.GROUND_COUNT_CONF),
+                         "present": True, "p": 0.60, "ms": 90.0,
+                         "t": __import__("time").time()}
+    assert link._ground_look["n"] == 1        # the 0.433 box is not a person
+
+    # A weak lone box: enough to look, not enough to count.
+    link._ground_look = {"n": 0, "present": True, "p": 0.30, "ms": 90.0,
+                         "t": __import__("time").time()}
+    st = {"gate": {"fired": True}, "detect": {"n": 0, "rgb_blind": False},
+          "motion": {"moved": False}, "thermal": {}, "gps": {}, "hazard": {}}
+    out = link._shape(st)
+    assert out["verdict"] == "PERSON"          # presence carried the ladder
+    assert "1 person" not in (out["verdict_why"] or "")   # but named no count
+
+
+def test_a_stale_ground_look_stops_counting(tmp_path):
+    """A frozen second opinion must not keep asserting somebody who has
+    walked out of shot."""
+    import time as _t
+    from saresq.dashboard import payload as P
+
+    link = P.PayloadLink("127.0.0.1:1", lambda: Store(str(tmp_path / "m.db")))
+    link._ground_look = {"n": 3, "present": True, "p": 0.9, "ms": 90.0,
+                         "t": _t.time() - (P.GROUND_LOOK_TTL_S + 1.0)}
+    st = {"gate": {"fired": True}, "detect": {"n": 0, "rgb_blind": True},
+          "motion": {"moved": False}, "thermal": {}, "gps": {}, "hazard": {}}
+    out = link._shape(st)
+    assert out["n"] == 0
+    assert out["verdict"] == "BODY_HEAT"

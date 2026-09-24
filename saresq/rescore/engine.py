@@ -39,6 +39,11 @@ class RescoreResult:
     p: float          # best person confidence in this crop, 0.0 if none
     n: int            # person boxes at or above the threshold
     ms: float         # wall-clock inference cost attributed to this crop
+    #: Every person confidence in the frame, highest first. The engine runs at
+    #: one permissive threshold so a caller can apply its own without a second
+    #: forward pass -- and the right threshold differs by question. "Is anyone
+    #: there" tolerates a weak box; "there are three people" must not.
+    confs: tuple[float, ...] = ()
 
 
 class Rescorer:
@@ -130,6 +135,7 @@ class Rescorer:
                 p=float(max(confs)) if confs else 0.0,
                 n=len(confs),
                 ms=per_crop_ms,
+                confs=tuple(sorted((float(c) for c in confs), reverse=True)),
             ))
         return out
 
