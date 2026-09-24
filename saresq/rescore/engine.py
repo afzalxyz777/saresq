@@ -34,6 +34,35 @@ import numpy as np
 PERSON_CLASS = 0
 
 
+#: A box has to be more than confident to be counted; it has to be a shape a
+#: person could be. Two failures were measured on live frames and both produce
+#: an inflated headcount rather than a wrong one, which is the worse error
+#: here -- a team is dispatched to find people who are not there.
+_EDGE_PX = 3          #: within this of the border counts as clipped
+_MIN_W_FRAC = 0.05    #: narrower than 5% of frame width is not a body in view
+_MAX_ASPECT = 5.0     #: taller than 5:1 is a limb or a sliver, not a person
+
+
+def _countable(box, w: int, h: int) -> bool:
+    """Whether this box supports a COUNT, as opposed to merely presence."""
+    if not w or not h:
+        return True                      # no frame size: do not invent a rule
+    x1, y1, x2, y2 = (float(v) for v in box[:4])
+    bw, bh = x2 - x1, y2 - y1
+    if bw <= 0 or bh <= 0:
+        return False
+    # Clipped against the frame edge: what is visible is a fraction of a body
+    # and the rest was never imaged, so its extent -- and whether it is one
+    # person or two standing together -- is unknowable.
+    if x1 <= _EDGE_PX or y1 <= _EDGE_PX or x2 >= w - _EDGE_PX or y2 >= h - _EDGE_PX:
+        return False
+    if bw < _MIN_W_FRAC * w:
+        return False
+    if bh / bw > _MAX_ASPECT:
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class RescoreResult:
     p: float          # best person confidence in this crop, 0.0 if none
@@ -44,6 +73,15 @@ class RescoreResult:
     #: forward pass -- and the right threshold differs by question. "Is anyone
     #: there" tolerates a weak box; "there are three people" must not.
     confs: tuple[float, ...] = ()
+    #: Of those same boxes, the ones whose GEOMETRY supports a count, paired
+    #: as (confidence, countable). A detector will put a confident "person"
+    #: label on a 23-pixel-wide sliver pinned to the frame edge -- measured on
+    #: this payload: 0.659 on a 23x247 box clipped at x=640, beside a genuine
+    #: 186x205 detection at 0.844. Something IS probably there, and presence
+    #: should reflect that. But a body 95% outside the frame is not a person
+    #: this system can count, and reporting "2 people" sends a rescue team
+    #: looking for someone who was never in view.
+    boxes: tuple[tuple[float, bool], ...] = ()
 
 
 class Rescorer:
@@ -126,16 +164,22 @@ class Rescorer:
         per_crop_ms = (time.perf_counter() - t0) * 1e3 / max(len(crops), 1)
 
         out: list[RescoreResult] = []
-        for r in preds:
+        for r, src in zip(preds, crops):
             try:
                 confs = r.boxes.conf.tolist() if r.boxes is not None else []
+                xyxy = r.boxes.xyxy.tolist() if r.boxes is not None else []
             except Exception:
-                confs = []
+                confs, xyxy = [], []
+            h, w = (src.shape[0], src.shape[1]) if hasattr(src, "shape") else (0, 0)
+            boxes = tuple(sorted(
+                ((float(c), _countable(b, w, h)) for c, b in zip(confs, xyxy)),
+                key=lambda t: -t[0]))
             out.append(RescoreResult(
                 p=float(max(confs)) if confs else 0.0,
                 n=len(confs),
                 ms=per_crop_ms,
                 confs=tuple(sorted((float(c) for c in confs), reverse=True)),
+                boxes=boxes,
             ))
         return out
 

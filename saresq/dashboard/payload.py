@@ -214,11 +214,21 @@ class PayloadLink(threading.Thread):
         except Exception:
             return                     # a lost second opinion is never fatal
         confs = res.confs or ()
+        # A count has to clear two bars, not one. Confidence says the detector
+        # believes it; geometry says the box is a shape a whole person could
+        # occupy. A 23-pixel sliver clipped at the frame edge scored 0.659 on
+        # this payload -- over the count threshold, beside a real person at
+        # 0.844 -- and reporting it as a second survivor sends a team looking
+        # for someone who was never in the picture. It still counts as
+        # PRESENCE, because something is probably there and a second look is
+        # the cheap error.
+        boxes = res.boxes or tuple((c, True) for c in confs)
         with self._lock:
             self._ground_look = {
-                # How many to SAY: the strict bar.
-                "n": sum(1 for c in confs if c >= GROUND_COUNT_CONF),
-                # Whether anyone is there at all: the permissive one.
+                # How many to SAY: the strict bar, confidence AND geometry.
+                "n": sum(1 for c, ok in boxes if ok and c >= GROUND_COUNT_CONF),
+                # Whether anyone is there at all: the permissive one, and
+                # deliberately blind to geometry.
                 "present": bool(res.p >= GROUND_PRESENCE_CONF),
                 "p": float(res.p), "ms": float(res.ms), "t": time.time()}
 
@@ -400,6 +410,15 @@ class PayloadLink(threading.Thread):
         # enough to say somebody is there and not enough to say how many. The
         # verdict takes presence; the number shown takes the count.
         has_visual = bool(n) or gnd_present
+
+        # Blindness is the claim that the camera's SILENCE carries no
+        # information, judged on the luminance of the strongest thermal
+        # candidate's crop. That judgement cannot survive the camera then
+        # confirming a person: the console was reading "2 persons confirmed -
+        # camera blind", two statements that cannot both be true. A detector
+        # that resolved a human body plainly had light enough to do it,
+        # whatever one crop measured.
+        blind = bool(d.get("rgb_blind")) and not has_visual
         out = {
             "connected": True,
             # Three outcomes, not two. A thermal blob at body temperature with
@@ -421,8 +440,8 @@ class PayloadLink(threading.Thread):
             "verdict": _verdict(n_visual=(n or int(has_visual)),
                                 gate_fired=bool(g.get("fired")),
                                 moved=bool(mv.get("moved")),
-                                rgb_blind=bool(d.get("rgb_blind"))),
-            "rgb_blind": bool(d.get("rgb_blind")),
+                                rgb_blind=blind),
+            "rgb_blind": blind,
             "crop_lum": d.get("lum"),
             "motion": bool(mv.get("moved")),
             "verdict_why": None,   # filled below
