@@ -1,0 +1,26 @@
+{
+  "weights": "/Users/afzalamanullah/saresq/results/detector/v8n_p3_thermalmix3_640/weights/best.pt",
+  "imgsz": 640,
+  "per_source": {
+    "hituav": {
+      "images": 290,
+      "person_AP50": 0.8676265435368404,
+      "person_AP50_95": 0.4186475135153092,
+      "all_classes_seen": {
+        "Person": 0.8676265435368404,
+        "Car": 0.9498817027099845,
+        "Bicycle": 0.8171869869817068,
+        "OtherVehicle": 0.4840206630225257
+      }
+    },
+    "rgbt_thermal": {
+      "images": 1225,
+      "person_AP50": 0.43100327498300917,
+      "person_AP50_95": 0.12805971142491063,
+      "all_classes_seen": {
+        "Person": 0.43100327498300917
+      }
+    }
+  },
+  "person_AP50_mean": 0.6493149092599249
+}

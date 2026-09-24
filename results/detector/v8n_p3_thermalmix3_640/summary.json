@@ -1,0 +1,32 @@
+{
+  "variant": "p3",
+  "base_model": "results/detector/v8n_p3_thermalmix2_640/weights/best.pt",
+  "lr0": 0.0004,
+  "data": "data/converted/thermal_combined/thermal_combined.yaml",
+  "imgsz": 640,
+  "epochs": 40,
+  "device": "mps",
+  "layers": 130,
+  "parameters": 3011628,
+  "gflops": 8.1949184,
+  "mAP50": 0.6831472400634,
+  "mAP50_95": 0.3754142810139787,
+  "per_class": {
+    "Person": {
+      "AP50": 0.48157305747315254,
+      "AP50_95": 0.15944950828900464
+    },
+    "Car": {
+      "AP50": 0.9498498374537702,
+      "AP50_95": 0.6106822629912809
+    },
+    "Bicycle": {
+      "AP50": 0.8171599345321842,
+      "AP50_95": 0.41161418644944003
+    },
+    "OtherVehicle": {
+      "AP50": 0.4840061307944929,
+      "AP50_95": 0.31991116632618927
+    }
+  }
+}
