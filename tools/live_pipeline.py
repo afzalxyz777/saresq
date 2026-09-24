@@ -1244,14 +1244,30 @@ class App:
                                            .get("threads", 4)))
         print(f"detector: {pathlib.Path(self.args.rgb_model).name} "
               f"({det.imgsz}px, boxes {det.box_units})", flush=True)
+        #: The detector asks LiteRT for four threads, which is every core this
+        #: board has. Moving it off the gate's loop removed the incidental
+        #: brake that detect_loop's own sleep used to apply, and measured on
+        #: hardware the unthrottled loop simply ate the machine: load average
+        #: 5.11 on 4 cores, 7.7% idle, and the thermal I2C reader -- a thread
+        #: that must not be starved, because it feeds the branch that still
+        #: works in the dark -- fell from 1.35 Hz to 0.91.
+        #:
+        #: So the loop is rate-limited, exactly as hazard_loop is and for the
+        #: same reason. A person does not appear and vanish inside a second,
+        #: the thermal gate is the branch that needs the frames, and the
+        #: ground station re-scores this imagery anyway. Spending cores here
+        #: to refresh a box a few hundred milliseconds sooner costs the gate
+        #: frames it cannot get back.
+        period = 1.0 / max(float(self.args.det_hz), 0.1)
         while True:
+            t0 = time.time()
             rgb, _ = self.camera.read()
             if rgb is None:
                 time.sleep(0.3)
                 continue
-            t0 = time.time()
+            t_det = time.time()
             dets = det.detect(rgb)
-            ms = (time.time() - t0) * 1000
+            ms = (time.time() - t_det) * 1000
             # A COCO model reports all 80 classes; on a desk that means chairs
             # and laptops. Class 0 is person, which is the only one this
             # payload is looking for.
@@ -1259,6 +1275,10 @@ class App:
                 dets = [d for d in dets if int(d.cls) in self.args.classes]
             with self.lock:
                 self.last_dets, self.last_det_ms = dets, ms
+            # Yield the remainder of the period. When a pass overruns the
+            # budget this still yields briefly rather than spinning, so the
+            # reader threads always get scheduled.
+            time.sleep(max(period - (time.time() - t0), 0.05))
 
     def detect_loop(self):
         crop_px = int(self.cfg.get("detector", {}).get("crop_px", 160))
@@ -1790,6 +1810,10 @@ def main() -> int:
     ap.add_argument("--hz", type=int, default=8, choices=[2, 4, 8])
     ap.add_argument("--width", type=int, default=1640)
     ap.add_argument("--height", type=int, default=1232)
+    ap.add_argument("--det-hz", type=float, default=1.5,
+                    help="how often the visible detector runs, Hz. Lower "
+                         "leaves cores for the thermal gate, which is the "
+                         "branch that works in the dark.")
     ap.add_argument("--fps", type=int, default=4,
                     help="camera frame rate, and therefore the auto-exposure "
                          "CEILING: 4 fps lets AE integrate up to 250 ms, which "
