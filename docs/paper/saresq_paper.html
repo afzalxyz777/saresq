@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A Thermal-First Detection Cascade for Embedded UAV Search and Rescue</title>
 <style>
   @page { size: A4; margin: 16mm 15mm 15mm 15mm; }
@@ -96,14 +97,47 @@
     font-size:7.2pt; color:#333; text-align:left; text-indent:0;
   }
   svg{ max-width:100%; height:auto; }
+
+  /* ---- Screen only. The A4 print layout above stays authoritative: Chrome's
+     print path does not match `screen`, so the PDF is unaffected by anything
+     in here. This exists so the paper is readable in a browser and on a phone. ---- */
+  @media screen {
+    html { background: #e8e9ec; }
+    body {
+      background: #fff;
+      max-width: 980px;
+      margin: 0 auto;
+      padding-block: 34px 48px;
+      padding-inline: 26px;
+      font-size: 10.3pt;
+      line-height: 1.40;
+      box-shadow: 0 1px 2px rgba(18,22,30,.10), 0 14px 40px rgba(18,22,30,.09);
+    }
+    img { max-width: 100%; height: auto; }
+    table { max-width: 100%; }
+    figure, .fig, .tbl { max-width: 100%; overflow-x: auto; }
+    a { color: #1a4b7a; }
+  }
+  /* Two columns of 9pt only work while the measure stays sane. */
+  @media screen and (max-width: 900px) {
+    .cols { column-count: 1; }
+    body { max-width: 720px; }
+  }
+  @media screen and (max-width: 560px) {
+    body {
+      font-size: 11pt; line-height: 1.52;
+      padding-inline: 16px; padding-block: 22px 34px;
+      text-align: left; hyphens: none; -webkit-hyphens: none;
+    }
+    .abswrap { padding: 0; }
+  }
 </style>
 
 <div class="head">
   <h1>A Thermal-First Detection Cascade for Real-Time Human Search<br>and Rescue on a 1&nbsp;GB Embedded UAV Payload</h1>
-  <p class="authors">Afzal Amanullah</p>
-  <p class="affil">Team SaResQ (IIC_TMSL_P13_H21) &middot; Techno Main Salt Lake, Kolkata, India<br>
-  Smart India Hackathon 2026, Problem Statement SIH26177 &mdash; Robotics and Drones</p>
-  <p class="corr">Payload firmware, datasets and evaluation scripts: <span class="m">github.com/afzalxyz777/saresq</span> &middot; commit <span class="m">2cae583</span></p>
+  <p class="authors">Afzal Amanullah &middot; Nishka Priya &middot; Arati Kumari<br>Naman Kumar &middot; Aarti Sharma &middot; Azshaque Rizvi</p>
+  <p class="affil">Techno Main Salt Lake, Kolkata, India</p>
+  <p class="corr">Code and data availability: firmware, datasets and evaluation scripts are at <span class="m">github.com/afzalxyz777/saresq</span>, commit <span class="m">2b0f064</span>.</p>
 </div>
 
 <div class="abswrap">
@@ -128,7 +162,7 @@
   alpha-beta map tracks with Kalata gains and a &chi;<sup>2</sup> validation gate. A log-odds ledger accumulates
   evidence across repeated passes over the same ground position. On the target hardware the detector runs in
   <b>28.2&nbsp;ms</b> per 160&nbsp;px crop and the complete six-candidate worst case consumes 177.5&nbsp;ms of a
-  250&nbsp;ms frame budget, a 29% margin, in 95.2&nbsp;MB of resident memory. The shipped detector attains
+  250&nbsp;ms frame budget, a 29% margin, in 95.2&nbsp;MB of resident memory. The thermal detector attains
   Person AP<sub>50</sub> of <b>0.851</b> on HIT-UAV and <b>0.478</b> on RGBTDronePerson-thermal. We contrast this
   against a 2018 result on comparable hardware that reported 0.18&nbsp;FPS for embedded CNN pedestrian
   detection, and against current RGBT fusion networks that require 22&times; the parameters and a discrete
@@ -143,7 +177,7 @@
   not model capacity</b>, carries the gain, by roughly 4&times;. And a sub-pixel registration floor of
   0.12&nbsp;px median but 1.1&nbsp;px maximum on low-texture 32&times;24 frames limits multi-frame
   reconstruction and, left unconstrained, manufactured apparent movement in 28.3% of frames of a stationary
-  scene.</p>
+  scene. Table&nbsp;IV identifies, stage by stage, what runs in the current flying build and what is implemented and evaluated but not yet integrated into it; the two-sided gate and the thermal detector described here belong to the latter class.</p>
   <p class="kw"><b class="lead">Index Terms</b>&mdash;Unmanned aerial vehicles, search and rescue, thermal
   imaging, embedded computer vision, object detection, sensor registration, model quantisation,
   motion detection, image reconstruction.</p>
@@ -1004,10 +1038,10 @@ alongside.</p>
   <caption><b>Table II.</b> Complete inventory of models and algorithms.</caption>
   <thead><tr><th>Component</th><th>Method</th><th>Status</th></tr></thead>
   <tbody>
-    <tr><td>Thermal gate</td><td>robust <i>z</i>, median/MAD (3)&ndash;(5)</td><td>payload</td></tr>
+    <tr><td>Thermal gate</td><td>robust <i>z</i>, median/MAD (3)&ndash;(5)</td><td>tested</td></tr>
     <tr><td>Blob extraction</td><td>8-connected components, weighted centroid (6)</td><td>payload</td></tr>
     <tr><td>Registration</td><td>6-parameter affine, RANSAC (8), (9)</td><td>payload</td></tr>
-    <tr><td>Person detector</td><td>YOLOv8n P3&ndash;P5, w8a32, 3.01 M param</td><td>payload</td></tr>
+    <tr><td>Person detector</td><td>YOLOv8n P3&ndash;P5, w8a32, 3.01 M param</td><td>instrumented</td></tr>
     <tr><td>Box decode</td><td>DFL expectation (7) + greedy per-class NMS, NumPy</td><td>payload</td></tr>
     <tr><td>Visible detector</td><td>YOLOv8n COCO-80, w8a32</td><td>payload</td></tr>
     <tr><td>Scene classifier</td><td>MobileNetV2, INT8, 2.74 MB</td><td>payload</td></tr>
@@ -1035,7 +1069,8 @@ not in the current flying build&mdash;the payload build is deliberately minimal,
 georeferencing stages require the GNSS/IMU stream that indoor bench trials cannot supply.
 <b>instrumented</b>: trained and evaluated, reported in Section&nbsp;VIII-B, and not relied upon by any
 claim in this paper. <b>payload, off</b>: present in the flying build but disabled by default, for the
-reason given in Section&nbsp;VI-L. The suite is 223 tests.</p>
+reason given in Section&nbsp;VI-L. The suite is 230 tests.</p>
+<p>Two rows in Table&nbsp;IV warrant the reader&rsquo;s attention, because they were reclassified after a source audit rather than at first writing. The <i>thermal gate</i> is specified here in its robust two-sided form, (3)&ndash;(5), and that form is implemented and unit-tested; the current flying build, however, computes the simpler one-sided <i>z</i> = (T &minus; <span class="m">mean</span>)/<span class="m">std</span> and fires only on positive deviation. Every throughput and tearing figure reported in Section&nbsp;VII was measured against that simpler form. The consequence is the regime described in Section&nbsp;V-B: above roughly 35&nbsp;&deg;C ambient a body reads as a cold anomaly, and the flying build does not yet see it. Likewise the <i>person detector</i> row describes the P3&ndash;P5 thermal network, which is trained, exported and evaluated but is not loaded by the flying build; the payload currently runs the COCO-80 visible detector alone. Neither gap affects any measurement in this paper, but both affect what the system does today, and the distinction is the point of this table.</p>
 </div>
 
 <h3>K. Thermal motion as evidence of life</h3>
