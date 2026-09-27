@@ -1,0 +1,195 @@
+<title>SaResQ Process Flowchart</title>
+<style>
+  /* Drop-in replacement for the slide 3 graphic. Canvas is 1500x771, the same
+     1.945 aspect as the image it replaces, so it swaps in without distortion.
+     Palette follows the deck: navy headers, pale blue-grey panels, one accent
+     per verdict tier. */
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{width:1500px;height:771px;background:#fff;overflow:hidden;
+       font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#15202b}
+  .wrap{height:771px;padding:14px 20px 12px;display:flex;flex-direction:column}
+
+  .title{flex:none;text-align:center;font-size:22px;font-weight:800;letter-spacing:.03em;
+         color:#18324d;border:2.5px solid #18324d;border-radius:9px;
+         padding:6px 0;margin:0 auto 12px;width:320px}
+
+  .pipe{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:11px;min-height:0}
+  .col{border:1.7px solid #b9c8d6;border-radius:8px;background:#fff;
+       display:flex;flex-direction:column;overflow:hidden}
+  .col>h3{flex:none;margin:0;background:#1d3f5e;color:#fff;font-size:16px;font-weight:700;
+          letter-spacing:.08em;text-align:center;padding:6px 0}
+  .col.sense>h3{background:#2a5470}
+  .inner{flex:1;padding:10px;display:flex;flex-direction:column;gap:9px;
+         justify-content:space-between;min-height:0}
+
+  .card{background:#eef4f9;border:1px solid #cddbe7;border-radius:6px;padding:7px 9px}
+  .card>b{display:block;font-size:12.3px;font-weight:700;color:#18324d;
+          margin-bottom:3px;letter-spacing:.02em}
+  .card p{margin:0;font-size:11.6px;line-height:1.45;color:#2b3c4c}
+  .card p+p{margin-top:4px}
+  .eq{font-family:ui-monospace,Menlo,monospace;font-size:11.8px;font-weight:700;
+      color:#18324d;display:block;margin-top:3px}
+  ul{margin:0;padding-left:14px}
+  li{font-size:11.6px;line-height:1.45;color:#2b3c4c;margin:2px 0}
+
+  .frame{background:#dfe9f2;border:1px dashed #9fb6c9;border-radius:6px;
+         text-align:center;padding:8px 6px}
+  .frame b{display:block;font-size:13.5px;color:#18324d;margin-bottom:1px}
+  .frame span{font-size:11.6px;color:#41596d;font-family:ui-monospace,Menlo,monospace}
+
+  .tier{border-radius:6px;padding:7px 9px;border-left:4px solid}
+  .hi{background:#e8f6ed;border-color:#2f8d52}
+  .md{background:#fdf4e3;border-color:#d79b1e}
+  .lo{background:#fdecec;border-color:#c0392b}
+  .tier b{display:block;font-size:13.5px;margin-bottom:2px;letter-spacing:.04em}
+  .hi b{color:#1f6b3a} .md b{color:#8a6210} .lo b{color:#96271c}
+  .tier p{margin:0;font-size:11.5px;line-height:1.42;color:#2b3c4c}
+  .act{display:block;font-size:10.8px;font-weight:700;margin-top:4px;letter-spacing:.03em}
+  .hi .act{color:#1f6b3a} .md .act{color:#8a6210} .lo .act{color:#96271c}
+
+  .lower{flex:none;display:grid;grid-template-columns:1.05fr 1fr;gap:11px;margin-top:11px}
+  .strip{border:1.7px solid #b9c8d6;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+  .strip>h3{flex:none;margin:0;background:#2a5470;color:#fff;font-size:13.5px;font-weight:700;
+            letter-spacing:.07em;text-align:center;padding:5px 0}
+  .strip .inner{padding:9px;gap:7px}
+  .chain{display:flex;align-items:center;justify-content:space-between;gap:4px}
+  .step{text-align:center}
+  .step b{display:block;font-size:12.5px;color:#18324d;letter-spacing:.04em}
+  .step span{font-size:10.6px;color:#4a637a}
+  .arrow{color:#8aa3b8;font-size:14px;font-weight:700}
+  .rule{background:#f4f8fb;border:1px solid #d5e2ec;border-radius:5px;padding:6px 9px}
+  .rule p{margin:0;font-size:11.2px;line-height:1.45;color:#2b3c4c}
+  .foot{flex:none;margin-top:9px;text-align:center;font-size:10.6px;color:#5b7186;font-style:italic}
+</style>
+
+<div class="wrap">
+  <div class="title">PROCESS FLOWCHART</div>
+
+  <div class="pipe">
+
+    <div class="col sense">
+      <h3>SENSE</h3>
+      <div class="inner">
+        <div class="frame"><b>RGB Frame</b><span>1640 &times; 1232</span></div>
+        <div class="frame"><b>Thermal Frame</b><span>32 &times; 24 &middot; MLX90640</span></div>
+        <div class="card">
+          <b>TORN-FRAME REJECTION</b>
+          <p>The array is read as two interleaved subpages. A read straddling a
+          refresh mixes two moments, inflating apparent contrast &mdash; so it is
+          discarded before it can reach the gate.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <h3>FIND CANDIDATES</h3>
+      <div class="inner">
+        <div class="card">
+          <b>CONTRAST-RELATIVE THERMAL GATE</b>
+          <p>Every pixel scored against the scene itself, never against a fixed
+          temperature:</p>
+          <span class="eq">z = (T &minus; scene median) / &sigma;</span>
+        </div>
+        <div class="card">
+          <b>TWO-SIDED TEST &middot; |z| &ge; 2.5</b>
+          <p>Fires on deviation in <i>either</i> direction. Above ~35&nbsp;&deg;C
+          ambient a body is cooler than sun-heated ground, where a
+          &ldquo;warmer than background&rdquo; test goes blind.</p>
+        </div>
+        <div class="card">
+          <b>ROI SELECTION</b>
+          <p>Connected regions ranked by z; up to six 160&nbsp;&times;&nbsp;160
+          crops passed on. Everything else is discarded without ever reaching a
+          neural network.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <h3>IDENTIFY</h3>
+      <div class="inner">
+        <div class="card">
+          <b>RGB&ndash;THERMAL REGISTRATION</b>
+          <p>Each thermal candidate mapped to its corresponding RGB region.
+          Calibration residual 0.506 thermal px over 38 points.</p>
+        </div>
+        <div class="card">
+          <b>YOLOv8n &middot; INT8 / TFLite</b>
+          <p>Runs on the nominated crops only: <b>28&nbsp;ms per crop</b>
+          against <b>532&nbsp;ms</b> for the same model across a full frame on
+          this hardware.</p>
+        </div>
+        <div class="card">
+          <b>EVIDENCE ASSEMBLY</b>
+          <ul>
+            <li>thermal contrast (z), blob area</li>
+            <li>frame-to-frame thermal motion</li>
+            <li>RGB detection confidence</li>
+            <li>crop luminance &mdash; was there light?</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <h3>CONFIRM</h3>
+      <div class="inner">
+        <div class="tier hi">
+          <b>HIGH</b>
+          <p>Thermal signature and camera agree, and the source moved.</p>
+          <span class="act">SURVIVOR LOCATED &rarr; DISPATCH</span>
+        </div>
+        <div class="tier md">
+          <b>MEDIUM</b>
+          <p>Body heat present, no visible confirmation &mdash; obscured, or the
+          camera had no light. Never ranked as weak: an unconscious casualty
+          does not move.</p>
+          <span class="act">POSSIBLE SURVIVOR &rarr; INVESTIGATE</span>
+        </div>
+        <div class="tier lo">
+          <b>LOW</b>
+          <p>Camera says person, nothing thermal behind it.</p>
+          <span class="act">LIKELY FALSE POSITIVE &rarr; DEPRIORITISE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="strip">
+      <h3>SUPPORTING HAZARD BRANCH</h3>
+      <div class="inner">
+        <div class="card">
+          <b>MobileNetV2 &middot; OWN THREAD, ~1 Hz</b>
+          <p>Classifies the surrounding scene for fire, flooding and structural
+          collapse, so a team knows not only where someone is but what they
+          would be walking into. Threaded, so the survivor path never waits on
+          it.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="strip">
+      <h3>LOCATE &amp; REPORT</h3>
+      <div class="inner">
+        <div class="chain">
+          <div class="step"><b>GEO-TAG</b><span>GNSS at capture</span></div>
+          <span class="arrow">&rarr;</span>
+          <div class="step"><b>STORE</b><span>crop + patch</span></div>
+          <span class="arrow">&rarr;</span>
+          <div class="step"><b>TRIAGE</b><span>ranked queue</span></div>
+          <span class="arrow">&rarr;</span>
+          <div class="step"><b>REPORT</b><span>ground station</span></div>
+        </div>
+        <div class="rule">
+          <p>An assumed position is never drawn as a measured fix, and a camera
+          with no light reports <b>blind</b> rather than <b>no person found</b>
+          &mdash; those mean opposite things to a rescue team.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">Everything above runs on the payload &mdash; Raspberry Pi 4, no network dependency.</div>
+</div>

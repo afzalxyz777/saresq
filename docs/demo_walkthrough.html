@@ -1,0 +1,224 @@
+<title>SaResQ — Demo Walkthrough Script</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --ink:#161c22;--ink2:#3c4650;--dim:#6d7883;--paper:#fff;--tint:#f5f3f0;--rule:#ded8d0;
+    --say:#1d5c7a;--do:#2f6b45;--warn:#a8321f;--acc:#c2410c;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  @page{size:A4;margin:13mm 13mm 12mm}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,serif;
+       font-size:9.5pt;line-height:1.45;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  h1,h2,h3,.lbl{font-family:var(--sans)}
+  .cover{border-bottom:3px solid var(--ink);padding-bottom:11px;margin-bottom:12px}
+  .cover h1{font-size:21pt;font-weight:700;margin:0;letter-spacing:-0.025em;line-height:1.08}
+  .cover .s{font-size:10.5pt;color:var(--acc);font-family:var(--sans);font-weight:500;margin-top:4px}
+  h2{font-size:12.5pt;font-family:var(--sans);font-weight:600;margin:17px 0 6px;
+     padding-bottom:4px;border-bottom:2px solid var(--ink);break-after:avoid}
+  h3{font-size:10pt;font-family:var(--sans);font-weight:600;margin:12px 0 3px;break-after:avoid}
+  p{margin:0 0 5px}
+  ul{margin:3px 0 7px;padding-left:16px} li{margin:2px 0}
+  code{font-family:var(--mono);font-size:0.87em;background:var(--tint);padding:0.5px 3px;border-radius:2px}
+  pre{font-family:var(--mono);font-size:8.3pt;background:var(--tint);border-left:2.5px solid var(--dim);
+      padding:6px 9px;margin:5px 0 8px;overflow-x:auto;line-height:1.4}
+
+  .shot{border:1px solid var(--rule);border-radius:4px;margin:0 0 10px;break-inside:avoid}
+  .shot-hd{display:flex;align-items:baseline;gap:9px;background:var(--tint);
+           padding:5px 10px;border-bottom:1px solid var(--rule)}
+  .shot-n{font-family:var(--mono);font-weight:600;font-size:8.5pt;color:var(--acc)}
+  .shot-t{font-family:var(--sans);font-weight:600;font-size:10pt;flex:1}
+  .shot-d{font-family:var(--mono);font-size:8.5pt;color:var(--dim)}
+  .shot-bd{padding:7px 10px}
+  .do,.say{margin:0 0 5px;padding-left:34px;position:relative}
+  .do::before{content:"SHOW";position:absolute;left:0;top:1px;font-family:var(--sans);
+              font-size:6.8pt;font-weight:700;letter-spacing:.05em;color:var(--do)}
+  .say::before{content:"SAY";position:absolute;left:0;top:1px;font-family:var(--sans);
+               font-size:6.8pt;font-weight:700;letter-spacing:.05em;color:var(--say)}
+  .say{font-style:italic;color:#12303f}
+  .note{font-family:var(--sans);font-size:8.3pt;color:var(--dim);margin:4px 0 0;padding-left:34px}
+
+  .big{background:var(--tint);border-left:3px solid var(--acc);padding:8px 11px;margin:9px 0;break-inside:avoid}
+  .big b{font-family:var(--sans);display:block;font-size:9.5pt;margin-bottom:2px}
+  .danger{border-left-color:var(--warn);background:#fdf3f1}
+  .ck{list-style:none;padding-left:0;margin:5px 0 9px}
+  .ck li{margin:3px 0;padding-left:19px;position:relative}
+  .ck li::before{content:"\2610";position:absolute;left:0;font-size:11pt;line-height:1;color:var(--dim)}
+  table{border-collapse:collapse;width:100%;font-size:8.6pt;margin:6px 0 9px}
+  th{font-family:var(--sans);font-size:7.3pt;text-transform:uppercase;letter-spacing:.05em;
+     color:var(--dim);text-align:left;padding:3px 8px 3px 0;border-bottom:1.5px solid var(--ink)}
+  td{padding:3px 8px 3px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+  td.n{font-family:var(--mono);white-space:nowrap}
+  .pb{break-before:page}
+  .foot{margin-top:15px;padding-top:9px;border-top:1px solid var(--rule);font-size:8.3pt;color:var(--dim)}
+</style>
+
+<div class="cover">
+  <h1>Demo Walkthrough — the live system, on camera</h1>
+  <div class="s">SaResQ · SIH26177 · target 4:00 · read the pre-flight page BEFORE you record</div>
+</div>
+
+<p>This is not the slide script. <code>SaResQ_Pitch_Script.pdf</code> narrates the six
+slides; this drives the running payload and the ground station in front of a lens. Two
+things make or break the take and neither is about what you say: <b>the room temperature</b>
+and <b>the network</b>. Both are handled on this page.</p>
+
+<h2>Pre-flight — do all of this before you hit record</h2>
+
+<div class="big danger">
+  <b>The room must be cooler than you are.</b>
+  Measured on 24 Sep: ambient 32&nbsp;°C, blobs 33.5–34.3&nbsp;°C. That is the crossover
+  band — skin and background almost equal — and the gate had almost nothing to work with
+  (z scattered 2.7–4.2, blobs drifting to the frame edges). <b>Film at night, or in an
+  air-conditioned room, or early morning.</b> Aim for ambient below 28&nbsp;°C: it takes
+  peak z from ~4 to comfortably past 6, the blob sits solidly on the body instead of
+  wandering, and the thermal panel actually looks like a person. This single choice does
+  more for the footage than anything else in this document.
+</div>
+
+<h3>1 · Bring the payload up and find it</h3>
+<pre>ping -c2 saresq.local                 # often fails even when the Pi is fine
+for i in $(seq 1 254); do echo 192.168.1.$i; done | \
+  xargs -P128 -I{} sh -c 'nc -z -w1 {} 8091 2>/dev/null && echo FOUND {}'</pre>
+<p class="note">mDNS has failed mid-session twice while the Pi was healthy and serving.
+Never let the demo depend on <code>saresq.local</code> — scan for it, then use the raw IP.</p>
+
+<h3>2 · Start the ground station against that IP</h3>
+<pre>cd ~/saresq
+.venv/bin/python -m saresq.dashboard.app --payload &lt;PI-IP&gt; --port 5050</pre>
+
+<h3>3 · Verify before you waste a take</h3>
+<pre>curl -s http://127.0.0.1:5050/api/live | python3 -m json.tool | head -20</pre>
+<ul class="ck">
+  <li><code>connected: true</code> and <code>age_s</code> under 2</li>
+  <li><code>rgb_blind: false</code> — if true, put a lamp on. A dark crop makes the banner
+      hedge and it reads badly on camera</li>
+  <li><code>fired: true</code> when you step in front of the thermal camera</li>
+  <li>Thermal <code>spread</code> above ~5&nbsp;°C on <code>:8091/stats</code> — below that
+      the scene is too uniform to be interesting</li>
+  <li>Evidence page empty — power-cycle the payload for a clean mission so the demo starts
+      from zero rather than yesterday's crops</li>
+  <li>Close other apps. The Pi runs at 60–68&nbsp;°C under load and the laptop is running a
+      second detector</li>
+</ul>
+
+<h3>4 · Set a position, because there is no GPS fix indoors</h3>
+<p>The map is honest about having no satellite fix, which is correct but looks empty on
+camera. On the Map page, <b>shift-click</b> where you actually are, or press <b>Use this
+device</b>. It is tagged as an operator datum and drawn differently from a measured fix —
+say that out loud when you show it. It is a strength, not an apology.</p>
+
+<div class="pb"></div>
+<h2>The take — eight shots, about four minutes</h2>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">01</span><span class="shot-t">The thing itself</span><span class="shot-d">0:00 – 0:25</span></div>
+  <div class="shot-bd">
+    <p class="do">The payload in your hand. Turn it over — Pi, thermal array, camera, GNSS mast, the printed tray.</p>
+    <p class="say">"This is SaResQ. Everything that finds a survivor happens on this board — a Raspberry Pi 4, a thermal array, a camera. About thirteen thousand rupees, three hundred grams, and it bolts onto any F450-class drone. No cloud, no mobile network. The disasters we built it for take the network down first."</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">02</span><span class="shot-t">Thermal first — the whole idea in one shot</span><span class="shot-d">0:25 – 1:05</span></div>
+  <div class="shot-bd">
+    <p class="do"><code>/feed</code>. Both panels side by side. Walk into frame. Gate fires, banner changes, blob lights up on the 32×24.</p>
+    <p class="say">"Most drone detection runs a neural network across the whole picture and hopes the person is big enough and lit well enough to find. At night, in smoke, in an unlit room, that fails — and that is exactly where rescue happens. So we invert it. A person is a thermal object first. This thirty-two by twenty-four array — seven hundred and sixty-eight pixels, no AI at all — asks one question of every frame: what here is anomalously warm compared to the rest of this scene, right now?"</p>
+    <p class="note">Let the thermal panel breathe for a beat. The orange body shape is the most legible image in the whole video.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">03</span><span class="shot-t">The cascade — why it runs on a Pi at all</span><span class="shot-d">1:05 – 1:45</span></div>
+  <div class="shot-bd">
+    <p class="do">Point at the orange crop boxes on the detector panel, then the green detection box and its score.</p>
+    <p class="say">"Only those regions get handed to the neural network. Two to six small crops, not the whole frame. We measured both on this hardware: full-frame costs five hundred and thirty-two milliseconds, a crop costs twenty-eight. That nineteen-fold difference is the entire reason a real detector runs in real time on a four-thousand-rupee computer with no GPU."</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">04</span><span class="shot-t">The two-sided gate — the shot nobody else will have</span><span class="shot-d">1:45 – 2:25</span></div>
+  <div class="shot-bd">
+    <p class="do"><b>Set this up in advance:</b> a hot surface at 45–55&nbsp;°C in frame — a pan of hot water, an induction plate, a laptop charger brick. Hold your hand flat in front of it. On the thermal panel your hand is now <i>darker</i> than the background, and the gate still fires.</p>
+    <p class="say">"Here is the part built for India specifically. Skin sits around thirty-one to thirty-four degrees. Sun-baked concrete and asphalt in an Indian summer reach fifty to sixty — hotter than a person. So a survivor lying on that ground is not a warm spot at all. They are a cold spot. Every detector built on 'people are warmer than their background' goes blind exactly when heatstroke makes finding them most urgent. Our test fires on deviation in either direction — you can see the gate holding on my hand even though my hand is the cooler thing in this frame."</p>
+    <p class="note">If you can only shoot one clever thing, shoot this. It is a real physics argument, visible on screen, and it backs the "Designed for India" claim with something other than a slogan.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">05</span><span class="shot-t">What the system will and will not claim</span><span class="shot-d">2:25 – 3:00</span></div>
+  <div class="shot-bd">
+    <p class="do">Three states, on camera, in order. <b>(a)</b> Stand still — banner holds body heat. <b>(b)</b> Move — it goes to a live person. <b>(c)</b> Cover the RGB lens with your hand while staying in thermal view — it says the camera is blind rather than reporting nobody there.</p>
+    <p class="say">"Motion is what separates a survivor from a warm object — a car bonnet is warm, a sun-heated slab is warm. Something that changes shape between frames is breathing. But notice what it does not say when I stand still: it does not call it a weak result. An unconscious casualty is the most urgent person on any site and they do not move. And when I cover the camera, it tells the operator the camera is blind — not 'no person found'. Those two sentences mean opposite things to a rescue team."</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">06</span><span class="shot-t">Hazards and the map</span><span class="shot-d">3:00 – 3:30</span></div>
+  <div class="shot-bd">
+    <p class="do"><code>/hazards</code> — the live class bars. Then <code>/map</code> with your datum set and a contact on it.</p>
+    <p class="say">"Alongside the survivor search, a second classifier scores the scene for fire, flooding and structural collapse — so a team knows not just where someone is, but what they would be walking into. And every find is geo-tagged. There is no satellite fix indoors, so this position is an operator datum — and the map draws it differently from a measured fix. It never dresses an assumption up as a measurement."</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">07</span><span class="shot-t">Evidence and the second opinion</span><span class="shot-d">3:30 – 3:55</span></div>
+  <div class="shot-bd">
+    <p class="do"><code>/evidence</code> — crops captured during this session. Then <code>/review</code> — the triage queue with confidence and coordinates.</p>
+    <p class="say">"Every find is kept as evidence with its crop, its thermal patch and its coordinates, ordered so the most urgent reaches an operator first. The ground station also runs a larger model over the same imagery as an independent second opinion — and it is allowed to promote something the drone nearly discarded, but never to bury it. Missing a survivor and raising a false alarm are not the same size of mistake."</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="shot-hd"><span class="shot-n">08</span><span class="shot-t">Close</span><span class="shot-d">3:55 – 4:10</span></div>
+  <div class="shot-bd">
+    <p class="say">"Everything you just saw ran with no internet, on hardware costing about thirteen thousand rupees, against enterprise thermal drones at three to twenty-two lakh. Perception is solved and measured. GPS-denied navigation is what we are building onto it next — on a proven open-source flight stack, from a base that already works."</p>
+  </div>
+</div>
+
+<h2>Do not show these</h2>
+<table>
+<tr><th>Thing</th><th>Why</th><th>Instead</th></tr>
+<tr><td>Frame-rate numbers</td><td>Thermal accepts ~1.8&nbsp;fps because 61% of sensor reads are discarded as torn. Correct behaviour, bad optics unprompted.</td><td>Don't raise it. If asked later, it is a sensor read-synchronisation limit, not a compute one.</td></tr>
+<tr><td>Analytics page</td><td>Carries model-comparison detail that invites questions you do not need in a four-minute video.</td><td>Skip. Evidence and Review tell the story better.</td></tr>
+<tr><td>The Pi in thermal view</td><td>It runs at 60–68&nbsp;°C and reads as a hot blob competing with you.</td><td>Keep the board out of the thermal camera's field.</td></tr>
+<tr><td>An empty Evidence page</td><td>Reads as broken.</td><td>Trigger two or three captures before recording that section.</td></tr>
+</table>
+
+<h2>If it breaks mid-take</h2>
+<ul>
+  <li><b>Banner says link down</b> — almost always mDNS, not the Pi. Check <code>:8091/stats</code>
+      in a browser; if that answers, restart the ground station against the raw IP.</li>
+  <li><b>Counts look wrong</b> — <code>n_air</code> and <code>n_ground</code> in
+      <code>/api/live</code> show which machine said what.</li>
+  <li><b>Gate will not fire</b> — the room is too warm. See the pre-flight box. No software
+      setting fixes a scene with no thermal contrast in it.</li>
+  <li><b>Payload unresponsive</b> — <code>sudo systemctl restart saresq-demo.service</code>,
+      give it eight seconds.</li>
+  <li><b>Shutting down</b> — always <code>sudo systemctl stop saresq-demo.service &amp;&amp;
+      sudo sync &amp;&amp; sudo shutdown -h now</code>. Pulling power risks the SD card.</li>
+</ul>
+
+<h2>Numbers you can quote, all measured on this hardware</h2>
+<table>
+<tr><th>Claim</th><th class="n">Value</th></tr>
+<tr><td>Full-frame detector on the Pi</td><td class="n">531.9 ms</td></tr>
+<tr><td>One cascade crop</td><td class="n">28.2 ms</td></tr>
+<tr><td>Designed cascade against frame budget</td><td class="n">177.5 / 250 ms</td></tr>
+<tr><td>Thermal sensor raw rate</td><td class="n">4.67 fps</td></tr>
+<tr><td>Gate threshold</td><td class="n">|z| &ge; 2.5, two-sided</td></tr>
+<tr><td>Thermal&ndash;RGB calibration residual</td><td class="n">0.506 thermal px</td></tr>
+<tr><td>False motion removed by the deadband</td><td class="n">23 in 80 still frames</td></tr>
+<tr><td>Smallest real motion detected</td><td class="n">4 px at 1.55 K</td></tr>
+<tr><td>Ground model false-positive rate</td><td class="n">0.013</td></tr>
+<tr><td>Payload mass / cost</td><td class="n">~300 g / ~&#8377;13,000</td></tr>
+<tr><td>Automated tests</td><td class="n">230 passing</td></tr>
+</table>
+
+<div class="foot">
+  Pair with <code>SaResQ_Pitch_Script.pdf</code> (slide narration) and
+  <code>SaResQ_QA_Prep.pdf</code> (judge questions). Every figure above was measured on the
+  payload, not taken from a datasheet — if a number is not in this table, do not say it on
+  camera.
+</div>

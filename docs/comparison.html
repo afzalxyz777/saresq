@@ -1,0 +1,168 @@
+<title>SaResQ — Comparison with Existing Systems</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{width:1920px;height:1080px;background:#fff;overflow:hidden;
+       font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#15202b}
+  .wrap{height:1080px;padding:34px 70px 22px;display:flex;flex-direction:column}
+  h1{flex:none;margin:0 0 5px;font-size:38px;font-weight:800;color:#18324d;text-align:center;
+     letter-spacing:.01em}
+  .sub{flex:none;margin:0 0 20px;text-align:center;font-size:16px;color:#5b7186}
+
+  table{flex:1;width:100%;border-collapse:collapse;table-layout:fixed}
+  col.feat{width:34%}
+  col.us{width:17%}
+  col.them{width:16.33%}
+
+  thead th{padding:11px 10px;vertical-align:bottom;border-bottom:2.5px solid #18324d}
+  thead th.feat{text-align:left;font-size:14px;font-weight:700;color:#5b7186;
+                letter-spacing:.09em;text-transform:uppercase}
+  thead th.us{background:#18324d;border-radius:8px 8px 0 0;border-bottom:2.5px solid #18324d}
+  thead th.them{background:#f2f5f8}
+  .brand{display:block;font-size:20px;font-weight:800;line-height:1.15}
+  th.us .brand{color:#fff}
+  th.them .brand{color:#22384d}
+  .kind{display:block;font-size:11.5px;font-weight:500;margin-top:3px;line-height:1.25}
+  th.us .kind{color:#9fc4dd}
+  th.them .kind{color:#6b8299}
+  .ours-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.12em;
+            color:#18324d;background:#5fd39b;border-radius:3px;padding:2px 7px;margin-bottom:5px}
+
+  tbody td{border-bottom:1px solid #e6ecf1;text-align:center;vertical-align:middle;padding:0}
+  tbody td.us{background:#f0f8f3;border-left:2.5px solid #2f8d52;border-right:2.5px solid #2f8d52}
+  tbody tr:last-child td.us{border-bottom:2.5px solid #2f8d52;border-radius:0 0 8px 8px}
+  tbody th{text-align:left;font-size:16px;font-weight:600;color:#22384d;
+           padding:0 14px 0 2px;line-height:1.3;border-bottom:1px solid #e6ecf1}
+  tbody th small{display:block;font-size:12.5px;font-weight:400;color:#7089a0;margin-top:1px}
+
+  .tick{font-size:25px;font-weight:800;color:#2f8d52;line-height:1}
+  .cross{font-size:23px;font-weight:700;color:#c0574b;line-height:1}
+  .part{font-size:12.5px;color:#9a7b2e;font-weight:600;display:block;margin-top:1px}
+  .note{font-size:12px;color:#8a9bab;display:block;margin-top:1px}
+  tbody tr{height:1px}
+
+  .foot{flex:none;margin-top:16px;text-align:center;font-size:12.5px;color:#6b8299;line-height:1.45}
+</style>
+
+<div class="wrap">
+  <h1>Comparison with Existing Systems</h1>
+  <p class="sub">Thermal search-and-rescue platforms available in India today</p>
+
+  <table>
+    <colgroup>
+      <col class="feat"><col class="us"><col class="them"><col class="them"><col class="them">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="feat">Capability</th>
+        <th class="us">
+          <span class="ours-tag">OURS</span>
+          <span class="brand">SaResQ</span>
+          <span class="kind">AI payload &middot; any F450-class drone</span>
+        </th>
+        <th class="them"><span class="brand">DJI Matrice 30T</span>
+          <span class="kind">Enterprise SAR platform</span></th>
+        <th class="them"><span class="brand">DJI Mavic 3T</span>
+          <span class="kind">Compact thermal drone</span></th>
+        <th class="them"><span class="brand">Autel EVO II 640T</span>
+          <span class="kind">Dual-sensor thermal</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>Thermal + RGB imaging</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+      </tr>
+      <tr>
+        <th>Operates without network or cloud</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+      </tr>
+      <tr>
+        <th>Automated survivor detection <small>on-board AI, not an operator watching a feed</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Detects a body <i>cooler</i> than sun-heated ground <small>two-sided thermal test &mdash; the Indian-summer case</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Motion-based confirmation that a heat source is alive</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Hazard classification <small>fire &middot; flooding &middot; structural collapse</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Confidence-ranked triage queue</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Per-detection evidence trail <small>crop, thermal patch, coordinates, confidence</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">video only</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">video only</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">video only</span></td>
+      </tr>
+      <tr>
+        <th>Reports when the camera is blind <small>rather than reporting &ldquo;nobody found&rdquo;</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Retrofits onto an existing drone <small>airframe-agnostic, ~300 g</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">closed platform</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">closed platform</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">closed platform</span></td>
+      </tr>
+      <tr>
+        <th>Repairable with locally sourced parts</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>System cost</th>
+        <td class="us"><span class="tick" style="font-size:21px">&#8377;30,000</span>
+          <span class="note" style="color:#2c6146">complete &middot; &#8377;13,000 payload</span></td>
+        <td><span class="cross" style="font-size:19px;color:#3d5567">&#8377;12&ndash;15 L</span>
+          <span class="note">~45&times;</span></td>
+        <td><span class="cross" style="font-size:19px;color:#3d5567">&#8377;5&ndash;7 L</span>
+          <span class="note">~20&times;</span></td>
+        <td><span class="cross" style="font-size:19px;color:#3d5567">&#8377;4&ndash;6 L</span>
+          <span class="note">~17&times;</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="foot">
+    Competitor prices are indicative Indian street prices for the thermal configuration.
+    These are capable aircraft with higher-resolution sensors &mdash; the comparison is of
+    <i>automated survivor detection</i>, and SaResQ is a payload that can fly on one of them.
+  </p>
+</div>

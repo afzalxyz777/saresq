@@ -1,0 +1,186 @@
+<title>SaResQ — Comparison with Entry-Level Thermal Drones</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{width:1920px;height:1080px;background:#fff;overflow:hidden;
+       font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#15202b}
+  .wrap{height:1080px;padding:32px 66px 20px;display:flex;flex-direction:column}
+  h1{flex:none;margin:0 0 5px;font-size:37px;font-weight:800;color:#18324d;text-align:center;
+     letter-spacing:.01em}
+  .sub{flex:none;margin:0 0 15px;text-align:center;font-size:15.5px;color:#5b7186}
+
+  table{flex:1;width:100%;border-collapse:collapse;table-layout:fixed}
+  col.feat{width:33%}
+  col.us{width:17.5%}
+  col.them{width:16.5%}
+
+  thead th{padding:10px 10px;vertical-align:bottom;border-bottom:2.5px solid #18324d}
+  thead th.feat{text-align:left;font-size:13.5px;font-weight:700;color:#5b7186;
+                letter-spacing:.09em;text-transform:uppercase}
+  thead th.us{background:#18324d;border-radius:8px 8px 0 0;border-bottom:2.5px solid #18324d}
+  thead th.them{background:#f2f5f8}
+  .brand{display:block;font-size:19px;font-weight:800;line-height:1.15}
+  th.us .brand{color:#fff}
+  th.them .brand{color:#22384d}
+  .kind{display:block;font-size:11px;font-weight:500;margin-top:3px;line-height:1.25}
+  th.us .kind{color:#9fc4dd}
+  th.them .kind{color:#6b8299}
+  .ours-tag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.12em;
+            color:#18324d;background:#5fd39b;border-radius:3px;padding:2px 7px;margin-bottom:5px}
+
+  tbody td{border-bottom:1px solid #e6ecf1;text-align:center;vertical-align:middle;padding:0}
+  tbody td.us{background:#f0f8f3;border-left:2.5px solid #2f8d52;border-right:2.5px solid #2f8d52}
+  tbody tr:last-child td.us{border-bottom:2.5px solid #2f8d52;border-radius:0 0 8px 8px}
+  tbody th{text-align:left;font-size:15px;font-weight:600;color:#22384d;
+           padding:0 14px 0 2px;line-height:1.3;border-bottom:1px solid #e6ecf1}
+  tbody th small{display:block;font-size:11.5px;font-weight:400;color:#7089a0;margin-top:1px}
+
+  .tick{font-size:23px;font-weight:800;color:#2f8d52;line-height:1}
+  .cross{font-size:21px;font-weight:700;color:#c0574b;line-height:1}
+  .part{font-size:12px;color:#9a7b2e;font-weight:600;display:block;margin-top:1px}
+  .note{font-size:11.5px;color:#8a9bab;display:block;margin-top:1px}
+  .val{font-size:15px;font-weight:700;color:#22384d;line-height:1.1}
+  tbody tr{height:1px}
+
+  /* the row we lose */
+  tr.concede th{color:#8a5a12}
+  tr.concede td.us{background:#fdf6ea}
+  tr.concede td.us .cross{color:#b8791f}
+
+  .foot{flex:none;margin-top:14px;text-align:center;font-size:12px;color:#6b8299;line-height:1.5}
+</style>
+
+<div class="wrap">
+  <h1>Comparison with Entry-Level Thermal Drones</h1>
+  <p class="sub">The cheapest thermal aircraft a district could realistically buy today &mdash; &#8377;2.5&ndash;4 lakh class</p>
+
+  <table>
+    <colgroup>
+      <col class="feat"><col class="us"><col class="them"><col class="them"><col class="them">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="feat">Capability</th>
+        <th class="us">
+          <span class="ours-tag">OURS</span>
+          <span class="brand">SaResQ</span>
+          <span class="kind">AI payload &middot; any F450-class drone</span>
+        </th>
+        <th class="them"><span class="brand">DJI M2E Dual</span>
+          <span class="kind">Mavic 2 Enterprise Dual</span></th>
+        <th class="them"><span class="brand">Parrot ANAFI Thermal</span>
+          <span class="kind">Compact thermal drone</span></th>
+        <th class="them"><span class="brand">Autel EVO II Dual 320</span>
+          <span class="kind">Dual-sensor thermal</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>Thermal + RGB imaging</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+      </tr>
+      <tr>
+        <th>Operates with no network or cloud</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+        <td><span class="tick">&#10004;</span></td>
+      </tr>
+      <tr class="concede">
+        <th>Flight endurance <small>where these aircraft are ahead of us</small></th>
+        <td class="us"><span class="cross">&#10008;</span>
+          <span class="note" style="color:#8a5a12">~15 min &middot; F450 + payload</span></td>
+        <td><span class="tick">&#10004;</span><span class="note">31 min</span></td>
+        <td><span class="tick">&#10004;</span><span class="note">26 min</span></td>
+        <td><span class="tick">&#10004;</span><span class="note">~38 min</span></td>
+      </tr>
+      <tr class="concede">
+        <th>Thermal sensor resolution <small>and here too &mdash; a real gap, stated plainly</small></th>
+        <td class="us"><span class="cross">&#10008;</span>
+          <span class="note" style="color:#8a5a12">32&times;24 &middot; 768 px</span></td>
+        <td><span class="tick">&#10004;</span><span class="note">160&times;120 &middot; 19,200 px</span></td>
+        <td><span class="tick">&#10004;</span><span class="note">160&times;120 &middot; 19,200 px</span></td>
+        <td><span class="tick">&#10004;</span><span class="note">320&times;256 &middot; 81,920 px</span></td>
+      </tr>
+      <tr>
+        <th>Automated survivor detection <small>on-board AI, not an operator watching a feed</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Motion-based confirmation that a heat source is alive</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Hazard classification <small>fire &middot; flooding &middot; structural collapse</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Confidence-ranked triage queue</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Per-detection evidence trail <small>crop, thermal patch, coordinates, confidence</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">video only</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">video only</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">video only</span></td>
+      </tr>
+      <tr>
+        <th>Declares when the camera is blind <small>rather than reporting &ldquo;nobody found&rdquo;</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>Retrofits onto an existing drone <small>airframe-agnostic, ~300 g</small></th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">closed platform</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">closed platform</span></td>
+        <td><span class="cross">&#10008;</span><span class="part">closed platform</span></td>
+      </tr>
+      <tr>
+        <th>Repairable with locally sourced parts</th>
+        <td class="us"><span class="tick">&#10004;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+        <td><span class="cross">&#10008;</span></td>
+      </tr>
+      <tr>
+        <th>System cost</th>
+        <td class="us"><span class="tick" style="font-size:21px">&#8377;30,000</span>
+          <span class="note" style="color:#2c6146">complete &middot; &#8377;13,000 payload</span></td>
+        <td><span class="cross" style="font-size:18px;color:#3d5567">&#8377;2.5&ndash;3 L</span>
+          <span class="note">~9&times;</span></td>
+        <td><span class="cross" style="font-size:18px;color:#3d5567">&#8377;3&ndash;3.5 L</span>
+          <span class="note">~11&times;</span></td>
+        <td><span class="cross" style="font-size:18px;color:#3d5567">&#8377;3.5&ndash;4 L</span>
+          <span class="note">~12&times;</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="foot">
+    Indicative Indian street prices for the thermal configuration. <b>Two rows go to them.</b>
+    On endurance, SaResQ flies on a light airframe &mdash; but at roughly a tenth of the cost a district
+    fields ten aircraft instead of one, so total time over a search area goes up, not down.
+    On resolution, detection is driven by <i>contrast against the scene background</i> rather than pixel
+    count, so fewer pixels costs range, not the ability to detect. SaResQ is a payload: it can equally
+    fly on any of these aircraft.
+  </p>
+</div>

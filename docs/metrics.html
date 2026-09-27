@@ -1,0 +1,124 @@
+<title>SaResQ — Measured Performance</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{width:1920px;height:1080px;background:#fff;overflow:hidden;
+       font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#15202b}
+  .wrap{height:1080px;padding:34px 96px 22px;display:flex;flex-direction:column}
+  h1{flex:none;margin:0 0 5px;font-size:38px;font-weight:800;color:#18324d;text-align:center;
+     letter-spacing:.01em}
+  .sub{flex:none;margin:0 0 20px;text-align:center;font-size:16px;color:#5b7186}
+
+  table{flex:1;width:100%;border-collapse:collapse;table-layout:fixed}
+  col.k{width:71%} col.v{width:29%}
+
+  thead th{padding:11px 14px;border-bottom:2.5px solid #18324d;
+           font-size:13.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+           color:#5b7186}
+  thead th.k{text-align:left}
+  thead th.v{text-align:center}
+
+  tbody tr{height:1px}
+  tbody td{border-bottom:1px solid #e6ecf1;vertical-align:middle;padding:9px 14px}
+  tbody td.k{text-align:left}
+  tbody td.v{text-align:center;background:#f6faf8;border-left:2.5px solid #2f8d52;
+             border-right:2.5px solid #2f8d52}
+  tbody tr:last-child td.v{border-bottom:2.5px solid #2f8d52;border-radius:0 0 8px 8px}
+  tbody tr:first-child td.v{border-top:2.5px solid #2f8d52;border-radius:8px 8px 0 0}
+
+  .name{display:block;font-size:17px;font-weight:600;color:#22384d;line-height:1.25}
+  .how{display:block;font-size:12.5px;font-weight:400;color:#7089a0;margin-top:2px;line-height:1.3}
+  .big{display:block;font-size:25px;font-weight:800;color:#15603a;line-height:1.1;
+       font-variant-numeric:tabular-nums}
+  .ctx{display:block;font-size:12.5px;color:#5b7186;margin-top:3px}
+  .derived .big{color:#8a5a12}
+
+  .foot{flex:none;margin-top:16px;text-align:center;font-size:12.5px;color:#6b8299;line-height:1.5}
+</style>
+
+<div class="wrap">
+  <h1>Measured Performance</h1>
+  <p class="sub">Raspberry Pi 4 Model B &middot; 1&nbsp;GB &middot; Debian 13 &middot; every figure below measured on the flown hardware</p>
+
+  <table>
+    <colgroup><col class="k"><col class="v"></colgroup>
+    <thead>
+      <tr><th class="k">Metric</th><th class="v">Measured value</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="k"><span class="name">End-to-end throughput</span>
+          <span class="how">capture &rarr; thermal gate &rarr; crops &rarr; detector &rarr; fusion, on-board</span></td>
+        <td class="v"><span class="big">1.83 fps</span>
+          <span class="ctx">+35% after detector threading</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Detector latency, 160&nbsp;px crop</span>
+          <span class="how">YOLOv8n INT8 / LiteRT &middot; median of 200+ runs</span></td>
+        <td class="v"><span class="big">28.2 ms</span>
+          <span class="ctx">28.3 ms at p90</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Frame budget utilisation</span>
+          <span class="how">worst case: 6 crops + hazard, against a 250&nbsp;ms budget at 4&nbsp;Hz</span></td>
+        <td class="v"><span class="big">177.5 / 250 ms</span>
+          <span class="ctx">29% headroom &middot; peak RAM 95&nbsp;MB</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Person detection accuracy</span>
+          <span class="how">YOLOv8n-p3 trained on HIT-UAV thermal, 30 epochs @640</span></td>
+        <td class="v"><span class="big">0.821 AP@50</span>
+          <span class="ctx">mAP@50 0.639 all classes</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">INT8 quantisation fidelity</span>
+          <span class="how">float32 vs INT8 on 290 images, 1,168 person instances</span></td>
+        <td class="v"><span class="big">+1.2% AP</span>
+          <span class="ctx">0.850 &rarr; 0.860 &middot; no accuracy lost</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Aerial recall, RGB branch</span>
+          <span class="how">deployed config on VisDrone val &middot; 13,422 person instances</span></td>
+        <td class="v"><span class="big">0.815</span>
+          <span class="ctx">targets 48&ndash;72&nbsp;px &middot; 0.553 at 24&ndash;32&nbsp;px</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Ground re-scoring uplift</span>
+          <span class="how">second opinion at 640&nbsp;px &middot; 150 positive / 150 negative crops</span></td>
+        <td class="v"><span class="big">0.020 &rarr; 0.633</span>
+          <span class="ctx">false positives held at 1.3%</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Thermal frame integrity</span>
+          <span class="how">MLX90640 subpage tear detection, gap &gt; 0.60&nbsp;K rejected</span></td>
+        <td class="v"><span class="big">61% rejected</span>
+          <span class="ctx">lifts gate z from ~3.5&sigma; to 4&ndash;6&sigma;</span></td>
+      </tr>
+      <tr class="derived">
+        <td class="k"><span class="name">Effective survey altitude</span>
+          <span class="how">derived from measured optics and recall curve &mdash; not yet flight-validated</span></td>
+        <td class="v"><span class="big">15&ndash;25 m</span>
+          <span class="ctx">prone body spans 2&ndash;3 thermal px</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Payload mass</span>
+          <span class="how">Pi, both sensors, GPS, IMU, battery, printed tray, cabling</span></td>
+        <td class="v"><span class="big">335 g</span>
+          <span class="ctx">fits any F450-class airframe</span></td>
+      </tr>
+      <tr>
+        <td class="k"><span class="name">Bill of materials</span>
+          <span class="how">retail component cost, sourced domestically</span></td>
+        <td class="v"><span class="big">&#8377;13,000</span>
+          <span class="ctx">&#8377;30,000 for a complete aircraft</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="foot">
+    Benchmarks from <i>results/pi_benchmark.json</i> on Raspberry Pi 4B (1&nbsp;GB, Debian 13, LiteRT 2.2.0),
+    accuracy from held-out evaluation sets with instance counts stated. The altitude figure is derived from
+    sensor geometry (thermal 30.0&nbsp;mrad/px, RGB 662&nbsp;&micro;rad/px) and the measured recall curve rather
+    than from flight test, and is marked as such.
+  </p>
+</div>
